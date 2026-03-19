@@ -28,9 +28,10 @@ def trace_progress_log(area, data, offset=None):
         return
     log.trace(f"{common_logs.PROGRESS_RAW_TITLE.format(area)}")
     for count, ele in enumerate(data):
-        if offset != None and offset != False:
-            log.trace(common_logs.PROGRESS_RAW_OFFSET.format(offset, area, count, ele))
-        log.trace(common_logs.PROGRESS_RAW.format(area, count, ele))
+        if offset is not None and offset is not False:
+            log.trace(common_logs.PROGRESS_RAW_OFFSET.format(area, offset, count, ele))
+        else:
+            log.trace(common_logs.PROGRESS_RAW.format(area, count, ele))
 
 
 def trace_log_raw(title, responseArray, final_count=None):

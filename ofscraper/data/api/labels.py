@@ -35,7 +35,7 @@ async def get_labels(model_id, c=None):
         if not settings.get_settings().label
         else list(
             filter(
-                lambda x: x.get("name").lower() in settings.get_settings().label,
+                lambda x: (x.get("name") or "").lower() in settings.get_settings().label,
                 labels_,
             )
         )

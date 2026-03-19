@@ -36,6 +36,7 @@ async def sort_list(c) -> list:
     url = of_env.getattr("sortSubscriptions")
     try:
         async with c.requests_async(
+            url=url,
             method="post",
             json={"order": "users.name", "direction": "desc", "type": "all"},
         ) as _:

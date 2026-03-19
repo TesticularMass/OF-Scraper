@@ -45,13 +45,13 @@ async def get_otherlist():
         out.extend(await get_lists())
         out = list(
             filter(
-                lambda x: x.get("name").lower() in (settings.get_settings().userlist
+                lambda x: (x.get("name") or "").lower() in (settings.get_settings().userlist
                 or []),
                 out,
             )
         )
         log.debug(
-            f"User lists found on profile {list(map(lambda x:x.get('name').lower(),out))}"
+            f"User lists found on profile {list(map(lambda x:(x.get('name') or '').lower(),out))}"
         )
     return await get_list_users(out)
 
@@ -66,7 +66,7 @@ async def get_blacklist():
             out.extend(await get_lists())
         out = list(
             filter(
-                lambda x: x.get("name").lower() in (settings.get_settings().blacklist
+                lambda x: (x.get("name") or "").lower() in (settings.get_settings().blacklist
                 or []),
                 out,
             )

@@ -72,14 +72,15 @@ async def scrape_profile_helper_async(c, username: Union[int, str]):
         async with c.requests_async(url) as r:
             if r.status == 404:
                 return {"username": of_env.getattr("DELETED_MODEL_PLACEHOLDER")}
+            data = await r.json_()
             cache.set(
                 f"username_{username}",
-                await r.json_(),
+                data,
                 int(of_env.getattr("PROFILE_DATA_EXPIRY_ASYNC")),
             )
 
-            log.trace(f"username date: {await r.json_()}")
-            return await r.json_()
+            log.trace(f"username date: {data}")
+            return data
     except Exception as E:
 
         log.traceback_(E)
