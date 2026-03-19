@@ -45,6 +45,10 @@ https://pypi.org/project/ofscraper/#history
   - [Dev](#dev)
   - [Table-of-contents](#table-of-contents)
   - [Description](#description)
+  - [GUI Mode](#gui-mode)
+    - [Requirements](#gui-requirements)
+    - [Usage](#gui-usage)
+    - [Features](#gui-features)
   - [Documentation](#documentation)
   - [Issues](#issues)
     - [Private Reports](#private-reports)
@@ -52,17 +56,60 @@ https://pypi.org/project/ofscraper/#history
   - [Migrating from DC script](#migrating-from-dc-script)
   - [Discord](#discord)
   - [Support](#support)
-- [](#)
 
 ## Description
 
-command-line tool that lets you download media from OnlyFans and perform bulk actions including liking or unliking posts.
+A command-line and GUI tool that lets you download media from OnlyFans and perform bulk actions including liking or unliking posts.
 
 ![CopyQ nsUBdI](https://user-images.githubusercontent.com/67020411/227816586-fb685959-cd3f-45af-adea-14773b7154f9.png)
 
 At its inception, this project emerged as a fork of the original onlyfans-scraper. With invaluable support from the community and consistent script updates, we've undergone substantial architectural changes, resulting in a significantly revamped codebase compared to the original master. While some of these modifications are detailed [HERE](https://github.com/datawhores/OF-Scraper/blob/main/CHANGES.md), most are only documented in the commit history.
 
 This script has been thoughtfully crafted to facilitate seamless transitions from DIGITALCRIMINALS' script, ensuring robust compatibility and smooth feature migration. Furthermore, it boasts an extensive array of filtering features, empowering users with precise control over the specific content types they aim to scrape
+
+<a id="gui-mode"></a>
+## GUI Mode
+
+OF-Scraper includes an optional PyQt6-based graphical interface that provides a visual alternative to the command line.
+
+<a id="gui-requirements"></a>
+### Requirements
+
+- Python 3.11 or 3.12
+- PyQt6 (`pip install PyQt6>=6.6.0` — included as a dependency)
+
+<a id="gui-usage"></a>
+### Usage
+
+Launch the GUI with the `--gui` flag:
+
+```bash
+ofscraper --gui
+```
+
+If PyQt6 is not installed, the tool will display an error with install instructions and fall back to CLI mode.
+
+<a id="gui-features"></a>
+### Features
+
+The GUI provides a full wizard-style workflow:
+
+- **Action Selection** — Choose between Download, Like/Unlike, or both
+- **Content Areas & Filters** — Select which areas to scan (Timeline, Messages, Stories, Highlights, etc.) and apply filters before scraping
+- **Model Selection** — Searchable, sortable table of subscribed models with bulk select/deselect
+- **Scraping Table** — Live view of scraped media with per-row download cart, filtering, and sorting
+- **Progress & Logs** — Real-time progress bar and scrollable console log output
+- **Authentication** — Built-in cookie/header editor (reads and writes your profile's `auth.json`)
+- **Configuration** — Full `config.json` editor organized by tabs (General, File Options, Download, Performance, Content, CDM, Advanced, Response Type)
+- **Profile Management** — Create, switch, and delete profiles from the GUI
+- **Database Merge** — Merge multiple `user_data.db` files into a single database
+- **Daemon Mode** — Auto-repeat scraping on a configurable interval with optional desktop notifications
+- **Theme Toggle** — Light and dark themes with persistent preference
+- **Built-in Help** — In-app help page with full documentation for every GUI element
+
+All interactive prompts (auth creation, model selection, etc.) are automatically bypassed in GUI mode — the GUI handles these through its own dialogs.
+
+For detailed GUI documentation, see the built-in Help page within the GUI, or read `ofscraper/gui/help/GUI_HELP.md`.
 
 ## Documentation
 
