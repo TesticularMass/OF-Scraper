@@ -13,9 +13,9 @@ class base:
         None
 
     def text_trunicate(self, text):
-        text = str(text)
         if text is None:
             return "None"
+        text = str(text)
         if len(text) == 0:
             return text
         length = int(settings.get_settings().text_length)

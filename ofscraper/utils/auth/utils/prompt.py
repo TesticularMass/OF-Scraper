@@ -35,6 +35,7 @@ def browser_cookie_helper(auth, browserSelect):
     )
     auth["x-bc"] = prompts.xbc_prompt(auth.get("x-bc"))
     auth["user_agent"] = prompts.user_agent_prompt(auth.get("user_agent"))
+    return auth
 
 
 def cookie_helper_extension():

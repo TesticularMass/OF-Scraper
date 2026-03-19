@@ -121,6 +121,8 @@ async def download(c, ele, model_id, username):
             )
         elif ele.mpd:
             data = await AltDownloadManager().alt_download(c, ele, username, model_id)
+        else:
+            data = ("skipped", 0)
         common_globals.log.debug(f"{get_medialog(ele)} Download finished")
         return data
     except Exception as E:

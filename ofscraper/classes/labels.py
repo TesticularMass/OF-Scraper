@@ -9,7 +9,7 @@ class Label:
         self._posts = list(
             map(
                 lambda x: posts_.Post(x, model_id, username, label=self._name),
-                label.get("posts"),
+                label.get("posts") or [],
             )
         )
         self._model_id = int(model_id)

@@ -530,7 +530,7 @@ class ModelManager:
         filtered_models = self._filter_and_prompt_for_selection()
 
         # Handle cases that filter these results without a final interactive prompt.
-        if "ALL" in usernames:
+        if usernames and "ALL" in usernames:
             return list(filtered_models.values())
 
         # This handles interactive mode when a specific username list is provided.

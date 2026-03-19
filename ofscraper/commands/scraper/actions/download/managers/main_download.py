@@ -172,7 +172,7 @@ class MainDownloadManager(DownloadManager):
                     f"{common_logs.get_medialog(ele)} total from request {format_size(data.get('content-total')) if data.get('content-total') else 'unknown'}"
                 )
                 await self._set_data(ele, data)
-                content_type = r.headers.get("content-type").split("/")[-1]
+                content_type = (r.headers.get("content-type") or "application/octet-stream").split("/")[-1]
                 content_type = content_type or common.get_unknown_content_type(ele)
                 if not placeholderObj:
                     placeholderObj = await placeholder.Placeholders(
@@ -265,14 +265,12 @@ class MainDownloadManager(DownloadManager):
                     await fileobject.close()
                 except Exception as E:
                     common_globals.log.debug(f"Error closing file for {ele}: {E}")
-                    raise E
             try:
                 await self._remove_download_job_task(task1, ele)
             except Exception as E:
                 common_globals.log.debug(
                     f"Error removing download job task for {ele}: {E}"
                 )
-                raise E
 
     async def _handle_result_main(self, result, ele, username, model_id):
         total, temp, placeholderObj = result
@@ -372,7 +370,7 @@ class MainDownloadManager(DownloadManager):
             f"{common_logs.get_medialog(ele)} Total size from cache {format_size(data.get('content-total')) if data.get('content-total') else 'unknown'}"
         )
 
-        content_type = data.get("content-type").split("/")[-1]
+        content_type = (data.get("content-type") or "application/octet-stream").split("/")[-1]
         total = int(data.get("content-total")) if data.get("content-total") else None
         resume_size = self._get_resume_size(tempholderObj)
         resume_size = self._resume_cleaner(

@@ -654,7 +654,7 @@ def get_timeline_media(model_id=None, username=None, conn=None, **kwargs) -> lis
         cur.execute(getTimelineMedia, [model_id])
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, posted_at=arrow.get(ele["posted_at"] or ele["created_at"] or 0))
+            dict(ele, posted_at=arrow.get(ele["posted_at"] or ele["created_at"] or 0).float_timestamp)
             for ele in data
         ]
 

@@ -85,7 +85,7 @@ def _windows_truncateHelper(path):
         - get_string_byte_size_windows(dir)
     )
     if max_bytes <= 0:
-        raise (f"dir to larger then max bytes {path}")
+        raise ValueError(f"dir too large for max bytes: {path}")
     low, high = 0, len(file)
     while low < high:
         mid = (low + high) // 2

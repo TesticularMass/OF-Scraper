@@ -34,7 +34,7 @@ class DataTableExtended(DataTable):
 
         elif download_cart == "[added]":
             table.update_cell_at_coord(coord, Text("[]",style="bold light_goldenrod2"))
-        elif download_cart == "[downloaded]" or "[failed]":
+        elif download_cart in ("[downloaded]", "[failed]"):
             table.update_cell_at_coord(coord, Text("[added]",style="bold light_goldenrod2"))
         self._download_cart_toggle=False
     #cell modification and retrieval
@@ -130,7 +130,7 @@ def get_styled(row):
             )
     
         else:
-            styled_row.append(Text(row[key]), style="bold white")
+            styled_row.append(Text(row[key], style="bold white"))
     return styled_row
 
 

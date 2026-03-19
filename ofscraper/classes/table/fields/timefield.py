@@ -82,7 +82,7 @@ class TimeField(Container):
             minutes = (val % 3600) // 60
             seconds = val % 60
 
-        elif val != "N/A" and val != "N\A":
+        elif val != "N/A" and val != "N\\A":
             valArray = val.split(":")
             hours, minutes, seconds = valArray
         else:

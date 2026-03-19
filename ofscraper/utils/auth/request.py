@@ -42,7 +42,7 @@ def read_request_auth():
     # *values, = get_request_auth()
     result = get_request_auth()
     if not result:
-        raise json.JSONDecodeError("No content")
+        raise json.JSONDecodeError("No content", "", 0)
     (*values,) = result
 
     request_auth.update(zip(request_auth.keys(), values))

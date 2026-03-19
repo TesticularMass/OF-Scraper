@@ -219,7 +219,7 @@ class Media(base.base):
             return True
         return (
             self._media.get("canView", False)
-            if (self.url or self.mpd) is not None
+            if self.url is not None or self.mpd is not None
             else False
         )
 
@@ -438,7 +438,7 @@ class Media(base.base):
 
     @property
     def linked(self):
-        return (self.url or self.mpd) is not None
+        return self.url is not None or self.mpd is not None
 
     @property
     def link(self):

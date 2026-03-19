@@ -36,9 +36,9 @@ def addGlobalDir(path):
     paths = list(
         map(
             lambda x: (
-                path.resolve(x).parent
+                pathlib.Path(x).resolve().parent
                 if not pathlib.Path(x).is_dir()
-                else path.resolve(x)
+                else pathlib.Path(x).resolve()
             ),
             paths,
         )
@@ -51,14 +51,14 @@ def addLocalDir(path):
     paths = list(
         map(
             lambda x: (
-                path.resolve(x).parent
+                pathlib.Path(x).resolve().parent
                 if not pathlib.Path(x).is_dir()
-                else path.resolve(x)
+                else pathlib.Path(x).resolve()
             ),
             paths,
         )
     )
-    common_globals.dirSet.update(paths)
+    common_globals.localDirSet.update(paths)
 
 
 def set_time(path, timestamp):

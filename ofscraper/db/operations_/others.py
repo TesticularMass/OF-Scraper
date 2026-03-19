@@ -64,7 +64,7 @@ INSERT OR REPLACE INTO schema_flags (flag_name, flag_value)
 VALUES (?, ?);
 """
 othersSelectTransition = """
-SELECT text,price,paid,archived,created_at ,
+SELECT post_id,text,price,paid,archived,created_at ,
        CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('others') WHERE name = 'model_id')
             THEN model_id
             ELSE NULL
@@ -79,7 +79,7 @@ post_id, text,price,paid,archived,
 created_at,model_id)
 VALUES (?, ?,?,?,?,?,?);"""
 productsSelectTransition = """
-SELECT text,price,paid,archived,created_at ,
+SELECT post_id,text,price,paid,archived,created_at,title,
        CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('products') WHERE name = 'model_id')
             THEN model_id
             ELSE NULL
@@ -200,7 +200,7 @@ def write_others_table_transition(
     inputData, model_id=None, conn=None, **kwargs
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        ordered_keys = ["text", "price", "paid", "archived", "created_at", "model_id"]
+        ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "model_id"]
         insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
         cur.executemany(othersInsert, insertData)
         conn.commit()
@@ -230,7 +230,7 @@ def write_products_table_transition(
     inputData, model_id=None, conn=None, **kwargs
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        ordered_keys = ["text", "price", "paid", "archived", "created_at", "model_id"]
+        ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "title", "model_id"]
         insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
         cur.executemany(productsInsert, insertData)
         conn.commit()

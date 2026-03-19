@@ -285,14 +285,12 @@ class AltDownloadManager(DownloadManager):
                     await fileobject.close()
                 except Exception as E:
                     common_globals.log.debug(f"Error closing file for {ele}: {E}")
-                    raise E
             try:
                 await self._remove_download_job_task(task1, ele)
             except Exception as E:
                 common_globals.log.debug(
                     f"Error removing download job task for {ele}: {E}"
                 )
-                raise E
 
     async def _handle_result_alt(
         self, sharedPlaceholderObj, ele, audio, video, username, model_id

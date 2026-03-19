@@ -183,5 +183,5 @@ def _like_request(c, id, model_id):
     ) as r:
         try:
             return r.json_()["isFavorite"], r.json_()["id"]
-        except:
+        except Exception:
             return None, None

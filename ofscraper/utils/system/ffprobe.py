@@ -95,6 +95,7 @@ def verify_media_integrity(file_path, expected_duration_seconds=None):
         return False
 
     # 2. Precision Duration Check
+    diff = 0
     if expected_duration_seconds:
         # Use abs() to handle cases where the file is slightly longer OR shorter
         diff = abs(expected_duration_seconds - actual_duration)

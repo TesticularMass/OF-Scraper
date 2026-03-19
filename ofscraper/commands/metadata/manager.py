@@ -178,7 +178,7 @@ class MetaDataManager:
             ) as r:
                 headers = r.headers
                 content_type = (
-                    headers.get("content-type").split("/")[-1] or ele.content_type
+                    (headers.get("content-type") or "application/octet-stream").split("/")[-1] or ele.content_type
                 )
                 # request fail if not read
                 async for _ in r.iter_chunked(1024 * 1024 * 30):
@@ -192,7 +192,7 @@ class MetaDataManager:
         )
         if download_data:
             content_type = (
-                download_data.get("content-type").split("/")[-1] or ele.content_type
+                (download_data.get("content-type") or "application/octet-stream").split("/")[-1] or ele.content_type
             )
             return placeholder.Placeholders(ele, content_type)
         # final fallback

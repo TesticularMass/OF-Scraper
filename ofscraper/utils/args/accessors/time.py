@@ -18,7 +18,7 @@ def get_before():
 
 def get_after():
     args = settings.get_args()
-    if not args.download_after or not args.lke_after:
+    if not args.download_after and not args.like_after:
         return 0
     elif not args.download_after:
         return arrow.get(args.like_after)
@@ -51,3 +51,4 @@ def get_now():
     global now
     if not now:
         now = arrow.now().shift(days=4)
+    return now
