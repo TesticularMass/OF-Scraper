@@ -131,5 +131,5 @@ def composer():
                     yield Rule()
                     yield Button("Filter", id="filter2")
                     
-        with Vertical(id="console_page"):
+        with Vertical(id="console_container"):
             yield OutConsole(id="console_page", classes="-hidden")

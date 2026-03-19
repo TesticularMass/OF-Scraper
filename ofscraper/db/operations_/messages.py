@@ -247,12 +247,16 @@ async def make_messages_table_changes(
 
 async def get_oldest_message_date(model_id=None, username=None, **kwargs):
     data = await media.get_messages_media(model_id=model_id, username=username)
+    if not data:
+        return 0
     last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
     return last_item["posted_at"]
 
 
 async def get_newest_message_date(model_id=None, username=None, **kwargs):
     data = await media.get_messages_media(model_id=model_id, username=username)
+    if not data:
+        return 0
     last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
     return last_item["posted_at"]
 

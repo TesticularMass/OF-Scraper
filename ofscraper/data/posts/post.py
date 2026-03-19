@@ -599,7 +599,10 @@ async def process_tasks(model_id, username, ele, c=None):
         # Gather results and add to postcollection
         for result in asyncio.as_completed(tasks):
             try:
-                posts, area = await result
+                result_data = await result
+                if result_data is None:
+                    continue
+                posts, area = result_data
                 area_title = area.capitalize()
                 actions_for_this_batch = []
                 command = settings.get_settings().command

@@ -42,7 +42,11 @@ class NumField(Horizontal):
     def compare(self, value):
         if self.query_one(self.Field).value == "":
             return True
-        return int(self.query_one(self.Field).value) == int(value)
+        try:
+            int_val = int(value)
+        except (ValueError, TypeError):
+            return False
+        return int(self.query_one(self.Field).value) == int_val
 
     @property
     def integer_input(self):

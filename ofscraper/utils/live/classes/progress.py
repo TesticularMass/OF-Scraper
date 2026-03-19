@@ -64,6 +64,7 @@ class FileProgress(rich.progress.Progress):
 
 class OverallFileProgress(rich.progress.Progress):
     def __init__(self, *args, **kwargs) -> None:
+        self._files = {}
         super().__init__(*args, **kwargs)
 
     def get_file(self, taskID):

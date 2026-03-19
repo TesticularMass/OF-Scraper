@@ -81,6 +81,8 @@ class DownloadManager:
     def _resume_cleaner(self, resume_size, total, path):
         if not resume_size:
             return 0
+        if total is None:
+            return resume_size
         elif resume_size > total:
             pathlib.Path(path).unlink(missing_ok=True)
             return 0

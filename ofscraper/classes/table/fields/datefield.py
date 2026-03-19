@@ -80,7 +80,11 @@ class DateField(Container):
         return match.group(0)
 
     def compare(self, value):
-        value = arrow.get(value).floor("day")
+        try:
+            parsed = arrow.get(value).floor("day")
+        except (arrow.parser.ParserError, ValueError, TypeError):
+            return True
+        value = parsed
         min_val = (
             arrow.get(self.query_one("#minDate").value)
             if self.query_one("#minDate").value

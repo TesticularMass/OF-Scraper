@@ -50,7 +50,7 @@ file_username_option = click.option(
     "--file",
     help="Scan posts via a file with line-separated URL(s)",
     default=None,
-    type=lambda x: click.File(),
+    type=click.File(),
     multiple=True,
     callback=FileCallback,
 )

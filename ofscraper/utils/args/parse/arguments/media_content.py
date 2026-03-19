@@ -99,7 +99,6 @@ media_sort_option = click.option(
         [
             "random",
             "text",
-            "text",
             "date",
             "filename",
         ]

@@ -33,7 +33,7 @@ def pricePaidFreeFilterHelper(filterusername):
             filter(
                 lambda x: x.final_renewal_price > 0,
                 filterusername,
-            ),
+            )
         )
 
         log.debug(f"Paid renewal filter username count: {len(filterusername)}")

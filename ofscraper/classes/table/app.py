@@ -61,7 +61,8 @@ class InputApp(App):
         try:
             return composer()
         except Exception as e:
-            pass
+            log.error(f"Error in compose: {e}")
+            raise
 
     def on_ready(self) -> None:
         self.init_table()

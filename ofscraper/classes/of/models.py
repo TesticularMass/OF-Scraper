@@ -181,6 +181,7 @@ class Model:
             return self.subscribed_data.get("regularPrice")
         elif self.model:
             return self.model.get("subscribePrice")
+        return 0
 
     @property
     def final_promo_price(self):
