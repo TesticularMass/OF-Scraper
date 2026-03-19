@@ -28,6 +28,10 @@ warning_str = "\n[red]Current Like rate can eat through the ~1000 like limit in 
 like_str = "Performing Like Action on {name}" + warning_str
 unlike_str = "Performing Unlike Action on {name}" + warning_str
 
+# Set to a dict by the GUI before a like/unlike run to capture per-post results.
+# Keys are post IDs; values are "Liked", "Unliked", or "Failed".
+_GUI_LIKE_TRACKER = None
+
 
 @exit.exit_wrapper
 def process_like(posts=None, model_id=None, username=None, **kwargs):
@@ -125,16 +129,22 @@ def _toggle_like_requests(c, post: Post, model_id):
     favorited, id = _like_request(c, post.id, model_id)
     if favorited is None:
         post.mark_post_liked(success=False)
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Failed"
         return 3
     elif favorited:
         log.debug(f"ID: {id} changed to liked")
         post.mark_post_liked()
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Liked"
         return 1
     else:
         log.debug(f"ID: {id} restored to liked")
         time.sleep(sleep_duration)
         _like_request(c, id, model_id)
         post.mark_post_liked()
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Liked"
         return 2
 
 
@@ -145,16 +155,22 @@ def _toggle_unlike_requests(c, post: Post, model_id):
     favorited, id = _like_request(c, post.id, model_id)
     if favorited is None:
         post.mark_post_unliked(success=False)
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Failed"
         return 3
     elif favorited is False:
         log.debug(f"ID: {id} changed to unliked")
         post.mark_post_unliked()
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Unliked"
         return 1
     else:
         log.debug(f"ID: {id} restored to unlike")
         time.sleep(sleep_duration)
         _like_request(c, id, model_id)
         post.mark_post_unliked()
+        if _GUI_LIKE_TRACKER is not None:
+            _GUI_LIKE_TRACKER[id] = "Unliked"
         return 2
 
 
@@ -168,4 +184,4 @@ def _like_request(c, id, model_id):
         try:
             return r.json_()["isFavorite"], r.json_()["id"]
         except:
-            return None
+            return None, None

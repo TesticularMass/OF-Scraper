@@ -221,7 +221,7 @@ async def process_task_highlights(generators):
     trace_log_raw(f"{API_H} lists posts final", highlightResponse, final_count=True)
     log.debug(
         common_logs.FINAL_COUNT_POST.format(
-            "Highlight List Posts", {len(highlightResponse)}
+            "Highlight List Posts", len(highlightResponse)
         )
     )
     return highlightResponse

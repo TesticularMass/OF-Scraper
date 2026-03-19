@@ -215,27 +215,27 @@ class DBManager:
 
     def sort_media(self):
         medias = self.media
-        reversed = not settings.get_settings().db_asc
+        is_reversed = not settings.get_settings().db_asc
         sort = settings.get_settings().db_sort
         if sort == "posted":
             medias = sorted(
-                medias, key=lambda x: arrow.get(x["posted_at"] or 0), reverse=reversed
+                medias, key=lambda x: arrow.get(x["posted_at"] or 0), reverse=is_reversed
             )
         elif sort == "created":
             medias = sorted(
-                medias, key=lambda x: arrow.get(x["created_at"] or 0), reverse=reversed
+                medias, key=lambda x: arrow.get(x["created_at"] or 0), reverse=is_reversed
             )
         elif sort == "filename":
-            medias = sorted(medias, key=lambda x: x["filename"] or "", reverse=reversed)
+            medias = sorted(medias, key=lambda x: x["filename"] or "", reverse=is_reversed)
         elif sort == "postid":
-            medias = sorted(medias, key=lambda x: x["post_id"], reverse=reversed)
+            medias = sorted(medias, key=lambda x: x["post_id"], reverse=is_reversed)
         elif sort == "mediaid":
-            medias = sorted(medias, key=lambda x: x["media_id"], reverse=reversed)
+            medias = sorted(medias, key=lambda x: x["media_id"], reverse=is_reversed)
         elif sort == "size":
-            medias = sorted(medias, key=lambda x: x["size"] or 0, reverse=reversed)
+            medias = sorted(medias, key=lambda x: x["size"] or 0, reverse=is_reversed)
         elif sort == "length":
             medias = sorted(
-                medias, key=lambda x: self._convert_seconds(x), reverse=reversed
+                medias, key=lambda x: self._convert_seconds(x), reverse=is_reversed
             )
         self.media = medias
 

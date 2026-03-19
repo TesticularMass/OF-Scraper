@@ -45,8 +45,8 @@ async def get_otherlist():
         out.extend(await get_lists())
         out = list(
             filter(
-                lambda x: x.get("name").lower() in settings.get_settings().userlist
-                or [],
+                lambda x: x.get("name").lower() in (settings.get_settings().userlist
+                or []),
                 out,
             )
         )
@@ -66,8 +66,8 @@ async def get_blacklist():
             out.extend(await get_lists())
         out = list(
             filter(
-                lambda x: x.get("name").lower() in settings.get_settings().blacklist
-                or [],
+                lambda x: x.get("name").lower() in (settings.get_settings().blacklist
+                or []),
                 out,
             )
         )

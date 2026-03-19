@@ -25,6 +25,14 @@ console = Console()
 log = logging.getLogger("shared")
 
 
+def _is_gui_mode() -> bool:
+    try:
+        import ofscraper.utils.args.accessors.read as read_args
+        return getattr(read_args.retriveArgs(), "gui", False)
+    except Exception:
+        return False
+
+
 def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> str | None:
     """
     Handles auth file errors by prompting the user.
@@ -39,6 +47,10 @@ def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> str | None:
     """
     if isinstance(e, FileNotFoundError):
         console.print("You don't seem to have an `auth.json` file. Creating one for you.")
+        # In GUI mode, skip interactive prompts; the GUI auth dialog handles it
+        if _is_gui_mode():
+            log.warning("GUI mode: skipping interactive auth creation for missing auth.json")
+            return None
         # make_auth will guide the user. It returns "quit" or "main" if the user backs out.
         _,result = make.make_auth(include_main_menu=include_main_menu)
         if result and result in {"quit", "main"}:
@@ -46,6 +58,10 @@ def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> str | None:
 
     elif isinstance(e, json.JSONDecodeError):
         console.print(f"[bold red]Error:[/bold red] Your 'auth.json' file has a syntax error at line {e.lineno}, column {e.colno}.")
+        # In GUI mode, skip interactive repair prompts; the GUI auth dialog handles it
+        if _is_gui_mode():
+            log.warning("GUI mode: skipping interactive auth repair for malformed auth.json")
+            return None
         while True:
             try:
                 # This prompt should be defined in your prompts module

@@ -9,7 +9,6 @@ from copy import deepcopy
 from functools import partial
 
 from collections import defaultdict
-from ofscraper.utils.args.callbacks.arguments import username
 from rich.text import Text
 
 

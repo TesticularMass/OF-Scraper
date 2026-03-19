@@ -329,6 +329,17 @@ async def scrape_messages(
 
                 # Boundary condition: We hit our "after" date limit
                 if min_ts < after:
+                    # Yield only the messages that are within the valid date range
+                    valid_messages = [
+                        x for x in batch
+                        if float(
+                            arrow.get(
+                                x.get("createdAt") or x.get("postedAt")
+                            ).float_timestamp
+                        ) >= after
+                    ]
+                    if valid_messages:
+                        yield valid_messages
                     break
 
                 # Prevent stuck loop
