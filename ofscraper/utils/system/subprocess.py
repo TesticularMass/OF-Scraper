@@ -30,7 +30,7 @@ def run(
     name = name or " ".join(cmd_args)
 
     if level is None:
-        level = int(of_env.getattr("LOG_SUBPROCESS_LEVEL", "0"))
+        level = int(of_env.getattr("LOG_SUBPROCESS_LEVEL") or "0")
 
     final_args = (cmd_args,) + args[1:]
 
@@ -91,7 +91,7 @@ async def async_run(
     name = name or " ".join(cmd_args)
 
     if level is None:
-        level = int(of_env.getattr("LOG_SUBPROCESS_LEVEL", "0"))
+        level = int(of_env.getattr("LOG_SUBPROCESS_LEVEL") or "0")
 
     if capture_output:
         kwargs["stdout"] = asyncio.subprocess.PIPE

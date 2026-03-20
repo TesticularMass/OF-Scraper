@@ -396,8 +396,8 @@ async def post_check_retriver(forced=False):
                         )
                         streams_data = [
                             post
-                            for streams in streams_resp
-                            for post in streams.get("posts", [])
+                            for stream_item in streams_resp
+                            for post in stream_item.get("posts", [])
                         ]
                         set_check(streams_data, model_id, streams.API)
 

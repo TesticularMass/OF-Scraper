@@ -137,3 +137,4 @@ class MutuallyExclusiveMultichoice(MultiChoice):
             return self._exclusion
         if not isinstance(self._exclusion[0], list):
             return [self._exclusion]
+        return self._exclusion

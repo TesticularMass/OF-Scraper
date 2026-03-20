@@ -43,5 +43,5 @@ def get_user_task_obj():
     try:
         task = get_user_task()
         return activity_counter._tasks[task]
-    except:
+    except Exception:
         pass

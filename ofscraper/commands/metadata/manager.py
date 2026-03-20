@@ -102,9 +102,9 @@ class MetaDataManager:
         elif pathlib.Path(
             prevData.get("directory") or "", prevData.get("filename") or ""
         ).is_file():
-            return pathlib.Path(
+            return str(pathlib.Path(
                 prevData.get("directory") or "", prevData.get("filename") or ""
-            )
+            ))
         return str(placeholderObj.trunicated_filename)
 
     def _metadata_dir_helper(self, placeholderObj, prevData):
@@ -118,9 +118,9 @@ class MetaDataManager:
         elif pathlib.Path(
             prevData.get("directory") or "", prevData.get("filename") or ""
         ).is_file():
-            return pathlib.Path(
+            return str(pathlib.Path(
                 prevData.get("directory") or "", prevData.get("filename") or ""
-            ).parent
+            ).parent)
         return str(placeholderObj.trunicated_filedir)
 
     def _metadata_hash_helper(self, placeholderObj, prevData, ele):

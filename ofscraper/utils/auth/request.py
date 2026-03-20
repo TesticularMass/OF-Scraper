@@ -299,7 +299,7 @@ def create_login_sign(link, headers):
 
     checksum_indexes = content["checksum_indexes"]
     checksum_constant = content["checksum_constant"]
-    checksum = sum(sha_1_b[i] for i in checksum_indexes) + checksum_constant
+    checksum = sum(sha_1_b[i] for i in checksum_indexes) + int(checksum_constant)
 
     final_sign = content["format"].format(sha_1_sign, abs(checksum))
 

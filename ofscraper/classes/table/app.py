@@ -352,7 +352,7 @@ class InputApp(App):
             if key == "length":
                 return (
                     arrow.get(x.get("length", "0:0:0"), ["h:m:s"]).timestamp()
-                    if x.get("length") not in {"N/A", "N\A"}
+                    if x.get("length") not in {"N/A", "N\\A"}
                     else 0
                 )
             if key == "post_date":
@@ -555,14 +555,14 @@ class InputApp(App):
 
         try:
             # Update Column 1 (Top Half)
-            db_line_1 = f"[bold blue]Database:[/bold blue]  \[Total: {total_items}] \[Unlocked: {unlocked_items}]"
-            db_line_2 = f"[bold blue]DL Status:[/bold blue] \[DL'd: {db_dl}] \[Missing: {db_miss}] \[Unique Missing: {unique_to_download}]"
+            db_line_1 = f"[bold blue]Database:[/bold blue]  \\[Total: {total_items}] \\[Unlocked: {unlocked_items}]"
+            db_line_2 = f"[bold blue]DL Status:[/bold blue] \\[DL'd: {db_dl}] \\[Missing: {db_miss}] \\[Unique Missing: {unique_to_download}]"
             self.query_one("#db_info_bar").update(f"{db_line_1}\n{db_line_2}")
 
             # Update Column 2 (Full View)
-            view_str = f"[bold blue]View:[/bold blue]   \[Page: {page}] \[Per Page: {num_page}] \[Sort: {clean_sort_name} ({sort_dir})]"
-            filt_str = f"[bold blue]Filter:[/bold blue] \[Total: {filtered_items}] \[Unique: {unique_items}]"
-            type_str = f"[bold blue]Media:[/bold blue]  \[Vids: {vids}] \[Pics: {pics}] \[Aud: {auds}]"
+            view_str = f"[bold blue]View:[/bold blue]   \\[Page: {page}] \\[Per Page: {num_page}] \\[Sort: {clean_sort_name} ({sort_dir})]"
+            filt_str = f"[bold blue]Filter:[/bold blue] \\[Total: {filtered_items}] \\[Unique: {unique_items}]"
+            type_str = f"[bold blue]Media:[/bold blue]  \\[Vids: {vids}] \\[Pics: {pics}] \\[Aud: {auds}]"
 
             # If everything is filtered out, append the warning
             if filtered_items == 0:
@@ -584,7 +584,7 @@ class InputApp(App):
 
         try:
             # Column 1 (Bottom Half)
-            cart_line = f"[bold blue]Cart:[/bold blue]      \[Queued: {in_cart}] \[Active: {downloading}]"
+            cart_line = f"[bold blue]Cart:[/bold blue]      \\[Queued: {in_cart}] \\[Active: {downloading}]"
             self.query_one("#global_cart_info").update(f"{cart_line}")
         except:
             pass

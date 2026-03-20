@@ -362,13 +362,14 @@ class DBManager:
     def _convert_seconds(self, dictionary):
         if not dictionary.get("duration"):
             return 0
+        parts = dictionary.get("duration").split(":")
         x = time.strptime(
-            ":".join(dictionary.get("duration").split(":")[-3:]), "%H:%M:%S"
+            ":".join(parts[-3:]), "%H:%M:%S"
         )
         curr_sec = datetime.timedelta(
             hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec
         ).total_seconds()
-        day_sec = int(dictionary.get("duration").split(":")[0]) * 3600
+        day_sec = int(parts[0]) * 3600 if len(parts) > 3 else 0
         return curr_sec + day_sec
 
 

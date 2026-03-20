@@ -21,7 +21,7 @@ def set_schedule(*functs):
             jobqueue.join()
             next_run = arrow.now().shift(minutes=settings.get_settings().daemon)
             log.debug(f"Next run at ~ {next_run.format('MM-DD hh:mm:ss A')}")
-            schedule.every().day.at(next.format("HH:mm:ss")).do(
+            schedule.every().day.at(next_run.format("HH:mm:ss")).do(
                 schedule_helper, *functs
             )
             while len(schedule.jobs) > 0:

@@ -51,8 +51,9 @@ def update_config(field: str, value):
 
 def update_config_full(config_, updated_config):
     global config
-    if config_.get("config"):
-        config = config_["config"]
+    config = config_
+    if config.get("config"):
+        config = config["config"]
     if updated_config.get("config"):
         updated_config = updated_config["config"]
     config.update(updated_config)
