@@ -125,7 +125,7 @@ def operation_wrapper(func: abc.Callable):
             if conn:
                 try:
                     conn.close()
-                except:
+                except Exception:
                     pass
 
     return inner

@@ -195,7 +195,7 @@ class MergeDatabase:
                 list(
                     map(
                         lambda x: str([(key, value) for key, value in x.items()]),
-                        failures,
+                        failures.values(),
                     )
                 )
             )
@@ -296,7 +296,6 @@ class MergeDatabase:
         )
 
     async def merge_stories_helper(self, old_db):
-        global curr_stories
         keys = self._common_key
         inserts_old_db = await get_all_stories_transition(db_path=old_db)
         await write_stories_table_transition(

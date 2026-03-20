@@ -232,11 +232,6 @@ def load_main_config():
     # ENV_FILES_DEFAULT: Default path for a file(s) used to import env variables. Defaults to None.
     config["ENV_FILES_DEFAULT"] = os.getenv("OFSC_ENV_FILES_DEFAULT", "")
 
-    # SKIP_DOWNLOAD_SCRIPT_DEFAULT: Default path for a general download-skipping script. Defaults to None.
-    config["SKIP_DOWNLOAD_SCRIPT_DEFAULT"] = os.getenv(
-        "OFSC_SKIP_DOWNLOAD_SCRIPT_DEFAULT", None
-    )
-
     # NAMING_SCRIPT_DEFAULT: Default path for a general naming-processing script. Defaults to None.
     config["NAMING_SCRIPT_DEFAULT"] = os.getenv("OFSC_NAMING_SCRIPT_DEFAULT", None)
 

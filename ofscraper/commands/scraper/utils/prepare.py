@@ -31,20 +31,20 @@ def prepare(menu=False):
 
 
 def check_uniquename():
-    format = data.get_fileformat()
-    if re.search("text", format):
+    file_format = data.get_fileformat()
+    if re.search("text", file_format):
         return True
-    elif re.search("filename", format):
+    elif re.search("filename", file_format):
         return True
-    elif re.search("post_id", format):
+    elif re.search("post_id", file_format):
         return True
-    elif re.search("postid", format):
+    elif re.search("postid", file_format):
         return True
-    elif re.search("media_id", format):
+    elif re.search("media_id", file_format):
         return True
-    elif re.search("mediaid", format):
+    elif re.search("mediaid", file_format):
         return True
-    elif re.search("custom", format):
+    elif re.search("custom", file_format):
         return True
     return False
 

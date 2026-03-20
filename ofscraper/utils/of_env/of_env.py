@@ -2,10 +2,6 @@ from ofscraper.utils.of_env import get_all_configs
 import os
 
 
-from ofscraper.utils.of_env import get_all_configs
-import os
-
-
 def getattr(val):
     """
     Retrieves a configuration value.

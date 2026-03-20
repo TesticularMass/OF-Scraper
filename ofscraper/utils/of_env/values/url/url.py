@@ -245,10 +245,4 @@ def load_api_endpoints_config():
         "https://onlyfans.com/api2/v2/lists/{}/users?offset={}&limit=100&format=infinite",
     )
 
-    # sortSubscriptions: API endpoint for sorting subscriptions
-    # Default: https://onlyfans.com/api2/v2/lists/following/sort
-    config["sortSubscriptions"] = os.getenv(
-        "OF_SORT_SUBSCRIPTIONS_URL", "https://onlyfans.com/api2/v2/lists/following/sort"
-    )
-
     return config

@@ -106,7 +106,7 @@ def merged_settings():
     )
     merged.cached_disabled = args.no_cache or args.no_api_cache
     merged.cache_disabled = args.no_cache or cache_mode == "disabled"
-    merged.api_cached_disabled = (
+    merged.api_cache_disabled = (
         args.no_cache or args.no_api_cache or cache_mode == "api_disabled"
     )
 
@@ -187,7 +187,7 @@ def merged_settings():
         False if args.no_auto_resume else config_data.get_part_file_clean()
     )
     merged.incremental_downloads = (
-        False if merged.cached_disabled else config_data.get_incremental_downloads()
+        False if merged.cache_disabled else config_data.get_incremental_downloads()
     )
     merged.logs_expire_time = config_data.get_logs_expire()
     merged.ssl_verify = config_data.get_ssl_verify()

@@ -236,8 +236,6 @@ async def process_dicts(username, model_id, medialist):
                         mediacount=len(medialist),
                         forced_skipped=0,
                         sumcount=0,
-                        total_bytes_download=0,
-                        total_bytes=0,
                     ),
                     total=len(aws),
                     visible=True,
