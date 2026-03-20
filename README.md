@@ -1,188 +1,70 @@
-# Notice
+# OF-Scraper
 
-1. OF-Scraper can not bypass pay walls
-2. OF-Scraper requires a subscription to the model, models can not be scraped anonymously whether free or paid
+A command-line and GUI tool for downloading media from OnlyFans and performing bulk actions like liking or unliking posts.
 
-# For auth issues
+> I found something useful and wanted to make it better. That's it.
 
-https://github.com/datawhores/OF-Scraper/issues/442
+## What It Does
 
-# For Issues related to Downloading/ No Models Retrieved error
-https://github.com/datawhores/OF-Scraper/issues/542
+- Downloads photos, videos, and audio from OnlyFans subscriptions
+- Bulk like/unlike posts across multiple models
+- Scrapes content from Timeline, Messages, Stories, Highlights, Archived, Labels, and Paid content
+- Handles DRM-protected content (with proper CDM setup)
+- Deduplicates downloads using local SQLite databases
+- Supports daemon mode for automated recurring scrapes
+- Extensive filtering and sorting options for models and media
+- Docker and binary releases available
 
-# ReadMe
+## Important
 
-## Releases
+1. This tool cannot bypass paywalls
+2. A valid subscription to each model is required — anonymous scraping is not supported
 
-[Releases Page](https://pypi.org/project/ofscraper/#history)
-
-```Text
-
-Docker and binary releases also available
-```
-
-## Stable
-
-<div style="display: inline-block">
-<a href="https://pypi.org/project/ofscraper/">
-<img src="https://img.shields.io/pypi/v/ofscraper.svg?color=dark_green&label=Stable-Release" alt="drawing" style="height:75px"/>
-</div>
-</a>
-
-## Dev
-Dev releases can be found in the project release history
-
-https://pypi.org/project/ofscraper/#history
-
-## Table-of-contents
-
-- [Notice](#notice)
-- [For auth issues](#for-auth-issues)
-- [For Issues related to Downloading/ No Models Retrieved error](#for-issues-related-to-downloading-no-models-retrieved-error)
-- [ReadMe](#readme)
-  - [Releases](#releases)
-  - [Stable](#stable)
-  - [Dev](#dev)
-  - [Table-of-contents](#table-of-contents)
-  - [Description](#description)
-  - [GUI Mode](#gui-mode)
-    - [Requirements](#gui-requirements)
-    - [Usage](#gui-usage)
-    - [Features](#gui-features)
-  - [Documentation](#documentation)
-  - [Issues](#issues)
-    - [Private Reports](#private-reports)
-  - [Feature Requests](#feature-requests)
-  - [Migrating from DC script](#migrating-from-dc-script)
-  - [Discord](#discord)
-  - [Support](#support)
-
-## Description
-
-A command-line and GUI tool that lets you download media from OnlyFans and perform bulk actions including liking or unliking posts.
-
-![CopyQ nsUBdI](https://user-images.githubusercontent.com/67020411/227816586-fb685959-cd3f-45af-adea-14773b7154f9.png)
-
-At its inception, this project emerged as a fork of the original onlyfans-scraper. With invaluable support from the community and consistent script updates, we've undergone substantial architectural changes, resulting in a significantly revamped codebase compared to the original master. While some of these modifications are detailed [HERE](https://github.com/datawhores/OF-Scraper/blob/main/CHANGES.md), most are only documented in the commit history.
-
-This script has been thoughtfully crafted to facilitate seamless transitions from DIGITALCRIMINALS' script, ensuring robust compatibility and smooth feature migration. Furthermore, it boasts an extensive array of filtering features, empowering users with precise control over the specific content types they aim to scrape
-
-<a id="gui-mode"></a>
-## GUI Mode
-
-OF-Scraper includes an optional PyQt6-based graphical interface that provides a visual alternative to the command line.
-
-<a id="gui-requirements"></a>
-### Requirements
-
-- Python 3.11 or 3.12
-- PyQt6 (`pip install PyQt6>=6.6.0` — included as a dependency)
-
-<a id="gui-usage"></a>
-### Usage
-
-Launch the GUI with the `--gui` flag:
+## Installation
 
 ```bash
+pip install ofscraper
+```
+
+Available via [PyPI](https://pypi.org/project/ofscraper/).
+
+## Usage
+
+```bash
+# CLI mode
+ofscraper
+
+# GUI mode
 ofscraper --gui
 ```
 
-If PyQt6 is not installed, the tool will display an error with install instructions and fall back to CLI mode.
+## GUI Mode
 
-<a id="gui-features"></a>
-### Features
+An optional PyQt6-based graphical interface provides a visual alternative to the command line.
 
-The GUI provides a full wizard-style workflow:
+### Requirements
 
-- **Action Selection** — Choose between Download, Like/Unlike, or both
-- **Content Areas & Filters** — Select which areas to scan (Timeline, Messages, Stories, Highlights, etc.) and apply filters before scraping
+- Python 3.11 or 3.12
+- PyQt6 (included as a dependency)
+
+### What the GUI Provides
+
+- **Action Selection** — Download, Like/Unlike, or both
+- **Content Areas & Filters** — Select areas to scan and apply filters before scraping
 - **Model Selection** — Searchable, sortable table of subscribed models with bulk select/deselect
-- **Scraping Table** — Live view of scraped media with per-row download cart, filtering, and sorting
-- **Progress & Logs** — Real-time progress bar and scrollable console log output
-- **Authentication** — Built-in cookie/header editor (reads and writes your profile's `auth.json`)
-- **Configuration** — Full `config.json` editor organized by tabs (General, File Options, Download, Performance, Content, CDM, Advanced, Response Type)
-- **Profile Management** — Create, switch, and delete profiles from the GUI
-- **Database Merge** — Merge multiple `user_data.db` files into a single database
-- **Daemon Mode** — Auto-repeat scraping on a configurable interval with optional desktop notifications
-- **Theme Toggle** — Light and dark themes with persistent preference
-- **Built-in Help** — In-app help page with full documentation for every GUI element
-
-All interactive prompts (auth creation, model selection, etc.) are automatically bypassed in GUI mode — the GUI handles these through its own dialogs.
-
-For detailed GUI documentation, see the built-in Help page within the GUI, or read `ofscraper/gui/help/GUI_HELP.md`.
+- **Scraping Table** — Live view of scraped media with per-row download cart
+- **Progress & Logs** — Real-time progress bar and scrollable console log
+- **Authentication** — Built-in cookie/header editor for `auth.json`
+- **Configuration** — Full `config.json` editor organized by category
+- **Profile Management** — Create, switch, and delete profiles
+- **Database Merge** — Merge multiple `user_data.db` files
+- **Daemon Mode** — Auto-repeat scraping on a configurable interval
+- **Theme Toggle** — Light and dark themes
 
 ## Documentation
 
-For detailed instructions on:
+[Full documentation](https://of-scraper.gitbook.io/of-scraper)
 
-- Installation
-- Running the tool
-- And other pertinent information you might need
+## Disclaimer
 
-[Official Documention](https://of-scraper.gitbook.io/of-scraper)
-
-<h3>DISCLAIMERS:</h3>
-<ol>
-    <li>
-        This tool is not affiliated, associated, or partnered with OnlyFans in any way. We are not authorized, endorsed, or sponsored by OnlyFans. All OnlyFans trademarks remain the property of Fenix International Limited.
-    </li>
-    <li>
-        This is a theoritical program only and is for educational purposes. If you choose to use it then it may or may not work. You solely accept full responsability and indemnify the creator, hostors, contributors and all other involved persons from any any all responsability.
-    </li>
-</ol>
-
-## Issues
-
-Open a issue in this repo, or you can mention your issue in the [Discord](#discord)
-
-**Feature request issues are fine**
-**Bug Report Issues without required material will be closed**
-
-### Private Reports
-
-A ticket can be created in the ticket channel
-only you and admins have access to ticket discussions
-
-## Feature Requests
-
-[ClearFlask Feedback](https://ofscraper.clearflask.com/feedback) or [Discord](#discord)
-
-## Migrating from DC script
-
-To maintain compatibility with your current folders, make sure to modify the metadata option within the config file. Additionally, configure the save_path, dir_path, and filename settings to generate outputs that align with your existing setup.
-
-The inherited metadata files from DIGITALCRIMINALS' script play a crucial role in preventing redundant downloads by acting as a check for duplicates.
-
-For comprehensive guidance on making these adjustments, you can refer to the provided resources
-
-1. [Migration Guide](https://of-scraper.gitbook.io/of-scraper/migrating-from-digitalcriminals-script)
-2. [Config Options](https://of-scraper.gitbook.io/of-scraper/config-options)
-3. [Customize Save Path](https://of-scraper.gitbook.io/of-scraper/config-options/customizing-save-path)
-
-Ask in the discord or open an issue if you need help with what to change to accomplish this
-
-## Discord
-
-[Discord](https://discord.gg/wN7uxEVHRK)
-
-## Support
-
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/datawhores)
-
-<div>
-      <h4>btc</h4>
-    <a href="https://raw.githubusercontent.com/datawhores/OF-Scraper/main/donate/btc">
-  <img src="https://github.com/datawhores/OF-Scraper/assets/67020411/c96d0c22-b015-4ffc-b09e-6f246ae10fba" alt="drawing" style="height:100px"/>
-    </a>
-</div>
-
-<div>
-    <h4>eth</h4>
-    <a href="https://raw.githubusercontent.com/datawhores/OF-Scraper/main/donate/eth">
-  <img src="https://github.com/datawhores/OF-Scraper/assets/67020411/d9df33e9-a8ac-4574-91dd-1cb5a20f7201" alt="drawing" style="height:100px"/>
-    </a>
-</div>
-
-#
-
-[![codecov](https://codecov.io/gh/datawhores/OF-Scraper/branch/main/graph/badge.svg?token=U1F1PQ7LGM)](https://codecov.io/gh/datawhores/OF-Scraper)
+This tool is not affiliated with, endorsed by, or sponsored by OnlyFans. All OnlyFans trademarks remain the property of Fenix International Limited. This software is provided as-is for educational purposes. Use at your own risk.
