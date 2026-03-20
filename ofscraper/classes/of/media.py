@@ -79,11 +79,11 @@ class Media(base.base):
         else:  # Not attempted
             self.media["download_status"] = "skipped"
 
-    def add_filepath(self, path: Union[str | Path]):
+    def add_filepath(self, path: Union[str, Path]):
         path = str(path)
         self.media["filepath"] = path
 
-    def add_size(self, size: Union[int | float]):
+    def add_size(self, size: Union[int, float]):
         self.media["size"] = float(size)
 
     def mark_metadata_changed(self):

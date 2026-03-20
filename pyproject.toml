@@ -2,7 +2,7 @@
 name = "ofscraper"
 dynamic = ["version"]
 description = "automatically scrape onlyfans"
-authors = [{ name = "datawhores", email = "datawhores@riseup.net" }]
+authors = [{ name = "TesticularMass" }]
 readme = "README.md"
 requires-python = ">=3.11, <3.14"
 dependencies = [
@@ -43,7 +43,7 @@ dependencies = [
   "textual==1.0.0",
   "tqdm~=4.66.4",
   "uvloop~=0.21.0; sys_platform == 'linux' or sys_platform == 'linux2'",
-  "win32-setctime~=1.1.0",
+  "win32-setctime~=1.1.0; sys_platform == 'win32'",
   "xxhash~=3.4.1",
   "pyyaml>=6.0.2",
   "dotenv>=0.9.9",
@@ -67,7 +67,7 @@ ffmpeg = []
 ofscraper = "ofscraper.__main__:main"
 
 [project.urls]
-"Homepage" = "https://github.com/datawhores/OF-Scraper"
+"Homepage" = "https://github.com/TesticularMass/OF-Scraper"
 
 # --- Build System & Tool Configuration ---
 

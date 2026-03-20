@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import re
 import logging
+from typing import Optional
 import ofscraper.utils.settings as settings
 from ofscraper.utils.system.subprocess import run
 import ofscraper.utils.of_env.of_env as env
@@ -11,12 +12,12 @@ log = logging.getLogger("shared")
 
 
 # --- "Cached" path to the validated binaries ---
-_ffmpeg_path: str | None = None
-_ffprobe_path: str | None = None
+_ffmpeg_path: Optional[str] = None
+_ffprobe_path: Optional[str] = None
 _ffprobe_checked: bool = False
 
 
-def _is_valid_ffmpeg(path: str | None) -> bool:
+def _is_valid_ffmpeg(path: Optional[str]) -> bool:
     """
     Checks if a given path is a real, executable FFmpeg binary and validates
     that its version is >= 6 and < 8 for DRM compatibility. Logs the process.
@@ -134,7 +135,7 @@ def get_ffmpeg() -> str:
     )
 
 
-def get_ffprobe() -> str | None:
+def get_ffprobe() -> Optional[str]:
     """
     Finds the ffprobe binary by looking in the exact same folder as ffmpeg.
     Returns None if it cannot be found, allowing for graceful fallbacks.

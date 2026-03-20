@@ -2,6 +2,7 @@ import logging
 import html
 import re
 from pathlib import Path
+from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QDesktopServices, QTextDocument
@@ -66,7 +67,7 @@ def _help_md_to_html(md: str) -> str:
             out.append("</ul>")
             ul_stack.pop()
 
-    pending_anchor_id: str | None = None  # buffered from <a id="..."> line
+    pending_anchor_id: Optional[str] = None  # buffered from <a id="..."> line
 
     for raw in lines:
         line = raw.rstrip("\n")

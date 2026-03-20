@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Optional
 
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont
@@ -153,7 +154,7 @@ class ConfigPage(QWidget):
 
         layout.addLayout(btn_layout)
 
-    def go_to_config_field(self, tab_label: str, key: str | None = None):
+    def go_to_config_field(self, tab_label: str, key: Optional[str] = None):
         """Navigate to a specific tab and optionally focus a config widget by key."""
         try:
             idx = self._tab_index.get(tab_label)

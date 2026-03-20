@@ -13,6 +13,7 @@ r"""
 
 import json
 import logging
+from typing import Optional
 
 from rich.console import Console
 
@@ -33,7 +34,7 @@ def _is_gui_mode() -> bool:
         return False
 
 
-def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> str | None:
+def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> Optional[str]:
     """
     Handles auth file errors by prompting the user.
 
@@ -42,7 +43,7 @@ def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> str | None:
         include_main_menu (Bool): add the main_menu to choices in user prompt
 
     Returns:
-        str | None: "quit" or "main" if the user chooses to exit, 
+        Optional[str]: "quit" or "main" if the user chooses to exit,
                     or None if the user fixes the issue and the operation should be retried.
     """
     if isinstance(e, FileNotFoundError):

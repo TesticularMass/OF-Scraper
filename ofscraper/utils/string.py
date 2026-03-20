@@ -1,6 +1,7 @@
 import os
 import re
 import string
+from typing import Union
 
 ###
 # https://github.com/pypa/cibuildwheel/issues/840
@@ -8,7 +9,7 @@ import string
 ###
 
 
-def format_safe(template: str, **kwargs: str | os.PathLike[str]) -> str:
+def format_safe(template: str, **kwargs: Union[str, os.PathLike]) -> str:
     r"""
     Works similarly to `template.format(**kwargs)`, except that unmatched
     fields in `template` are passed through untouched.

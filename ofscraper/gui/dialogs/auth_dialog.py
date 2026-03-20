@@ -2,6 +2,7 @@ import json
 import logging
 import platform
 import traceback
+from typing import Optional
 
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QAction, QColor, QFont, QDesktopServices, QIcon, QPainter, QPixmap
@@ -138,7 +139,7 @@ def _detect_user_agent(browser_name: str) -> str:
         )
 
 
-def _find_firefox_cookie_file() -> str | None:
+def _find_firefox_cookie_file() -> Optional[str]:
     """Search all known Firefox profile locations for cookies.sqlite.
 
     Checks XDG, standard, Snap, and Flatpak install paths on Linux.

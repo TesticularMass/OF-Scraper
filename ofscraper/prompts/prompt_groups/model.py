@@ -33,7 +33,7 @@ console = Console()
 models = None
 
 
-def model_selector(models: Union[dict | list], existing_models) -> bool:
+def model_selector(models: Union[dict, list], existing_models) -> bool:
     choices = list(
         map(
             lambda x: modelHelpers.model_selectorHelper(x[0], x[1]),

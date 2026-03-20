@@ -1,3 +1,5 @@
+from typing import Optional
+
 from ofscraper.utils.live.progress import (
     activity_counter,
     activity_desc,
@@ -86,7 +88,7 @@ class ActivityManager:
         """Updates the 'user-specific' progress bar (description, progress, etc.)."""
         self.counter.update(self.get_user_id(), visible=visible, **kwargs)
 
-    def get_description(self) -> str | None:
+    def get_description(self) -> Optional[str]:
         """Gets the current description of the main activity task."""
         task_id = self.get_desc_id()
         # Find the full task object by its ID
