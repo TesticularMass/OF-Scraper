@@ -19,7 +19,7 @@ _DB_POOL = ThreadPoolExecutor(max_workers=1)
 
 def operation_wrapper_async(func: abc.Callable):
     async def inner(*args, **kwargs):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         db_timeout = of_env.getattr("DATABASE_TIMEOUT")
 
         # Wrap the inner DB work with Tenacity to handle async/thread collisions gracefully

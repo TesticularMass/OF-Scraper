@@ -301,7 +301,7 @@ class MainDownloadManager(DownloadManager):
         )
 
         # 3. Move the verified file to final path
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(common_paths.moveHelper, temp, path_to_file, ele),
         )
@@ -311,7 +311,7 @@ class MainDownloadManager(DownloadManager):
         # 4. Set File Dates
         if ele.postdate:
             newDate = dates.convert_local_time(ele.postdate)
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread,
                 partial(common_paths.set_time, path_to_file, newDate),
             )
@@ -337,14 +337,14 @@ class MainDownloadManager(DownloadManager):
         return ele.mediatype, total
 
     async def _get_data(self, ele):
-        data = await asyncio.get_event_loop().run_in_executor(
+        data = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(cache.get, f"{ele.id}_{ele.username}_headers"),
         )
         return data
 
     async def _set_data(self, ele, data):
-        data = await asyncio.get_event_loop().run_in_executor(
+        data = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(cache.set, f"{ele.id}_{ele.username}_headers", data),
         )

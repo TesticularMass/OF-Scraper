@@ -17,7 +17,7 @@ async def set_profile_cache(ele, thread_executor):
     """
     if ele.post_id and ele.responsetype.capitalize() == "Profile":
         key = get_profile_cache_key(ele)
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             thread_executor, partial(cache.set, key, True)
         )
 

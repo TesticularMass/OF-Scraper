@@ -22,7 +22,7 @@ import ofscraper.utils.hash as hash
 
 
 async def get_hash(file_data):
-    return await asyncio.get_event_loop().run_in_executor(
+    return await asyncio.get_running_loop().run_in_executor(
         common_globals.thread,
         partial(
             hash.get_hash,

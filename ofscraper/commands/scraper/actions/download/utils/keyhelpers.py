@@ -37,7 +37,7 @@ async def un_encrypt(item, c, ele, input_=None):
         key = None
         keymode = settings.get_settings().key_mode
         past_key = (
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread, partial(cache.get, ele.license)
             )
             if of_env.getattr("USE_WIV_CACHE_KEY")
@@ -82,7 +82,7 @@ async def un_encrypt(item, c, ele, input_=None):
         if not pathlib.Path(newpath).exists():
             log.debug(f"{get_medialog(ele)} ffmpeg {r.stderr.decode()}")
             log.debug(f"{get_medialog(ele)} ffmpeg {r.stdout.decode()}")
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread,
                 partial(
                     cache.set, ele.license, None, expire=of_env.getattr("KEY_EXPIRY")
@@ -93,7 +93,7 @@ async def un_encrypt(item, c, ele, input_=None):
             log.debug(f"{get_medialog(ele)} ffmpeg  decrypt success {newpath}")
             pathlib.Path(item["path"]).unlink(missing_ok=True)
             item["path"] = newpath
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread,
                 partial(
                     cache.set, ele.license, key, expire=of_env.getattr("KEY_EXPIRY")

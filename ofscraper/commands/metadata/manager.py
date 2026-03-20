@@ -187,7 +187,7 @@ class MetaDataManager:
                 return placeholderObj
 
     async def _placeholderObjHelper(self, c, ele):
-        download_data = await asyncio.get_event_loop().run_in_executor(
+        download_data = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread, partial(cache.get, f"{ele.id}_headers")
         )
         if download_data:

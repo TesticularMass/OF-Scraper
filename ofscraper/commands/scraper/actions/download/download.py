@@ -109,7 +109,7 @@ async def process_dicts(username, model_id, medialist, posts):
             with exit.DelayedKeyboardInterrupt():
                 raise E
         finally:
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread, cache.close
             )
             common_globals.thread.shutdown()

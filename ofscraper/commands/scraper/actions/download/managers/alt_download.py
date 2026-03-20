@@ -355,7 +355,7 @@ class AltDownloadManager(DownloadManager):
         )
 
         # Thread executor for disk I/O move operation
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(
                 common_paths.moveHelper,
@@ -372,7 +372,7 @@ class AltDownloadManager(DownloadManager):
             common_globals.log.debug(
                 f"{common_logs.get_medialog(ele)} Attempt to set Date to {arrow.get(newDate).format('YYYY-MM-DD HH:mm')}"
             )
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread,
                 partial(
                     common_paths.set_time,
@@ -447,14 +447,14 @@ class AltDownloadManager(DownloadManager):
             return common_globals.attempt2
 
     async def _get_data(self, ele, item):
-        data = await asyncio.get_event_loop().run_in_executor(
+        data = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(cache.get, f"{item['name']}_{ele.id}_{ele.username}_headers"),
         )
         return data
 
     async def _set_data(self, ele, item, data):
-        data = await asyncio.get_event_loop().run_in_executor(
+        data = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(cache.set, f"{item['name']}_{ele.id}_{ele.username}_headers", data),
         )
