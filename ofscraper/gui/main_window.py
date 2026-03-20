@@ -657,9 +657,12 @@ class MainWindow(QMainWindow):
         # Copy filter state from area page to table page sidebar
         self.area_page.copy_filter_state_to(self.table_page.sidebar)
         _check_modes = {"post_check", "msg_check", "paid_check", "story_check"}
+        _subscribe_mode = {"subscribe"}
         _current = getattr(self.area_page, "_current_actions", set()) or set()
         if bool(_current & _check_modes):
             app_signals.status_message.emit("Checking — fetching data, please wait...")
+        elif bool(_current & _subscribe_mode):
+            app_signals.status_message.emit("Subscribing to free accounts, please wait...")
         else:
             app_signals.status_message.emit("Click Start Scraping to begin")
 

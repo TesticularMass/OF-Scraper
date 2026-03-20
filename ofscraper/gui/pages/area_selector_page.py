@@ -75,6 +75,7 @@ POST_CHECK_AREAS = [
 ]
 
 _CHECK_MODES = {"post_check", "msg_check", "paid_check", "story_check"}
+_NO_AREA_MODES = {"msg_check", "paid_check", "story_check", "subscribe"}
 
 
 class AreaSelectorPage(QWidget):
@@ -780,8 +781,16 @@ class AreaSelectorPage(QWidget):
 
     def _update_available_areas(self):
         is_check = bool(self._current_actions & _CHECK_MODES)
+        is_no_area = bool(self._current_actions & _NO_AREA_MODES)
 
-        if is_check:
+        if is_no_area and not is_check:
+            # Subscribe mode (and future no-area modes) — hide areas entirely
+            self.areas_group.hide()
+            for cb in self._area_checks.values():
+                cb.setChecked(False)
+                cb.setEnabled(False)
+            return
+        elif is_check:
             if "post_check" in self._current_actions:
                 available = POST_CHECK_AREAS
                 self.areas_group.setTitle("Check Areas")
@@ -913,7 +922,8 @@ class AreaSelectorPage(QWidget):
     def _on_next(self):
         """Validate areas and proceed to model selection."""
         is_check = bool(self._current_actions & _CHECK_MODES)
-        needs_areas = not is_check or "post_check" in self._current_actions
+        is_subscribe = bool(self._current_actions & _NO_AREA_MODES)
+        needs_areas = (not is_check and not is_subscribe) or "post_check" in self._current_actions
 
         selected = self.get_selected_areas()
         if needs_areas and not selected:

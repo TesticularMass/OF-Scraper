@@ -10,6 +10,7 @@ from ofscraper.main.close.final.final import final_action
 from ofscraper.data.posts.scrape_paid import scrape_paid_all
 from ofscraper.commands.scraper.actions.download.download import downloader
 import ofscraper.commands.scraper.actions.like.like as like_action
+import ofscraper.commands.scraper.actions.subscribe as subscribe_action
 import ofscraper.utils.live.updater as progress_updater
 import ofscraper.db.operations as operations
 from ofscraper.utils.context.run_async import run as run_async
@@ -141,6 +142,10 @@ class scraperManager(CommandManager):
                         )
                         manager.Manager.stats_manager.update_and_print_stats(
                             username, "unlike", like_posts
+                        )
+                    elif action == "subscribe":
+                        subscribe_action.process_subscribe(
+                            models=[ele],
                         )
                     manager.Manager.current_model_manager.mark_as_processed(
                         username, activity=action

@@ -18,12 +18,13 @@ action_option = click.option(
     "--actions",
     "actions",
     help="""
-    Select batch action(s) to perform [like,unlike,download].
+    Select batch action(s) to perform [like,unlike,download,subscribe].
     Accepts space or comma-separated list. Like and unlike cannot be combined.
+    Subscribe will subscribe to free (price=0) expired accounts.
     """,
     multiple=True,
     type=MutuallyExclusiveMultichoice(
-        ["unlike", "like", "download"],
+        ["unlike", "like", "download", "subscribe"],
         exclusion=["like", "unlike"],
         case_sensitive=False,
     ),

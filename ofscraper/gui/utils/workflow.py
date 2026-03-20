@@ -1032,9 +1032,9 @@ class GUIWorkflow:
     def _on_models_selected(self, models):
         self._selected_models = models
         log.info(f"[GUI Workflow] Models set: {len(models)} models")
-        # Check modes auto-start as soon as models are confirmed —
+        # Check modes and subscribe auto-start as soon as models are confirmed —
         # no separate "Start Scraping" click required.
-        if bool(self._selected_actions & self._CHECK_MODES):
+        if bool(self._selected_actions & (self._CHECK_MODES | self._SUBSCRIBE_MODE)):
             self._daemon_stop.clear()
             self._start_scraping()
 
@@ -1142,6 +1142,7 @@ class GUIWorkflow:
         thread.start()
 
     _CHECK_MODES = {"post_check", "msg_check", "paid_check", "story_check"}
+    _SUBSCRIBE_MODE = {"subscribe"}
 
     def _set_check_args(self, args, write_args, _settings):
         """Set CLI args for a check-mode operation."""
@@ -1363,6 +1364,41 @@ class GUIWorkflow:
             app_signals.error_occurred.emit("Check Mode Error", str(e))
             app_signals.scraping_finished.emit()
 
+    def _run_subscribe_mode(self):
+        """Run the subscribe action for free expired accounts.
+
+        Filters selected models to those with price == 0 and expired
+        subscriptions, then subscribes to each one.
+        """
+        import ofscraper.commands.scraper.actions.subscribe as subscribe_mod
+
+        app_signals.status_message.emit("Subscribing to free accounts...")
+        app_signals.log_message.emit("INFO", "Starting subscribe mode")
+
+        try:
+            results = subscribe_mod.process_subscribe(
+                models=self._selected_models,
+            )
+            succeeded = sum(1 for r in results if r.get("status") == "success")
+            failed = sum(1 for r in results if r.get("status") == "failed")
+
+            if not results:
+                msg = "No free expired subscriptions found among the selected models"
+            elif failed == 0:
+                msg = f"Successfully subscribed to {succeeded} free account(s)"
+            else:
+                msg = f"Subscribe complete: {succeeded} succeeded, {failed} failed"
+
+            app_signals.log_message.emit("INFO", msg)
+            app_signals.status_message.emit(msg)
+        except Exception as e:
+            log.error(f"Subscribe mode error: {e}")
+            log.debug(traceback.format_exc())
+            app_signals.log_message.emit("ERROR", f"Subscribe failed: {e}")
+            app_signals.error_occurred.emit("Subscribe Error", str(e))
+        finally:
+            app_signals.scraping_finished.emit()
+
     def _on_downloads_queued(self, row_data_list):
         """Handle download requests from the check-mode table.
 
@@ -1461,6 +1497,11 @@ class GUIWorkflow:
             # Check mode: one-shot run — no daemon loop
             if bool(self._selected_actions & self._CHECK_MODES):
                 self._run_check_mode()
+                return
+
+            # Subscribe mode: one-shot run — subscribe to free expired accounts
+            if bool(self._selected_actions & self._SUBSCRIBE_MODE):
+                self._run_subscribe_mode()
                 return
 
             while True:

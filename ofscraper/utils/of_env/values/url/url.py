@@ -171,6 +171,17 @@ def load_api_endpoints_config():
     # Default: "https://onlyfans.com/{}/{}"
     config["postURL"] = os.getenv("OFSC_POST_URL", "https://onlyfans.com/{}/{}")
 
+    # subscribeEP: Endpoint for subscribing to a user (free accounts).
+    # Default: "https://onlyfans.com/api2/v2/users/{}/subscribe"
+    config["subscribeEP"] = os.getenv(
+        "OFSC_API_SUBSCRIBE_EP",
+        "https://onlyfans.com/api2/v2/users/{}/subscribe",
+    )
+
+    # SUBSCRIBE_NUM_TRIES: Number of retries for subscribe requests.
+    # Default: 3
+    config["SUBSCRIBE_NUM_TRIES"] = int(os.getenv("SUBSCRIBE_NUM_TRIES", "3"))
+
     # donateEP: Donation endpoint (Buy Me A Coffee example).
     # Default: "https://www.buymeacoffee.com/excludedBittern"
     config["donateEP"] = os.getenv(

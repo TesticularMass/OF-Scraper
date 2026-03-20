@@ -12,7 +12,8 @@ def action_prompt() -> int:
     action_prompt_choices = [*of_env.getattr("actionPromptChoices")]
     action_prompt_choices.insert(3, Separator())
     action_prompt_choices.insert(6, Separator())
-    action_prompt_choices.insert(9, Separator())
+    action_prompt_choices.insert(7, Separator())
+    action_prompt_choices.insert(10, Separator())
     answer = promptClasses.getChecklistSelection(
         message="Action Menu: What action(s) would you like to take?",
         choices=[*action_prompt_choices],
