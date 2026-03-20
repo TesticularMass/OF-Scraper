@@ -89,7 +89,7 @@ class PostCollection:
         Adds a single item (Post, Media, or dict) and returns the resulting Post object.
         """
         if isinstance(item, Iterable):
-            raise Exception("item must not be a iteratable")
+            raise Exception("item must not be an iterable")
         return self._process_and_add_post(item, actions or [], overwrite=overwrite)
 
     def add_posts(self, items: list, actions: list[str] = None, overwrite=False):

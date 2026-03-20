@@ -142,7 +142,15 @@ class WidevineMasterAutomator:
             f"https://api.adoptium.net/v3/assets/latest/17/hotspot"
             f"?os={os_key}&arch={arch}&image_type=jdk"
         )
-        info     = requests.get(api_url, timeout=15).json()[0]["binary"]["package"]
+        resp = requests.get(api_url, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        if not data or not isinstance(data, list):
+            raise RuntimeError(f"Adoptium API returned unexpected response: {data!r:.200}")
+        try:
+            info     = data[0]["binary"]["package"]
+        except (IndexError, KeyError, TypeError) as e:
+            raise RuntimeError(f"Adoptium API response missing expected fields: {e}") from e
         dl_url   = info["link"]
         filename = info["name"]
 

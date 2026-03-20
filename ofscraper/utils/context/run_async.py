@@ -2,11 +2,6 @@ import asyncio
 
 import ofscraper.utils.context.exit as exit
 
-# utils/context/run_async.py
-
-import asyncio
-import ofscraper.utils.context.exit as exit
-
 
 def run(coro):
     def inner(*args, **kwargs):
@@ -64,8 +59,8 @@ def run_forever(coro):
             finally:
                 try:
                     loop.close()
-                except:
-                    None
+                except Exception:
+                    pass
                 asyncio.set_event_loop(None)
         return coro(*args, **kwargs)
 

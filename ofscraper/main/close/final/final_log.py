@@ -35,7 +35,7 @@ def final_log(data):
             for ele in data
         ]
         for record in flattened_list:
-            if record == None:
+            if record is None:
                 continue
             log.info(record)
         log.info("\n\n\n")

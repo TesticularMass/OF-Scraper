@@ -413,14 +413,14 @@ class InputApp(App):
             value = value.plain if isinstance(value, Text) else value
             targetNode = self.query_one(f"#{col_name}")
             targetNode.update_table_val(value)
-        except:
+        except Exception:
             pass
 
     def reset_all_inputs(self):
         for ele in get_input_names():
             try:
                 self.query_one(f"#{ele}").reset()
-            except:
+            except Exception:
                 continue
 
     def init_download_filter(self):
@@ -573,7 +573,7 @@ class InputApp(App):
                 self.query_one("#view_info_bar").update(
                     f"{view_str}\n{filt_str}\n{type_str}"
                 )
-        except:
+        except Exception:
             pass
 
     def update_cart_info(self):
@@ -586,7 +586,7 @@ class InputApp(App):
             # Column 1 (Bottom Half)
             cart_line = f"[bold blue]Cart:[/bold blue]      \\[Queued: {in_cart}] \\[Active: {downloading}]"
             self.query_one("#global_cart_info").update(f"{cart_line}")
-        except:
+        except Exception:
             pass
 
     @property

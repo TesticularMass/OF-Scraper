@@ -94,7 +94,7 @@ def jsonValidator():
         try:
             json.loads(x)
             return True
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
@@ -158,7 +158,7 @@ def dirformatvalidator():
             )
 
             return True
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
@@ -207,7 +207,7 @@ def fileformatvalidator():
             validate_filename(x.format(**result), platform=platform.system())
 
             return True
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
@@ -225,7 +225,7 @@ def dateplaceholdervalidator():
             if arrow.utcnow().format(x) == x:
                 return
             return True
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
@@ -238,7 +238,7 @@ def datevalidator():
     def callable(x):
         try:
             return arrow.get(x or 0)
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
@@ -309,7 +309,7 @@ def metadatavalidator():
             )
 
             return True
-        except:
+        except Exception:
             return
 
     return validatorCallableHelper(
