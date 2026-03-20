@@ -72,7 +72,7 @@ async def get_blacklist():
             )
         )
         log.debug(
-            f"Black lists found on profile {list(map(lambda x:x.get('name').lower(),out))}"
+            f"Black lists found on profile {list(map(lambda x:(x.get('name') or '').lower(),out))}"
         )
         names = list(await get_list_users(out))
     return set(list(map(lambda x: x["id"], names)))

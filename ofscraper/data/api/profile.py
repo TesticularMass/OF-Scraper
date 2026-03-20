@@ -46,14 +46,15 @@ def scrape_profile_helper(c, username: Union[int, str]):
             if r.status == 404:
                 return {"username": of_env.getattr("DELETED_MODEL_PLACEHOLDER")}
 
+            data = r.json()
             cache.set(
                 f"username_{username}",
-                r.json(),
+                data,
                 int(of_env.getattr("PROFILE_DATA_EXPIRY")),
             )
 
-            log.trace(f"username date: {r.json()}")
-            return r.json()
+            log.trace(f"username date: {data}")
+            return data
     except Exception as E:
         log.traceback_(E)
         log.traceback_(traceback.format_exc())
