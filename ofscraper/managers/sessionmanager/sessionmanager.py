@@ -7,7 +7,8 @@ import ssl
 import certifi
 import contextlib
 import traceback
-from typing import Optional, Dict, Union, AsyncGenerator, Any, Generator
+from collections.abc import AsyncGenerator, Generator
+from typing import Optional, Union, Any
 
 import arrow
 import httpx
@@ -234,7 +235,7 @@ class sessionManager:
         keep_alive: Optional[int] = None,
         keep_alive_exp: Optional[int] = None,
         proxy: Optional[str] = None,
-        proxy_auth: Optional[Dict] = None,
+        proxy_auth: Optional[dict] = None,
         sem_count: Optional[int] = None,
         retries: Optional[int] = None,
         wait_min: Optional[int] = None,

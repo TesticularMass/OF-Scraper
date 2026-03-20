@@ -2,7 +2,8 @@ import contextlib
 import logging
 import asyncio
 import threading
-from typing import Optional, Dict, List, Any, AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
+from typing import Optional, Any
 
 import ofscraper.utils.of_env.of_env as of_env
 from ofscraper.managers.sessionmanager.sessionmanager import (
@@ -44,7 +45,7 @@ class OFSessionManager(sessionManager):
         keep_alive: Optional[int] = None,
         keep_alive_exp: Optional[int] = None,
         proxy: Optional[str] = None,
-        proxy_auth: Optional[Dict] = None,
+        proxy_auth: Optional[dict] = None,
         delay: Optional[float] = None,
         sem_count: Optional[int] = None,
         retries: Optional[int] = None,
@@ -100,9 +101,9 @@ class OFSessionManager(sessionManager):
         self, *args: Any, **kwargs: Any
     ) -> AsyncGenerator[Any, None]:
         """A wrapper for async requests with preset actions and exceptions."""
-        actions: List[str] = [SIGN, COOKIES, HEADERS]
+        actions: list[str] = [SIGN, COOKIES, HEADERS]
         # Add FORBIDDEN to the default exceptions for this specific session type
-        exceptions: List[str] = [TOO_MANY, AUTH, FORBIDDEN]
+        exceptions: list[str] = [TOO_MANY, AUTH, FORBIDDEN]
         if of_env.getattr("API_FORCE_KEY"):
             actions.append(FORCED_NEW)
 
@@ -116,9 +117,9 @@ class OFSessionManager(sessionManager):
     @contextlib.contextmanager
     def requests(self, *args: Any, **kwargs: Any) -> Generator[Any, None, None]:
         """A wrapper for sync requests with preset actions and exceptions."""
-        actions: List[str] = [SIGN, COOKIES, HEADERS]
+        actions: list[str] = [SIGN, COOKIES, HEADERS]
         # Add FORBIDDEN to the default exceptions for this specific session type
-        exceptions: List[str] = [TOO_MANY, AUTH, FORBIDDEN]
+        exceptions: list[str] = [TOO_MANY, AUTH, FORBIDDEN]
         if of_env.getattr("API_FORCE_KEY"):
             actions.append(FORCED_NEW)
 

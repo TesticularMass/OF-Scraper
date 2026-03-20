@@ -1,5 +1,5 @@
 import contextlib
-from typing import List, Union
+from typing import Union
 
 import ofscraper.utils.console as console_
 import ofscraper.utils.of_env.of_env as of_env
@@ -142,7 +142,7 @@ class TemporaryTaskState:
     """A context manager to snapshot and restore the state of multiple tasks."""
 
     def __init__(
-        self, activity_manager: ActivityManager, *task_types: Union[str, List[str]]
+        self, activity_manager: ActivityManager, *task_types: Union[str, list[str]]
     ):
         """
         Initializes the state manager.
@@ -156,7 +156,7 @@ class TemporaryTaskState:
         """
         # This logic handles both calling styles
         if len(task_types) == 1 and isinstance(task_types[0], list):
-            self.task_types: List[str] = task_types[0]  # Unpack the list from the tuple
+            self.task_types: list[str] = task_types[0]  # Unpack the list from the tuple
         else:
             self.task_types: tuple[str, ...] = (
                 task_types if task_types else ("main",)
@@ -216,7 +216,7 @@ class TaskLock:
     """
 
     def __init__(
-        self, activity_manager: "ActivityManager", *task_types: Union[str, List[str]]
+        self, activity_manager: "ActivityManager", *task_types: Union[str, list[str]]
     ):
         """
         Initializes the task lock.

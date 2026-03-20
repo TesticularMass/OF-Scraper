@@ -1,5 +1,5 @@
 import ofscraper.utils.console as console
-from typing import List, Union
+from typing import Union
 from ofscraper.utils.live.progress import (
     activity_counter,
     activity_desc,
@@ -77,13 +77,13 @@ TASK_CLEAR_MAP = {
 }
 
 
-def clear_tasks_by_name(names: Union[str, List[str]]):
+def clear_tasks_by_name(names: Union[str, list[str]]):
     """
     Calls the appropriate clear_..._tasks() function for each name provided.
     Accepts a single string or a list of strings.
 
     Args:
-        names (Union[str, List[str]]): The name or names of the tasks to clear.
+        names (Union[str, list[str]]): The name or names of the tasks to clear.
 
     Raises:
         ValueError: If any provided name is not a valid task type.

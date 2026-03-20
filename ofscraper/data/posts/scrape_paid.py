@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 import ofscraper.data.posts.post as OF
 import ofscraper.commands.scraper.actions.download.download as download
@@ -25,7 +24,7 @@ log = logging.getLogger("shared")
 
 
 @run
-async def scrape_paid_all() -> List[str]:
+async def scrape_paid_all() -> list[str]:
     """
     Scrapes and processes all paid content, either for metadata or download.
     """

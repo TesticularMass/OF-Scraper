@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List, Optional, Set, Union,Iterable
+from collections.abc import Iterable
+from typing import Optional, Union
 
 
 import ofscraper.data.models.utils.retriver as retriver
@@ -37,21 +38,21 @@ class ModelManager:
             state_manager (StateManager): An instance of the StateManager class for tracking processing state.
         """
         self.state: "StateManager" = state_manager or StateManager()
-        self._all_subs_dict: Dict[str, "Model"] = {}
-        self._last_fetched: Optional[List["Model"]] = None
+        self._all_subs_dict: dict[str, "Model"] = {}
+        self._last_fetched: Optional[list["Model"]] = None
 
     @property
-    def all_subs(self) -> List["Model"]:
+    def all_subs(self) -> list["Model"]:
         """Returns a list of all models currently held in the manager."""
         return list(self._all_subs_dict.values())
 
     @property
-    def all_subs_obj(self) -> List["Model"]:
+    def all_subs_obj(self) -> list["Model"]:
         """Alias for all_subs — used by the GUI to retrieve the model list."""
         return self.all_subs
 
     @property
-    def all_subs_dict(self) -> Dict[str, "Model"]:
+    def all_subs_dict(self) -> dict[str, "Model"]:
         """Public accessor for the internal model dict."""
         return self._all_subs_dict
 
@@ -63,7 +64,7 @@ class ModelManager:
         elif isinstance(data, list):
             self._all_subs_dict = {m.name: m for m in data if m}
 
-    def all_subs_retriver(self) -> List["Model"]:
+    def all_subs_retriver(self) -> list["Model"]:
         """Fetch all subscriptions from the API (used by the GUI model loader)."""
         self._fetch_all_subs(force_refetch=True)
         return self.all_subs
@@ -77,7 +78,7 @@ class ModelManager:
         """Gets a model object from the global cache by username."""
         return self._all_subs_dict.get(username)
 
-    def get_models(self, usernames: Set[str]) -> Dict[str, "Model"]:
+    def get_models(self, usernames: set[str]) -> dict[str, "Model"]:
         """Gets a dictionary of model objects for a given set of usernames."""
         return {
             name: self._all_subs_dict[name]
@@ -87,8 +88,8 @@ class ModelManager:
 
     @run
     async def add_models(
-        self, usernames: List[str], activity: Union[EActivity, str]
-    ) -> List[str]:
+        self, usernames: list[str], activity: Union[EActivity, str]
+    ) -> list[str]:
         """
         Fetches data for new usernames and adds them to the master list.
         Handles placeholder models by skipping the fetch and creating a dummy object.
@@ -157,7 +158,7 @@ class ModelManager:
 
     def prepare_scraper_activity(
         self,
-    ) -> List["Model"]:
+    ) -> list["Model"]:
         """
         Prepares activities. In daemon mode, it directly calls select_models.
         Otherwise, it uses interactive logic to confirm or get a new selection.
@@ -257,12 +258,12 @@ class ModelManager:
 
     # selected models
 
-    def get_all_selected_models(self) -> List["Model"]:
+    def get_all_selected_models(self) -> list["Model"]:
         return self._get_models_from_usernames(self.state.get_all_queued_usernames())
 
     def get_selected_models_activity(
         self, activity: Union[EActivity, str]
-    ) -> List["Model"]:
+    ) -> list["Model"]:
         """
         Gets a list of all unique models currently queued across a specific activitity,
         preserving the order of first update_alappearance.
@@ -273,10 +274,10 @@ class ModelManager:
         models_dict = self.get_models(set(all_usernames))
         return [models_dict[name] for name in all_usernames if name in models_dict]
 
-    def get_paid_selected_models(self) -> List["Model"]:
+    def get_paid_selected_models(self) -> list["Model"]:
         return self._get_models_from_usernames(self.state.get_paid_queued_usernames())
 
-    def get_scrape_selected_models(self) -> List["Model"]:
+    def get_scrape_selected_models(self) -> list["Model"]:
         return self._get_models_from_usernames(self.state.get_scrape_queued_usernames())
 
     # number selected
@@ -304,12 +305,12 @@ class ModelManager:
         if username in self.state._queues[activity]["queued"]:
             self.state.mark_as_processed(username, activity)
 
-    def get_processed(self, activity: Union[EActivity, str]) -> Set[str]:
+    def get_processed(self, activity: Union[EActivity, str]) -> set[str]:
         """Returns the set of users who have been processed for a given activity."""
         activity = self._get_activity(activity)
         return self.state.get_processed(activity)
 
-    def get_unprocessed(self, activity: Union[EActivity, str]) -> Set[str]:
+    def get_unprocessed(self, activity: Union[EActivity, str]) -> set[str]:
         """Returns the set of users who are still queued but not yet processed."""
         activity = self._get_activity(activity)
         return self.state.get_unprocessed(activity)
@@ -394,7 +395,7 @@ class ModelManager:
             )
             self.setfilter()
 
-    def _apply_filters(self) -> List["Model"]:
+    def _apply_filters(self) -> list["Model"]:
         models = self.all_subs
         models = subtype.subType(models)
         models = price.pricePaidFreeFilterHelper(models)
@@ -502,7 +503,7 @@ class ModelManager:
         elif isinstance(activity, (EActivity.ScrapeActivity, EActivity.PaidActivity)):
             return activity
 
-    def _update_all_subs(self, models: List["Model"] | Dict[str, "Model"]) -> None:
+    def _update_all_subs(self, models: Union[list["Model"], dict[str, "Model"]]) -> None:
         """Updates the global cache of all fetched models."""
         if isinstance(models, dict):
             self._all_subs_dict.update(models)
@@ -510,7 +511,7 @@ class ModelManager:
             for ele in models:
                 self._all_subs_dict[ele.name] = ele
 
-    def _select_models_scraper(self) -> List["Model"]:
+    def _select_models_scraper(self) -> list["Model"]:
         """
         Selects models for main scraper mode
         """
@@ -602,7 +603,7 @@ class ModelManager:
                 console.get_console().print(f"Exception in menu: {e}")
             settings.update_args(new_args)
 
-    def _get_models_from_usernames(self, usernames: List[str]) -> List["Model"]:
+    def _get_models_from_usernames(self, usernames: list[str]) -> list["Model"]:
         """Private helper to fetch Model objects from a list of usernames, preserving order."""
         if not usernames:
             return []

@@ -1,4 +1,4 @@
-from typing import Iterable
+from collections.abc import Iterable
 import logging
 import ofscraper.filters.media.filters as helpers
 import ofscraper.utils.settings as settings

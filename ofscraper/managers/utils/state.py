@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List, Set
 from enum import Enum, auto
 import inspect
 
@@ -50,12 +49,12 @@ class StateManager:
         all_activities = list(_get_all_enum_members(EActivity))
 
         # Use the flat list to build the queues dictionary
-        self._queues: Dict[Enum, Dict[str, List[str]]] = {
+        self._queues: dict[Enum, dict[str, list[str]]] = {
             activity: {"queued": [], "processed": set()} for activity in all_activities
         }
         pass
 
-    def set_queue(self, activity: EActivity, usernames: List[str]):
+    def set_queue(self, activity: EActivity, usernames: list[str]):
         """
         Sets the entire queue for a given activity, preserving order.
         This resets any previous progress for that activity.
@@ -67,7 +66,7 @@ class StateManager:
             f"Queued {len(usernames)} users for the {activity.name} activity in their original order."
         )
 
-    def add_to_queue(self, activity: EActivity, usernames: List[str]):
+    def add_to_queue(self, activity: EActivity, usernames: list[str]):
         """
         Adds new, unique usernames to an existing activity queue, preserving order.
         Does not reset progress.
@@ -88,7 +87,7 @@ class StateManager:
                 f"Added {added_count} new, unique users to the {activity.name} queue."
             )
 
-    def get_unprocessed(self, activity: EActivity) -> List[str]:
+    def get_unprocessed(self, activity: EActivity) -> list[str]:
         """
         Returns an ordered list of users who are still queued but not yet processed.
         """
@@ -97,7 +96,7 @@ class StateManager:
         # Return a new list preserving the original order
         return [user for user in queued if user not in processed]
 
-    def get_all_queued_usernames(self) -> List[str]:
+    def get_all_queued_usernames(self) -> list[str]:
         """
         Returns a single list of all unique usernames currently in any activity queue,
         preserving the order of first appearance.
@@ -111,7 +110,7 @@ class StateManager:
                     seen.add(username)
         return all_usernames_ordered
 
-    def get_paid_queued_usernames(self) -> List[str]:
+    def get_paid_queued_usernames(self) -> list[str]:
         """
         Returns a single list of unique usernames from all PaidActivity queues,
         preserving the order of first appearance.
@@ -127,7 +126,7 @@ class StateManager:
                         seen.add(username)
         return all_usernames_ordered
 
-    def get_scrape_queued_usernames(self) -> List[str]:
+    def get_scrape_queued_usernames(self) -> list[str]:
         """
         Returns a single list of unique usernames from all ScrapeActivity queues,
         preserving the order of first appearance.
@@ -143,7 +142,7 @@ class StateManager:
                         seen.add(username)
         return all_usernames_ordered
 
-    def get_queued_usernames(self, activity: EActivity) -> List[str]:
+    def get_queued_usernames(self, activity: EActivity) -> list[str]:
         """
         Returns an ordered list of unique usernames for a given activity.
         If no activity is provided, it returns a combined list of all users
@@ -157,7 +156,7 @@ class StateManager:
         if username in self._queues[activity]["queued"]:
             self._queues[activity]["processed"].add(username)
 
-    def get_processed(self, activity: EActivity) -> Set[str]:
+    def get_processed(self, activity: EActivity) -> set[str]:
         """Returns the set of users who have been processed for a given activity."""
         return self._queues[activity]["processed"]
 
