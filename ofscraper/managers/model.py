@@ -179,32 +179,37 @@ class ModelManager:
             log.info("Daemon mode active. Calling select_models to get model list.")
             final_selection = self._select_models_scraper()
         else:
-            existing_queued_users = [x.name for x in self.get_scrape_selected_models()]
-            # Default to requiring a new selection unless the user says no.
-            requires_new_selection = True
-            if existing_queued_users:
-                prompt_choice=None
-                while not prompt_choice:
-                        prompt_choice = prompts.reset_username_prompt()
-                        if prompt_choice == "No":
-                            requires_new_selection = False
-                        elif prompt_choice in {"Selection", "Selection_Strict"}:
-                            settings.resetUserSelect()
-                            if prompt_choice == "Selection":
-                                self._fetch_all_subs(force_refetch=True)
-                        else:
-                            console.get_shared_console().print(existing_queued_users)
-                            prompts.press_enter_to_continue()
-            if requires_new_selection:
-                # Get a fresh selection from the user.
-                log.info("Prompting for a new model selection.")
-                final_selection = self._select_models_scraper()
-            else:
-                # Re-use the existing queued users.
-                log.info(
-                    f"Re-using existing queue of {len(existing_queued_users)} models."
-                )
-                final_selection = list(self.get_models(existing_queued_users).values())
+            # Pause the Rich Live display while interactive prompts are shown.
+            # InquirerPy prompts and Rich Live both control the terminal;
+            # running them simultaneously corrupts the display and prevents
+            # progress bars from rendering during the subsequent download.
+            with progress_utils.stop_live_screen(clear=False):
+                existing_queued_users = [x.name for x in self.get_scrape_selected_models()]
+                # Default to requiring a new selection unless the user says no.
+                requires_new_selection = True
+                if existing_queued_users:
+                    prompt_choice=None
+                    while not prompt_choice:
+                            prompt_choice = prompts.reset_username_prompt()
+                            if prompt_choice == "No":
+                                requires_new_selection = False
+                            elif prompt_choice in {"Selection", "Selection_Strict"}:
+                                settings.resetUserSelect()
+                                if prompt_choice == "Selection":
+                                    self._fetch_all_subs(force_refetch=True)
+                            else:
+                                console.get_shared_console().print(existing_queued_users)
+                                prompts.press_enter_to_continue()
+                if requires_new_selection:
+                    # Get a fresh selection from the user.
+                    log.info("Prompting for a new model selection.")
+                    final_selection = self._select_models_scraper()
+                else:
+                    # Re-use the existing queued users.
+                    log.info(
+                        f"Re-using existing queue of {len(existing_queued_users)} models."
+                    )
+                    final_selection = list(self.get_models(existing_queued_users).values())
 
         # --- Step 3: Reset and Queue the Selection for All Specified Activities---
         self.clear_scrape_queues()
