@@ -278,6 +278,58 @@ def set_after_check_mode():
     settings.update_args(args)
 
 
+def gui_checker(check_mode=None):
+    """GUI entry point for check modes.
+
+    Runs the same data-fetching pipeline as ``checker()`` but skips
+    the Textual TUI table (``start_helper``).  Instead it emits the
+    collected ROWS via ``app_signals.data_replace`` so the Qt table
+    page can display them.
+    """
+    global ROWS
+    ROWS = {}
+
+    if check_mode is None:
+        check_mode = settings.get_settings().command
+
+    check_auth()
+    allow_check_dupes()
+    set_after_check_mode()
+
+    runners = {
+        "post_check": post_check_runner,
+        "msg_check": message_checker_runner,
+        "paid_check": purchase_checker_runner,
+        "story_check": stories_checker_runner,
+    }
+    runner = runners.get(check_mode)
+    if runner is None:
+        raise ValueError(f"Unknown check mode: {check_mode}")
+
+    try:
+        runner()
+    except Exception as E:
+        log.traceback_(E)
+        log.traceback_(traceback.format_exc())
+        raise E
+
+    # Emit the collected rows to the GUI table instead of starting the TUI.
+    try:
+        from ofscraper.gui.signals import app_signals
+
+        rows_list = list(ROWS) if isinstance(ROWS, list) else []
+        if rows_list:
+            app_signals.data_replace.emit(rows_list)
+            log.info(f"[GUI Check] Emitted {len(rows_list)} rows to table")
+        else:
+            log.warning("[GUI Check] No rows collected — table will be empty")
+    except Exception as e:
+        log.error(f"[GUI Check] Failed to emit rows: {e}")
+
+    reset_data()
+    network.check_cdm()
+
+
 def post_checker():
     post_check_runner()
     start_helper()
