@@ -47,7 +47,7 @@ def load_prompts_config():
             "unlike",
             "download",
         },
-        "Subscribe to free accounts (expired subs with price = $0)": {"subscribe"},
+        "Subscribe to free / $0-promo accounts (expired subs only)": {"subscribe"},
         "Go to main menu": "main",
         "Quit": "quit",
     }

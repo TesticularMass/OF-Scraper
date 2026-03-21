@@ -34,7 +34,7 @@ _ACTION_TIPS = {
     "Unlike a selection of a user's posts": "Automatically unlike previously liked posts in the selected content areas.",
     "Download + Like": "Scrape and download content, then also like the posts.",
     "Download + Unlike": "Scrape and download content, then also unlike previously liked posts.",
-    "Subscribe to free accounts": "Subscribe to expired accounts that currently have a subscription price of $0.\nFilters selected models to only free, expired ones and sends subscribe requests.",
+    "Subscribe to free accounts": "Subscribe to expired accounts that are currently free or have a claimable $0 promotion.\nFilters selected models to only free/on-sale-for-$0, expired ones and sends subscribe requests.",
 }
 
 CHECK_CHOICES = [

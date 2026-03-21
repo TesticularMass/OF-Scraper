@@ -20,7 +20,7 @@ action_option = click.option(
     help="""
     Select batch action(s) to perform [like,unlike,download,subscribe].
     Accepts space or comma-separated list. Like and unlike cannot be combined.
-    Subscribe will subscribe to free (price=0) expired accounts.
+    Subscribe will subscribe to expired accounts that are free or have a $0 promo.
     """,
     multiple=True,
     type=MutuallyExclusiveMultichoice(
