@@ -121,7 +121,7 @@ class CommandManager:
             )
         )
         status_text = (
-            "[green]🟢 Active[/green]" if user.active else "[red]🔴 Expired[/red]"
+            "[green]Active[/green]" if user.active else "[red]Expired[/red]"
         )
         expire_date = user.expired_string or "Unknown Date"
 

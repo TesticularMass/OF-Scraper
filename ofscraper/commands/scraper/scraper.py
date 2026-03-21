@@ -61,13 +61,27 @@ class scraperManager(CommandManager):
 
                     elif settings.get_settings().users_first:
                         userdata, session = prepare(menu=menu)
-                        self._process_users_actions_user_first(userdata, session)
+                        self._run_subscribe_batch(userdata)
+                        if self._has_non_subscribe_actions:
+                            self._process_users_actions_user_first(userdata, session)
                     else:
-
                         userdata, session = prepare(menu=menu)
-                        self._process_users_actions_normal(userdata, session)
+                        self._run_subscribe_batch(userdata)
+                        if self._has_non_subscribe_actions:
+                            self._process_users_actions_normal(userdata, session)
 
                 final_action()
+
+    @property
+    def _has_non_subscribe_actions(self):
+        """True if there are actions besides 'subscribe' that need the per-model loop."""
+        return bool(set(settings.get_settings().actions) - {"subscribe"})
+
+    def _run_subscribe_batch(self, userdata):
+        """Run subscribe as a batch if it's in the action list."""
+        if "subscribe" not in settings.get_settings().actions:
+            return
+        subscribe_action.process_subscribe_batch(models=userdata)
 
     @exit.exit_wrapper
     @run_async
@@ -143,14 +157,12 @@ class scraperManager(CommandManager):
                         manager.Manager.stats_manager.update_and_print_stats(
                             username, "unlike", like_posts
                         )
-                    elif action == "subscribe":
-                        subscribe_action.process_subscribe(
-                            models=[ele],
-                        )
                     manager.Manager.current_model_manager.mark_as_processed(
                         username, activity=action
                     )
-                    ACTION_SCRIPTS.get(action)(username, media, posts, action=action)
+                    action_script = ACTION_SCRIPTS.get(action)
+                    if action_script:
+                        action_script(username, media, posts, action=action)
 
                 except Exception as E:
                     log.debug(f"Unable to complete {action} for {username}")

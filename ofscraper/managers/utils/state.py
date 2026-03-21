@@ -21,6 +21,7 @@ class EActivity:
         DOWNLOAD = auto()
         TEXT = auto()
         METADATA = auto()
+        SUBSCRIBE = auto()
 
 
 def _get_all_enum_members(namespace_class):
@@ -255,6 +256,7 @@ ACTIVITY_MAP = {
     "download": EActivity.ScrapeActivity.DOWNLOAD,
     "text": EActivity.ScrapeActivity.TEXT,
     "metadata": EActivity.ScrapeActivity.METADATA,
+    "subscribe": EActivity.ScrapeActivity.SUBSCRIBE,
     "scrape_paid_metadata": EActivity.PaidActivity.SCRAPE_PAID_METADATA,
 }
 
