@@ -341,11 +341,13 @@ class InputApp(App):
         def sort_key_func(x):
             is_empty = False
             sort_val = 0
+            # 1. Extract the raw value and check if it's "Empty/Invalid"
             raw_val = x.get(key)
             if key == "length" and raw_val in {"N/A", "N\\A"}:
                 is_empty = True
             elif key == "post_date" and str(raw_val) == "Probably Deleted":
                 is_empty = True
+            # 2. Parse the actual value if it IS valid
             if not is_empty:
                 if key == "number":
                     sort_val = int(raw_val or 0)
@@ -369,8 +371,8 @@ class InputApp(App):
                 group = 1 if is_empty else 0
             return (group, sort_val)
 
+        # Apply the native python sort using our custom tuple logic
         self.table_data.sort(key=sort_key_func, reverse=self._reverse)
-
     def set_reverse(self, key=None):
         if not self._sortkey:
             self._reverse = False
