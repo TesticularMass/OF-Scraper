@@ -1,21 +1,9 @@
 import logging
-
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
-    QButtonGroup,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QRadioButton,
-    QSizePolicy,
-    QSpacerItem,
-    QVBoxLayout,
-    QWidget,
-)
+import tkinter as tk
+from tkinter import ttk
 
 from ofscraper.gui.signals import app_signals
-from ofscraper.gui.widgets.styled_button import StyledButton
+from ofscraper.gui.styles import c
 
 log = logging.getLogger("shared")
 
@@ -63,95 +51,88 @@ _CHECK_TIPS = {
 ALL_CHOICES = ACTION_CHOICES + CHECK_CHOICES
 
 
-class ActionPage(QWidget):
+class ActionPage(ttk.Frame):
     """Action selection page — replaces the InquirerPy action prompt."""
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, parent=None, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
         self.manager = manager
-        self._selected_actions = set()
+        self._selected_actions = ACTION_CHOICES[0][1]
+        self._radio_var = tk.IntVar(value=0)
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(16)
+        # Outer padding frame
+        pad = ttk.Frame(self)
+        pad.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
 
         # Header
-        header = QLabel("Select Action")
-        header.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        header.setProperty("heading", True)
-        layout.addWidget(header)
+        header = ttk.Label(pad, text="Select Action", style="Heading.TLabel")
+        header.pack(anchor=tk.W)
 
-        subtitle = QLabel("Choose what you want to do with the selected models.")
-        subtitle.setProperty("subheading", True)
-        layout.addWidget(subtitle)
-
-        layout.addSpacing(16)
+        subtitle = ttk.Label(
+            pad,
+            text="Choose what you want to do with the selected models.",
+            style="Subheading.TLabel",
+        )
+        subtitle.pack(anchor=tk.W, pady=(0, 16))
 
         # Action radio buttons
-        self._button_group = QButtonGroup(self)
-        self._button_group.setExclusive(True)
-
         for i, (label, actions) in enumerate(ACTION_CHOICES):
-            radio = QRadioButton(label)
-            radio.setFont(QFont("Segoe UI", 13))
-            radio.setStyleSheet("QRadioButton { padding: 8px 4px; }")
-            radio.setProperty("actions", actions)
-            radio.setToolTip(_ACTION_TIPS.get(label, ""))
-            self._button_group.addButton(radio, i)
-            layout.addWidget(radio)
+            rb = ttk.Radiobutton(
+                pad,
+                text=label,
+                variable=self._radio_var,
+                value=i,
+                command=self._on_action_changed,
+            )
+            rb.pack(anchor=tk.W, pady=4)
 
         # Separator between action modes and check modes
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        layout.addSpacing(8)
-        layout.addWidget(sep)
+        sep = ttk.Separator(pad, orient=tk.HORIZONTAL)
+        sep.pack(fill=tk.X, pady=(12, 8))
 
-        check_label = QLabel("Check Modes  (browse & selectively download)")
-        check_label.setFont(QFont("Segoe UI", 11))
-        check_label.setProperty("subheading", True)
-        layout.addWidget(check_label)
+        check_label = ttk.Label(
+            pad,
+            text="Check Modes  (browse & selectively download)",
+            style="Subheading.TLabel",
+        )
+        check_label.pack(anchor=tk.W, pady=(0, 4))
 
         for i, (label, actions) in enumerate(CHECK_CHOICES):
-            radio = QRadioButton(label)
-            radio.setFont(QFont("Segoe UI", 13))
-            radio.setStyleSheet("QRadioButton { padding: 8px 4px; }")
-            radio.setProperty("actions", actions)
-            radio.setToolTip(_CHECK_TIPS.get(label, ""))
-            self._button_group.addButton(radio, len(ACTION_CHOICES) + i)
-            layout.addWidget(radio)
+            rb = ttk.Radiobutton(
+                pad,
+                text=label,
+                variable=self._radio_var,
+                value=len(ACTION_CHOICES) + i,
+                command=self._on_action_changed,
+            )
+            rb.pack(anchor=tk.W, pady=4)
 
-        # Select first by default
-        first = self._button_group.button(0)
-        if first:
-            first.setChecked(True)
-            self._selected_actions = ACTION_CHOICES[0][1]
-
-        self._button_group.idClicked.connect(self._on_action_changed)
-
-        layout.addStretch()
+        # Spacer
+        spacer = ttk.Frame(pad)
+        spacer.pack(fill=tk.BOTH, expand=True)
 
         # Bottom buttons
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
+        btn_frame = ttk.Frame(pad)
+        btn_frame.pack(fill=tk.X, pady=(16, 0))
 
-        self.next_btn = StyledButton("Next  >>", primary=True)
-        self.next_btn.setFixedWidth(160)
-        self.next_btn.clicked.connect(self._on_next)
-        btn_layout.addWidget(self.next_btn)
-
-        layout.addLayout(btn_layout)
+        self.next_btn = ttk.Button(
+            btn_frame,
+            text="Next  >>",
+            style="Primary.TButton",
+            command=self._on_next,
+            width=20,
+        )
+        self.next_btn.pack(side=tk.RIGHT)
 
     def reset_to_defaults(self):
         """Reset action selection to the first option (default)."""
-        first = self._button_group.button(0)
-        if first:
-            first.setChecked(True)
-            self._selected_actions = ACTION_CHOICES[0][1]
+        self._radio_var.set(0)
+        self._selected_actions = ACTION_CHOICES[0][1]
 
-    def _on_action_changed(self, btn_id):
+    def _on_action_changed(self):
+        btn_id = self._radio_var.get()
         if 0 <= btn_id < len(ALL_CHOICES):
             self._selected_actions = ALL_CHOICES[btn_id][1]
 

@@ -1,18 +1,7 @@
 import asyncio
 import logging
-
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
-    QFileDialog,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPlainTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import c
@@ -22,141 +11,136 @@ from ofscraper.gui.widgets.styled_button import StyledButton
 log = logging.getLogger("shared")
 
 
-class MergePage(QWidget):
-    """Database merge page — replaces the InquirerPy merge prompts."""
+class MergePage(ttk.Frame):
+    """Database merge page -- replaces the InquirerPy merge prompts."""
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, parent, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
         self.manager = manager
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(16)
+        pad_x = 40
+        pad_y = 8
 
         # Header
-        header = QLabel("Merge Databases")
-        header.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        header.setProperty("heading", True)
-        layout.addWidget(header)
+        header = ttk.Label(self, text="Merge Databases", style="Heading.TLabel")
+        header.pack(anchor="w", padx=pad_x, pady=(pad_y * 3, 4))
 
-        subtitle = QLabel(
-            "Recursively search a folder for user_data.db files and merge them "
-            "into a single destination database."
+        subtitle = ttk.Label(
+            self,
+            text="Recursively search a folder for user_data.db files and merge them "
+                 "into a single destination database.",
+            style="Subheading.TLabel",
+            wraplength=700,
         )
-        subtitle.setProperty("subheading", True)
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
-
-        layout.addSpacing(16)
+        subtitle.pack(anchor="w", padx=pad_x, pady=(0, pad_y * 2))
 
         # Source folder
-        src_layout = QHBoxLayout()
-        src_layout.addWidget(QLabel("Source Folder:"))
-        self.source_input = QLineEdit()
-        self.source_input.setPlaceholderText("Folder to search for .db files...")
-        self.source_input.setClearButtonEnabled(True)
-        self.source_input.setToolTip(
-            "Root folder to recursively search for user_data.db files.\n"
-            "All matching databases found under this path will be merged."
-        )
-        src_layout.addWidget(self.source_input)
-        src_browse = StyledButton("Browse")
-        src_browse.clicked.connect(self._browse_source)
-        src_layout.addWidget(src_browse)
-        layout.addLayout(src_layout)
+        src_frame = ttk.Frame(self)
+        src_frame.pack(fill=tk.X, padx=pad_x, pady=pad_y)
+
+        ttk.Label(src_frame, text="Source Folder:").pack(side=tk.LEFT)
+
+        self.source_input = ttk.Entry(src_frame)
+        self.source_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 4))
+
+        src_browse = StyledButton(src_frame, text="Browse",
+                                  command=self._browse_source)
+        src_browse.pack(side=tk.LEFT)
 
         # Destination
-        dst_layout = QHBoxLayout()
-        dst_layout.addWidget(QLabel("Destination:"))
-        self.dest_input = QLineEdit()
-        self.dest_input.setPlaceholderText("Folder for merged database...")
-        self.dest_input.setClearButtonEnabled(True)
-        self.dest_input.setToolTip(
-            "Destination folder where the merged database will be written.\n"
-            "A new user_data.db file will be created here."
-        )
-        dst_layout.addWidget(self.dest_input)
-        dst_browse = StyledButton("Browse")
-        dst_browse.clicked.connect(self._browse_dest)
-        dst_layout.addWidget(dst_browse)
-        layout.addLayout(dst_layout)
+        dst_frame = ttk.Frame(self)
+        dst_frame.pack(fill=tk.X, padx=pad_x, pady=pad_y)
 
-        layout.addSpacing(8)
+        ttk.Label(dst_frame, text="Destination:").pack(side=tk.LEFT)
+
+        self.dest_input = ttk.Entry(dst_frame)
+        self.dest_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 4))
+
+        dst_browse = StyledButton(dst_frame, text="Browse",
+                                  command=self._browse_dest)
+        dst_browse.pack(side=tk.LEFT)
 
         # Warning
-        self._warning_label = QLabel(
-            "WARNING: Make sure you have backed up your databases before merging!"
+        self._warning_label = ttk.Label(
+            self,
+            text="WARNING: Make sure you have backed up your databases before merging!",
+            font=("Segoe UI", 11, "bold"),
+            foreground=c("warning"),
         )
-        self._warning_label.setStyleSheet(f"color: {c('warning')}; font-weight: bold;")
-        layout.addWidget(self._warning_label)
+        self._warning_label.pack(anchor="w", padx=pad_x, pady=pad_y)
 
         app_signals.theme_changed.connect(self._apply_theme)
 
         # Merge button
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        self.merge_btn = StyledButton("Start Merge", primary=True)
-        self.merge_btn.setFixedWidth(180)
-        self.merge_btn.clicked.connect(self._on_merge)
-        btn_layout.addWidget(self.merge_btn)
-        layout.addLayout(btn_layout)
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(fill=tk.X, padx=pad_x, pady=pad_y)
+
+        self.merge_btn = StyledButton(btn_frame, text="Start Merge",
+                                      primary=True, command=self._on_merge)
+        self.merge_btn.pack(side=tk.RIGHT)
 
         # Output log
-        self.output_text = QPlainTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setMaximumBlockCount(500)
-        self.output_text.setPlaceholderText("Merge output will appear here...")
-        layout.addWidget(self.output_text)
+        self.output_text = tk.Text(self, wrap=tk.WORD, height=14,
+                                   font=("Consolas", 9), state=tk.DISABLED,
+                                   relief=tk.SUNKEN, borderwidth=1)
+        self.output_text.pack(fill=tk.BOTH, expand=True, padx=pad_x, pady=(pad_y, pad_y * 3))
 
     def _apply_theme(self, _is_dark=True):
-        self._warning_label.setStyleSheet(f"color: {c('warning')}; font-weight: bold;")
+        self._warning_label.configure(foreground=c("warning"))
+
+    def _text_clear(self):
+        self.output_text.configure(state=tk.NORMAL)
+        self.output_text.delete("1.0", tk.END)
+        self.output_text.configure(state=tk.DISABLED)
+
+    def _text_append(self, text):
+        self.output_text.configure(state=tk.NORMAL)
+        self.output_text.insert(tk.END, text + "\n")
+        self.output_text.see(tk.END)
+        self.output_text.configure(state=tk.DISABLED)
 
     def _browse_source(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Source Folder")
+        folder = filedialog.askdirectory(title="Select Source Folder")
         if folder:
-            self.source_input.setText(folder)
+            self.source_input.delete(0, tk.END)
+            self.source_input.insert(0, folder)
 
     def _browse_dest(self):
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select Destination Folder"
-        )
+        folder = filedialog.askdirectory(title="Select Destination Folder")
         if folder:
-            self.dest_input.setText(folder)
+            self.dest_input.delete(0, tk.END)
+            self.dest_input.insert(0, folder)
 
     def _on_merge(self):
-        source = self.source_input.text().strip()
-        dest = self.dest_input.text().strip()
+        source = self.source_input.get().strip()
+        dest = self.dest_input.get().strip()
 
         if not source:
-            QMessageBox.warning(self, "Missing", "Please select a source folder.")
+            messagebox.showwarning("Missing", "Please select a source folder.")
             return
         if not dest:
-            QMessageBox.warning(self, "Missing", "Please select a destination folder.")
+            messagebox.showwarning("Missing", "Please select a destination folder.")
             return
 
-        reply = QMessageBox.question(
-            self,
+        reply = messagebox.askyesno(
             "Confirm Merge",
             f"Merge databases from:\n{source}\n\nInto:\n{dest}\n\nContinue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.StandardButton.Yes:
+        if not reply:
             return
 
-        self.output_text.clear()
-        self.output_text.appendPlainText(f"Starting merge from {source} to {dest}...")
-        self.merge_btn.setEnabled(False)
+        self._text_clear()
+        self._text_append(f"Starting merge from {source} to {dest}...")
+        self.merge_btn.configure(state=tk.DISABLED)
         app_signals.status_message.emit("Merge in progress...")
 
         # Run merge in background thread
-        from PyQt6.QtCore import QThreadPool
-
         worker = AsyncWorker(self._run_merge, source, dest)
         worker.signals.finished.connect(self._on_merge_finished)
         worker.signals.error.connect(self._on_merge_error)
-        QThreadPool.globalInstance().start(worker)
+        worker.start()
 
     async def _run_merge(self, source, dest):
         from ofscraper.db.merge import MergeDatabase
@@ -164,23 +148,23 @@ class MergePage(QWidget):
         return await merger(source, dest)
 
     def _on_merge_finished(self, result):
-        self.merge_btn.setEnabled(True)
+        self.merge_btn.configure(state=tk.NORMAL)
         if result:
             failures, successes, _ = result
-            self.output_text.appendPlainText(
+            self._text_append(
                 f"\nMerge complete!\n"
                 f"Successes: {len(successes) if successes else 0}\n"
                 f"Failures: {len(failures) if failures else 0}"
             )
             if failures:
                 for f in failures:
-                    self.output_text.appendPlainText(f"  FAILED: {f}")
+                    self._text_append(f"  FAILED: {f}")
         else:
-            self.output_text.appendPlainText("Merge completed (no details returned).")
+            self._text_append("Merge completed (no details returned).")
         app_signals.status_message.emit("Merge complete")
 
     def _on_merge_error(self, error_msg):
-        self.merge_btn.setEnabled(True)
-        self.output_text.appendPlainText(f"\nERROR: {error_msg}")
+        self.merge_btn.configure(state=tk.NORMAL)
+        self._text_append(f"\nERROR: {error_msg}")
         app_signals.status_message.emit("Merge failed")
-        QMessageBox.critical(self, "Merge Error", error_msg)
+        messagebox.showerror("Merge Error", error_msg)

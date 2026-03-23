@@ -1,21 +1,9 @@
 import logging
-
 import os
 import subprocess as _subprocess
 import sys as _sys
-
-from PyQt6.QtCore import Qt, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QFont
-from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QSplitter,
-    QTabWidget,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import c
@@ -27,35 +15,18 @@ from ofscraper.gui.widgets.styled_button import StyledButton
 
 log = logging.getLogger("shared")
 
-def _help_btn_qss():
-    return (
-        f"QToolButton {{ border: 1px solid {c('surface1')}; border-radius: 9px;"
-        f" background-color: {c('surface0')}; color: {c('text')}; font-weight: bold; }}"
-        f" QToolButton:hover {{ border-color: {c('blue')}; background-color: {c('surface1')}; }}"
-    )
 
-def _make_help_btn(anchor: str) -> QToolButton:
-    b = QToolButton()
-    b.setText("?")
-    b.setToolTip("Open help")
-    b.setCursor(Qt.CursorShape.PointingHandCursor)
-    b.setAutoRaise(True)
-    b.setFixedSize(18, 18)
-    b.setStyleSheet(_help_btn_qss())
-    b.clicked.connect(lambda: app_signals.help_anchor_requested.emit(anchor))
-    return b
-
-
-class TablePage(QWidget):
+class TablePage(ttk.Frame):
     """Main workspace page combining data table, filter sidebar,
     console log, and progress panel. Replaces the Textual InputApp."""
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, parent=None, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
         self.manager = manager
         self._scrape_active = False
         self._pending_new_scrape_nav = False
         self._pending_reset = False
+        self._sidebar_visible = True
         self._setup_ui()
         self._connect_signals()
 
@@ -63,232 +34,182 @@ class TablePage(QWidget):
         """Reset toolbar state to a ready-to-scrape baseline."""
         try:
             self._scrape_active = False
-            self.start_scraping_btn.setEnabled(True)
-            self.start_scraping_btn.setText("Start Scraping >>")
+            self.start_scraping_btn.configure(state=tk.NORMAL)
+            self.start_scraping_btn.configure(text="Start Scraping >>")
         except Exception:
             pass
         try:
-            self.stop_daemon_btn.hide()
-            self.stop_daemon_btn.setEnabled(True)
-            self.stop_daemon_btn.setText("Stop Daemon")
+            self.stop_daemon_btn.pack_forget()
+            self.stop_daemon_btn.configure(state=tk.NORMAL)
+            self.stop_daemon_btn.configure(text="Stop Daemon")
         except Exception:
             pass
         try:
-            self.daemon_status_label.hide()
+            self.daemon_status_label.pack_forget()
         except Exception:
             pass
 
     def _navigate_to_action_page(self):
-        main_window = self.window()
-        scraper_stack = getattr(main_window, "scraper_stack", None)
-        if scraper_stack:
-            scraper_stack.setCurrentIndex(0)  # action page
+        parent_stack = self.master
+        if parent_stack and hasattr(parent_stack, "_show_page"):
+            parent_stack._show_page(0)  # action page
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)  # main content gets the stretch
 
         # -- Top toolbar --
-        self._toolbar = toolbar = QWidget()
-        toolbar.setFixedHeight(48)
-        toolbar.setStyleSheet(f"background-color: {c('mantle')};")
-        toolbar_layout = QHBoxLayout(toolbar)
-        toolbar_layout.setContentsMargins(12, 4, 12, 4)
+        toolbar = ttk.Frame(self, style="Toolbar.TFrame")
+        toolbar.grid(row=0, column=0, sticky="ew")
+        self._toolbar = toolbar
 
-        self.toggle_sidebar_btn = StyledButton("Filters")
-        self.toggle_sidebar_btn.setCheckable(True)
-        self.toggle_sidebar_btn.setChecked(True)
-        self.toggle_sidebar_btn.clicked.connect(self._toggle_sidebar)
-        toolbar_layout.addWidget(self.toggle_sidebar_btn)
+        # Left-side buttons
+        self.toggle_sidebar_btn = StyledButton(toolbar, text="Filters",
+                                                command=self._toggle_sidebar)
+        self.toggle_sidebar_btn.pack(side=tk.LEFT, padx=(12, 4), pady=6)
 
-        toolbar_layout.addSpacing(12)
+        self.reset_btn = StyledButton(toolbar, text="Reset",
+                                       command=self._on_reset)
+        self.reset_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-        self.reset_btn = StyledButton("Reset")
-        self.reset_btn.clicked.connect(self._on_reset)
-        toolbar_layout.addWidget(self.reset_btn)
+        self.filter_btn = StyledButton(toolbar, text="Apply Filters",
+                                        primary=True, command=self._on_filter)
+        self.filter_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-        self.filter_btn = StyledButton("Apply Filters", primary=True)
-        self.filter_btn.clicked.connect(self._on_filter)
-        toolbar_layout.addWidget(self.filter_btn)
+        # Spacer
+        ttk.Frame(toolbar, width=12).pack(side=tk.LEFT)
 
-        toolbar_layout.addSpacing(12)
+        self.start_scraping_btn = StyledButton(toolbar, text="Start Scraping >>",
+                                                primary=True,
+                                                command=self._on_start_scraping)
+        self.start_scraping_btn.configure(style="Green.TButton")
+        self.start_scraping_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-        self.start_scraping_btn = StyledButton("Start Scraping >>", primary=True)
-        self.start_scraping_btn.setFixedHeight(36)
-        self.start_scraping_btn.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.start_scraping_btn.clicked.connect(self._on_start_scraping)
-        toolbar_layout.addWidget(self.start_scraping_btn)
+        self.new_scrape_btn = StyledButton(toolbar, text="New Scrape",
+                                            command=self._on_new_scrape)
+        self.new_scrape_btn.configure(style="Mauve.TButton")
+        self.new_scrape_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-        self.new_scrape_btn = StyledButton("New Scrape")
-        self.new_scrape_btn.setFixedHeight(36)
-        self.new_scrape_btn.clicked.connect(self._on_new_scrape)
-        toolbar_layout.addWidget(self.new_scrape_btn)
+        self.open_folder_btn = StyledButton(toolbar, text="Open Downloads Folder",
+                                             command=self._on_open_downloads_folder)
+        self.open_folder_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-        self.open_folder_btn = StyledButton("Open Downloads Folder")
-        self.open_folder_btn.setFixedHeight(36)
-        self.open_folder_btn.setToolTip("Open the configured download save location in your file manager")
-        self.open_folder_btn.clicked.connect(self._on_open_downloads_folder)
-        toolbar_layout.addWidget(self.open_folder_btn)
+        # Daemon controls container — keeps pack order stable for show/hide
+        self._daemon_container = ttk.Frame(toolbar)
+        self._daemon_container.pack(side=tk.LEFT, padx=(4, 0))
 
-        # Stop Daemon button (hidden until daemon is running)
-        self.stop_daemon_btn = StyledButton("Stop Daemon")
-        self.stop_daemon_btn.setFixedHeight(36)
-        self.stop_daemon_btn.clicked.connect(self._on_stop_daemon)
-        self.stop_daemon_btn.hide()
-        toolbar_layout.addWidget(self.stop_daemon_btn)
+        self.stop_daemon_btn = StyledButton(self._daemon_container,
+                                             text="Stop Daemon", danger=True,
+                                             command=self._on_stop_daemon)
+        # Initially hidden (not packed)
 
-        toolbar_layout.addSpacing(8)
+        self.daemon_status_label = ttk.Label(self._daemon_container, text="",
+                                              style="Muted.TLabel")
+        # Initially hidden (not packed)
 
-        # Daemon countdown label (hidden until daemon is waiting)
-        self.daemon_status_label = QLabel("")
-        self.daemon_status_label.setFont(QFont("Segoe UI", 10))
-        self.daemon_status_label.hide()
-        toolbar_layout.addWidget(self.daemon_status_label)
+        # Right-side buttons (pack from right)
+        self.send_btn = StyledButton(toolbar, text=">> Send Downloads",
+                                      command=self._on_send_downloads)
+        self.send_btn.configure(style="Peach.TButton")
+        self.send_btn.pack(side=tk.RIGHT, padx=(4, 12), pady=6)
 
-        toolbar_layout.addStretch()
+        ttk.Frame(toolbar, width=12).pack(side=tk.RIGHT)
 
-        self.cart_label = QLabel("Cart: 0 items")
-        self.cart_label.setProperty("subheading", True)
-        toolbar_layout.addWidget(self.cart_label)
+        self.deselect_all_cart_btn = StyledButton(toolbar, text="Deselect All",
+                                                   command=self._on_deselect_all_cart)
+        self.deselect_all_cart_btn.pack(side=tk.RIGHT, padx=4, pady=6)
 
-        toolbar_layout.addSpacing(8)
+        self.select_all_cart_btn = StyledButton(toolbar, text="Select All",
+                                                 command=self._on_select_all_cart)
+        self.select_all_cart_btn.pack(side=tk.RIGHT, padx=4, pady=6)
 
-        self.select_all_cart_btn = StyledButton("Select All")
-        self.select_all_cart_btn.clicked.connect(self._on_select_all_cart)
-        toolbar_layout.addWidget(self.select_all_cart_btn)
+        ttk.Frame(toolbar, width=8).pack(side=tk.RIGHT)
 
-        self.deselect_all_cart_btn = StyledButton("Deselect All")
-        self.deselect_all_cart_btn.clicked.connect(self._on_deselect_all_cart)
-        toolbar_layout.addWidget(self.deselect_all_cart_btn)
-
-        toolbar_layout.addSpacing(12)
-
-        self.send_btn = StyledButton(">> Send Downloads", primary=True)
-        self.send_btn.clicked.connect(self._on_send_downloads)
-        toolbar_layout.addWidget(self.send_btn)
-
-        layout.addWidget(toolbar)
+        self.cart_label = ttk.Label(toolbar, text="Cart: 0 items",
+                                    style="Subheading.TLabel")
+        self.cart_label.pack(side=tk.RIGHT, padx=4, pady=6)
 
         # -- Main content area: sidebar + table --
-        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._content_pane = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        self._content_pane.grid(row=1, column=0, sticky="nsew")
 
         # Sidebar
         self.sidebar = FilterSidebar()
-        # Give the sidebar enough width to show controls by default.
-        # Users can still resize via the splitter handle.
-        self.sidebar.setMinimumWidth(320)
-        self.sidebar.setMaximumWidth(520)
-        content_splitter.addWidget(self.sidebar)
+        self._content_pane.add(self.sidebar, weight=0)
 
-        # Right side: table + bottom tabs
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
+        # Right side: table + console (vertical pane)
+        right_pane = ttk.PanedWindow(self._content_pane, orient=tk.VERTICAL)
 
         # Data table
         self.data_table = MediaDataTable()
-        right_layout.addWidget(self.data_table, stretch=3)
+        right_pane.add(self.data_table, weight=3)
 
-        # Bottom console (keep logs available, but avoid a large empty panel)
+        # Console log
         self.console_widget = ConsoleLogWidget()
-        self.console_widget.setMaximumHeight(220)
-        right_layout.addWidget(self.console_widget, stretch=1)
+        right_pane.add(self.console_widget, weight=1)
 
-        content_splitter.addWidget(right_widget)
-        content_splitter.setStretchFactor(0, 0)
-        content_splitter.setStretchFactor(1, 1)
-        # Default widths: sidebar fully visible without dragging.
-        content_splitter.setSizes([420, 780])
+        self._content_pane.add(right_pane, weight=1)
 
-        layout.addWidget(content_splitter)
+        # -- Status bar at bottom --
+        status_bar = ttk.Frame(self, style="Toolbar.TFrame")
+        status_bar.grid(row=2, column=0, sticky="ew")
+        self._status_bar = status_bar
 
-        # -- Status info at bottom --
-        self._status_bar_widget = status_bar = QWidget()
-        status_bar.setFixedHeight(34)
-        status_bar.setStyleSheet(f"background-color: {c('mantle')};")
-        status_layout = QHBoxLayout(status_bar)
-        status_layout.setContentsMargins(12, 2, 12, 2)
-        status_layout.setSpacing(10)
+        self.row_count_label = ttk.Label(status_bar, text="0 rows",
+                                          style="Muted.TLabel")
+        self.row_count_label.pack(side=tk.LEFT, padx=(12, 10), pady=4)
 
-        self.row_count_label = QLabel("0 rows")
-        self.row_count_label.setProperty("muted", True)
-        status_layout.addWidget(self.row_count_label)
+        # Overall progress embedded in the footer
+        self.progress_summary = ProgressSummaryBar(status_bar)
+        self.progress_summary.pack(side=tk.LEFT, fill=tk.X, expand=True,
+                                    padx=(0, 10), pady=4)
 
-        # Overall progress embedded in the footer to use the empty space.
-        self.progress_summary = ProgressSummaryBar()
-        status_layout.addWidget(self.progress_summary, stretch=1)
-
-        hint_label = QLabel(
-            "Click Download_Cart cell to toggle  |  Right-click cell to filter  |  Click header to sort"
+        hint_label = ttk.Label(
+            status_bar,
+            text="Click Download_Cart cell to toggle  |  Right-click cell to filter  |  Click header to sort",
+            style="Muted.TLabel",
         )
-        hint_label.setProperty("muted", True)
-        status_layout.addWidget(hint_label)
-
-        # Quick link to table column/label documentation
-        status_layout.addWidget(_make_help_btn("table-columns"))
-
-        layout.addWidget(status_bar)
-
-        # Apply themed styles (must be after all widgets are created)
-        self._apply_toolbar_theme()
-
-    def _apply_toolbar_theme(self):
-        """Apply themed colors to toolbar buttons and bars."""
-        base = c('base')
-        self._toolbar.setStyleSheet(f"background-color: {c('mantle')};")
-        self._status_bar_widget.setStyleSheet(f"background-color: {c('mantle')};")
-        self.filter_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('blue')}; color: {base};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 16px; }}"
-            f" QPushButton:hover {{ background-color: {c('sky')}; }}"
-        )
-        self.start_scraping_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('green')}; color: {base};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 20px; }}"
-            f" QPushButton:hover {{ background-color: {c('teal')}; }}"
-            f" QPushButton:disabled {{ background-color: {c('surface1')}; color: {c('muted')}; }}"
-        )
-        self.new_scrape_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('mauve')}; color: {base};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 16px; }}"
-            f" QPushButton:hover {{ background-color: {c('lavender')}; }}"
-        )
-        self.open_folder_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('surface1')}; color: {c('text')};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 16px; }}"
-            f" QPushButton:hover {{ background-color: {c('surface2')}; }}"
-        )
-        self.stop_daemon_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('red')}; color: {base};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 16px; }}"
-            f" QPushButton:hover {{ background-color: {c('peach')}; }}"
-        )
-        self.daemon_status_label.setStyleSheet(f"color: {c('yellow')};")
-        self.send_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {c('peach')}; color: {base};"
-            f" font-weight: bold; border: none; border-radius: 6px; padding: 6px 16px; }}"
-            f" QPushButton:hover {{ background-color: {c('yellow')}; }}"
-        )
-        # Update help buttons
-        for btn in self.findChildren(QToolButton):
-            if btn.text() == "?":
-                btn.setStyleSheet(_help_btn_qss())
+        hint_label.pack(side=tk.RIGHT, padx=(10, 12), pady=4)
 
     def _connect_signals(self):
-        self.data_table.cart_count_changed.connect(self._on_cart_count_changed)
-        self.data_table.cell_filter_requested.connect(
-            self._on_cell_filter_requested
-        )
+        # Data table callbacks
+        self.data_table._on_cart_count_changed = self._on_cart_count_changed
+        self.data_table._on_cell_filter_requested = self._on_cell_filter_requested
+
+        # App-level signals
         app_signals.scraping_finished.connect(self._on_scraping_finished)
         app_signals.daemon_next_run.connect(self._on_daemon_countdown)
         app_signals.daemon_run_starting.connect(self._on_daemon_run_starting)
         app_signals.daemon_stopped.connect(self._on_daemon_stopped)
-        app_signals.theme_changed.connect(lambda _: self._apply_toolbar_theme())
+        app_signals.theme_changed.connect(lambda _: self._apply_theme())
 
-    def _toggle_sidebar(self, checked):
-        self.sidebar.setVisible(checked)
+    def _apply_theme(self):
+        """Re-apply theme colors when theme changes."""
+        try:
+            self.console_widget.update_theme()
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------ #
+    #  Sidebar toggle
+    # ------------------------------------------------------------------ #
+
+    def _toggle_sidebar(self):
+        if self._sidebar_visible:
+            self._content_pane.forget(self.sidebar)
+            self._sidebar_visible = False
+        else:
+            self._content_pane.insert(0, self.sidebar, weight=0)
+            self._sidebar_visible = True
+
+    def show_sidebar(self):
+        """Ensure the sidebar is visible (called externally by main_window)."""
+        if not self._sidebar_visible:
+            self._toggle_sidebar()
+
+    # ------------------------------------------------------------------ #
+    #  Filter controls
+    # ------------------------------------------------------------------ #
 
     def _on_reset(self):
         """Reset all filters and show all data."""
@@ -301,6 +222,10 @@ class TablePage(QWidget):
         state = self.sidebar.collect_state()
         self.data_table.apply_filter(state)
         self._update_row_count()
+
+    # ------------------------------------------------------------------ #
+    #  Cart controls
+    # ------------------------------------------------------------------ #
 
     def _on_select_all_cart(self):
         self.data_table.select_all_cart()
@@ -332,10 +257,16 @@ class TablePage(QWidget):
             [item[0] for item in cart_items]
         )
 
+    # ------------------------------------------------------------------ #
+    #  Scraping controls
+    # ------------------------------------------------------------------ #
+
     def _on_start_scraping(self):
         """Read areas from the area page and start scraping."""
-        main_window = self.window()
-        area_page = getattr(main_window, "area_page", None)
+        parent_stack = self.master
+        area_page = None
+        if parent_stack:
+            area_page = parent_stack._pages.get(2)  # index 2 = area page
 
         if not area_page:
             app_signals.error_occurred.emit(
@@ -344,7 +275,7 @@ class TablePage(QWidget):
             return
 
         selected_areas = area_page.get_selected_areas()
-        # Modes that don't require area selection (msg/paid/story check, subscribe)
+        # Modes that don't require area selection
         _no_area_modes = {"msg_check", "paid_check", "story_check", "subscribe"}
         _current_actions = getattr(area_page, "_current_actions", set()) or set()
         _skip_area_check = bool(_current_actions & _no_area_modes)
@@ -355,12 +286,10 @@ class TablePage(QWidget):
             )
             return
 
-        # New scrape run: clear table + progress UI immediately so purges/rescrapes
-        # don't leave stale rows/progress visible when the DB is deleted.
+        # New scrape run: clear table + progress UI immediately
         try:
             self.data_table.clear_all()
         except Exception:
-            # Don't block scraping if the UI reset fails
             pass
         try:
             self.progress_summary.clear_all()
@@ -369,21 +298,21 @@ class TablePage(QWidget):
         self._update_row_count()
 
         # Disable the button to prevent double-starts
-        self.start_scraping_btn.setEnabled(False)
-        self.start_scraping_btn.setText("Scraping...")
+        self.start_scraping_btn.configure(state=tk.DISABLED)
+        self.start_scraping_btn.configure(text="Scraping...")
         self._scrape_active = True
 
         # Emit additional options from the area page
-        if area_page.scrape_paid_check.isChecked():
+        if getattr(area_page, "_scrape_paid_var", None) and area_page._scrape_paid_var.get():
             app_signals.scrape_paid_toggled.emit(True)
-        if area_page.scrape_labels_check.isChecked():
+        if getattr(area_page, "_scrape_labels_var", None) and area_page._scrape_labels_var.get():
             app_signals.scrape_labels_toggled.emit(True)
-        # Discord webhook updates (only if configured + user enabled)
+        # Discord webhook updates
         try:
             enabled = bool(
-                getattr(area_page, "discord_updates_check", None)
-                and area_page.discord_updates_check.isEnabled()
-                and area_page.discord_updates_check.isChecked()
+                getattr(area_page, "_discord_var", None)
+                and area_page.discord_updates_check.instate(["!disabled"])
+                and area_page._discord_var.get()
             )
             app_signals.discord_configured.emit(enabled)
         except Exception:
@@ -393,25 +322,24 @@ class TablePage(QWidget):
         try:
             advanced = {
                 "allow_dupe_downloads": bool(
-                    getattr(area_page, "allow_dupes_check", None)
-                    and area_page.allow_dupes_check.isChecked()
+                    getattr(area_page, "_allow_dupes_var", None)
+                    and area_page._allow_dupes_var.get()
                 ),
                 "rescrape_all": bool(
-                    getattr(area_page, "rescrape_all_check", None)
-                    and area_page.rescrape_all_check.isChecked()
+                    getattr(area_page, "_rescrape_var", None)
+                    and area_page._rescrape_var.get()
                 ),
                 "delete_model_db": bool(
-                    getattr(area_page, "delete_db_check", None)
-                    and area_page.delete_db_check.isChecked()
+                    getattr(area_page, "_delete_db_var", None)
+                    and area_page._delete_db_var.get()
                 ),
                 "delete_downloads": bool(
-                    getattr(area_page, "delete_downloads_check", None)
-                    and area_page.delete_downloads_check.isChecked()
+                    getattr(area_page, "_delete_dl_var", None)
+                    and area_page._delete_dl_var.get()
                 ),
             }
             app_signals.advanced_scrape_configured.emit(advanced)
         except Exception:
-            # Don't block scraping if advanced config can't be emitted
             pass
 
         # Emit daemon configuration
@@ -423,9 +351,9 @@ class TablePage(QWidget):
                 area_page.is_notify_enabled(),
                 area_page.is_sound_enabled(),
             )
-            self.stop_daemon_btn.show()
-            self.daemon_status_label.show()
-            self.daemon_status_label.setText("Daemon mode active")
+            self.stop_daemon_btn.pack(side=tk.LEFT, padx=(0, 8))
+            self.daemon_status_label.configure(text="Daemon mode active")
+            self.daemon_status_label.pack(side=tk.LEFT)
         else:
             app_signals.daemon_configured.emit(False, 30.0, False, False)
 
@@ -456,14 +384,13 @@ class TablePage(QWidget):
         log.info(f"Starting scrape with areas: {selected_areas}")
         app_signals.areas_selected.emit(selected_areas)
 
-    @pyqtSlot()
+    # ------------------------------------------------------------------ #
+    #  Scraping lifecycle callbacks
+    # ------------------------------------------------------------------ #
+
     def _on_scraping_finished(self):
-        """Re-enable the Start Scraping button and show New Scrape option.
-        If daemon mode is active, don't show New Scrape yet — the daemon
-        will re-trigger scraping after the wait interval."""
+        """Re-enable the Start Scraping button when scraping completes."""
         self._scrape_active = False
-        # If user requested "New Scrape" during an active run, wait until the
-        # scraper actually finishes/cancels, then reset UI and navigate.
         if self._pending_new_scrape_nav:
             self._pending_new_scrape_nav = False
             if self._pending_reset:
@@ -472,25 +399,21 @@ class TablePage(QWidget):
             self._reset_scrape_controls()
             self._navigate_to_action_page()
             return
-        if self.stop_daemon_btn.isVisible():
-            # Daemon mode — keep the button disabled and show waiting status
-            self.start_scraping_btn.setText("Daemon waiting...")
-            # Still allow user to go back to start; they'll be prompted by Stop Daemon flow.
+        if self.stop_daemon_btn.winfo_ismapped():
+            self.start_scraping_btn.configure(text="Daemon waiting...")
             return
-        self.start_scraping_btn.setEnabled(True)
-        self.start_scraping_btn.setText("Start Scraping >>")
-        self.daemon_status_label.hide()
+        self.start_scraping_btn.configure(state=tk.NORMAL)
+        self.start_scraping_btn.configure(text="Start Scraping >>")
+        self.daemon_status_label.pack_forget()
 
-    @pyqtSlot(str)
     def _on_daemon_countdown(self, text):
         """Update the daemon countdown label with remaining time."""
-        self.daemon_status_label.setText(text)
-        self.daemon_status_label.show()
+        self.daemon_status_label.configure(text=text)
+        if not self.daemon_status_label.winfo_ismapped():
+            self.daemon_status_label.pack(side=tk.LEFT)
 
-    @pyqtSlot(int)
     def _on_daemon_run_starting(self, run_number):
         """Update UI when a daemon re-run begins."""
-        # Daemon re-run: treat as a fresh scrape cycle in the UI.
         self._scrape_active = True
         try:
             self.data_table.clear_all()
@@ -501,45 +424,47 @@ class TablePage(QWidget):
         except Exception:
             pass
         self._update_row_count()
-        self.start_scraping_btn.setText(f"Scraping (run #{run_number})...")
-        self.daemon_status_label.setText(f"Daemon run #{run_number}")
-        self.daemon_status_label.show()
+        self.start_scraping_btn.configure(text=f"Scraping (run #{run_number})...")
+        self.daemon_status_label.configure(text=f"Daemon run #{run_number}")
+        if not self.daemon_status_label.winfo_ismapped():
+            self.daemon_status_label.pack(side=tk.LEFT)
 
-    @pyqtSlot()
     def _on_daemon_stopped(self):
         """Reset UI when daemon mode is stopped."""
-        self.stop_daemon_btn.hide()
-        self.daemon_status_label.hide()
-        self.start_scraping_btn.setEnabled(True)
-        self.start_scraping_btn.setText("Start Scraping >>")
+        self.stop_daemon_btn.pack_forget()
+        self.daemon_status_label.pack_forget()
+        self.start_scraping_btn.configure(state=tk.NORMAL)
+        self.start_scraping_btn.configure(text="Start Scraping >>")
         self._scrape_active = False
 
     def _on_stop_daemon(self):
         """Request the daemon loop to stop."""
         app_signals.stop_daemon_requested.emit()
-        self.stop_daemon_btn.setEnabled(False)
-        self.stop_daemon_btn.setText("Stopping...")
-        self.daemon_status_label.setText("Stopping daemon...")
+        self.stop_daemon_btn.configure(state=tk.DISABLED)
+        self.stop_daemon_btn.configure(text="Stopping...")
+        self.daemon_status_label.configure(text="Stopping daemon...")
+
+    # ------------------------------------------------------------------ #
+    #  New scrape / reset
+    # ------------------------------------------------------------------ #
 
     def _ask_reset_options(self):
-        """Ask whether to reset all scrape options/models to defaults.
-        Returns True if the user chose to reset, False otherwise."""
-        reply = QMessageBox.question(
-            self,
+        """Ask whether to reset all scrape options/models to defaults."""
+        return messagebox.askyesno(
             "Reset options?",
             "Do you want to reset all scrape options and selected models\n"
             "back to their defaults?\n\n"
             "Yes = start fresh (like opening the GUI for the first time)\n"
             "No = keep your current selections",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        return reply == QMessageBox.StandardButton.Yes
 
     def _reset_all_pages(self):
         """Reset action, area, and model pages to their defaults."""
-        main_window = self.window()
-        for attr in ("action_page", "area_page", "model_page"):
-            page = getattr(main_window, attr, None)
+        parent_stack = self.master
+        if not parent_stack:
+            return
+        for idx in (0, 1, 2):  # action, area, model pages
+            page = parent_stack._pages.get(idx)
             if page and hasattr(page, "reset_to_defaults"):
                 try:
                     page.reset_to_defaults()
@@ -558,90 +483,93 @@ class TablePage(QWidget):
             folder = ""
 
         if not folder:
-            QMessageBox.warning(
-                self,
+            messagebox.showwarning(
                 "No Download Folder",
                 "No save location is configured.\n"
-                "Set one in Configuration → File Options → Save Location.",
+                "Set one in Configuration \u2192 File Options \u2192 Save Location.",
             )
             return
 
         folder = os.path.expandvars(os.path.expanduser(folder))
         if not os.path.isdir(folder):
-            QMessageBox.warning(
-                self,
+            messagebox.showwarning(
                 "Folder Not Found",
                 f"The configured download folder does not exist:\n{folder}",
             )
             return
 
-        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+        # Open in system file manager
+        if _sys.platform == "win32":
+            os.startfile(folder)
+        elif _sys.platform == "darwin":
+            _subprocess.Popen(["open", folder])
+        else:
+            _subprocess.Popen(["xdg-open", folder])
 
     def _on_new_scrape(self):
         """Navigate back to the action page to start a new scrape."""
-        # If a scrape is in progress, confirm cancellation.
         if self._scrape_active:
-            reply = QMessageBox.question(
-                self,
+            if not messagebox.askyesno(
                 "Cancel current scrape?",
                 "Content is currently being scraped.\n\n"
                 "Cancel the current scrape and return to the beginning?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply != QMessageBox.StandardButton.Yes:
+            ):
                 return
-            # Ask about resetting now, before cancellation begins
             self._pending_reset = self._ask_reset_options()
             try:
                 app_signals.cancel_scrape_requested.emit()
             except Exception:
                 pass
-            # Don't navigate immediately; wait for scraping_finished so the UI
-            # doesn't get stuck disabled while cancellation is still in flight.
             self._pending_new_scrape_nav = True
             try:
-                self.start_scraping_btn.setText("Cancelling...")
-                self.start_scraping_btn.setEnabled(False)
+                self.start_scraping_btn.configure(text="Cancelling...")
+                self.start_scraping_btn.configure(state=tk.DISABLED)
             except Exception:
                 pass
             try:
-                self.daemon_status_label.setText("Cancelling current scrape...")
-                self.daemon_status_label.show()
+                self.daemon_status_label.configure(text="Cancelling current scrape...")
+                if not self.daemon_status_label.winfo_ismapped():
+                    self.daemon_status_label.pack(side=tk.LEFT)
             except Exception:
                 pass
             return
 
-        # If daemon mode is active, stop it when the user starts a new workflow.
+        # If daemon mode is active, stop it
         try:
-            if self.stop_daemon_btn.isVisible():
+            if self.stop_daemon_btn.winfo_ismapped():
                 app_signals.stop_daemon_requested.emit()
         except Exception:
             pass
 
-        # Ask about resetting options
         if self._ask_reset_options():
             self._reset_all_pages()
 
         self._reset_scrape_controls()
         self._navigate_to_action_page()
 
-    @pyqtSlot(int)
-    def _on_cart_count_changed(self, count):
-        self.cart_label.setText(f"Cart: {count} items")
+    # ------------------------------------------------------------------ #
+    #  Table event handlers
+    # ------------------------------------------------------------------ #
 
-    @pyqtSlot(str, str)
+    def _on_cart_count_changed(self, count):
+        self.cart_label.configure(text=f"Cart: {count} items")
+
     def _on_cell_filter_requested(self, col_name, value):
         """When user right-clicks a cell to filter by that value."""
         self.sidebar.update_field(col_name, value)
         self._on_filter()
 
     def _update_row_count(self):
-        count = self.data_table.rowCount()
+        count = len(self.data_table._display_data)
         total = len(self.data_table._raw_data)
         if count == total:
-            self.row_count_label.setText(f"{count} rows")
+            self.row_count_label.configure(text=f"{count} rows")
         else:
-            self.row_count_label.setText(f"{count} / {total} rows (filtered)")
+            self.row_count_label.configure(text=f"{count} / {total} rows (filtered)")
+
+    # ------------------------------------------------------------------ #
+    #  Data loading
+    # ------------------------------------------------------------------ #
 
     def load_data(self, table_data):
         """Load table data from the scraper pipeline (replaces existing)."""

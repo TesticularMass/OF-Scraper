@@ -1,22 +1,9 @@
 import logging
-import html
 import re
+import webbrowser
 from pathlib import Path
-from typing import Optional
-
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QDesktopServices, QTextDocument
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QTextBrowser,
-    QVBoxLayout,
-    QWidget,
-)
-from PyQt6.QtCore import QUrl
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import c
@@ -30,171 +17,342 @@ _RE_BOLD = re.compile(r"\*\*(.+?)\*\*")
 _RE_CODE = re.compile(r"`([^`]+)`")
 
 
-def _inline_to_html(text: str) -> str:
-    """Convert a small subset of inline markdown to HTML safely."""
-    if text is None:
-        return ""
-    t = html.escape(str(text), quote=False)
-    # links first so link text can contain bold/code after escaping
-    t = _RE_LINK.sub(r'<a href="\2">\1</a>', t)
-    t = _RE_BOLD.sub(r"<b>\1</b>", t)
-    t = _RE_CODE.sub(r"<code>\1</code>", t)
-    return t
+class HelpPage(ttk.Frame):
+    """In-app README / help page for the GUI."""
 
+    def __init__(self, parent=None, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.manager = manager
+        self._anchor_marks = {}  # anchor_id -> text mark name
+        self._link_ranges = []   # (tag_name, url) for click handling
+        self._setup_ui()
+        self._load_help_text()
+        app_signals.theme_changed.connect(lambda _: self._load_help_text())
 
-def _help_md_to_html(md: str) -> str:
-    """Convert our help markdown into HTML with reliable anchors.
+    def _setup_ui(self):
+        pad = ttk.Frame(self)
+        pad.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
 
-    Qt's setMarkdown/scrollToAnchor behavior can be inconsistent, especially with
-    embedded HTML anchors. By rendering our own HTML we ensure:
-    - TOC links are clickable
-    - scrollToAnchor() works with <a id="..."></a>
-    """
-    lines = (md or "").splitlines()
-    out = []
-    ul_stack = []  # indent levels
-    in_para = False
+        header = ttk.Label(pad, text="Help / README", style="Heading.TLabel")
+        header.pack(anchor=tk.W)
 
-    def close_paragraph():
-        nonlocal in_para
-        if in_para:
-            out.append("</p>")
-            in_para = False
+        subtitle = ttk.Label(
+            pad,
+            text="Quick guide to the OF-Scraper GUI: what each section does and how to use it.",
+            style="Subheading.TLabel",
+            wraplength=800,
+        )
+        subtitle.pack(anchor=tk.W, pady=(0, 12))
 
-    def close_lists(to_level: int = 0):
-        nonlocal ul_stack
-        while len(ul_stack) > to_level:
-            out.append("</ul>")
-            ul_stack.pop()
+        # Actions row
+        actions_frame = ttk.Frame(pad)
+        actions_frame.pack(fill=tk.X, pady=(0, 12))
 
-    pending_anchor_id: Optional[str] = None  # buffered from <a id="..."> line
+        self._jump_var = tk.StringVar(value="Jump to\u2026")
+        jump_values = [
+            "Jump to\u2026",
+            "Left navigation",
+            "Scraper workflow",
+            "Select Content Areas & Filters",
+            "Select Models",
+            "Configuration (config.json)",
+            "Table / Scraping page",
+            "Filters",
+            "Table columns",
+            "Merge DBs",
+            "Troubleshooting notes",
+            "Auth Issues",
+        ]
+        self._jump_anchors = {
+            "Left navigation": "nav-left",
+            "Scraper workflow": "scraper-workflow",
+            "Select Content Areas & Filters": "sca-root",
+            "Select Models": "models-root",
+            "Configuration (config.json)": "config-root",
+            "Table / Scraping page": "table-root",
+            "Filters": "filters-root",
+            "Table columns": "table-columns",
+            "Merge DBs": "merge-dbs",
+            "Troubleshooting notes": "troubleshooting",
+            "Auth Issues": "auth-issues",
+        }
+        self.jump_combo = ttk.Combobox(actions_frame, textvariable=self._jump_var,
+                                        values=jump_values, state="readonly",
+                                        width=40)
+        self.jump_combo.pack(side=tk.LEFT, padx=(0, 8))
+        self.jump_combo.bind("<<ComboboxSelected>>", self._on_jump_changed)
 
-    for raw in lines:
-        line = raw.rstrip("\n")
+        additional_btn = ttk.Button(actions_frame, text="Additional Help",
+                                     command=self._on_additional_help)
+        additional_btn.pack(side=tk.RIGHT, padx=(4, 0))
 
-        # Buffer <a id="..."></a> anchor lines rather than emitting them
-        # immediately.  Qt's scrollToAnchor() can only find anchors that wrap
-        # actual text content, so we defer and attach the id to the next
-        # heading.  If something other than a heading follows we fall back to
-        # emitting a named span so the anchor is at least present in the DOM.
-        if line.strip().startswith("<a ") and line.strip().endswith("</a>"):
-            close_paragraph()
-            close_lists(0)
-            id_match = re.search(r'id=[\"\'\u201c\u201d]([^\"\'\u201c\u201d]+)[\"\'\u201c\u201d]', line.strip())
-            if id_match:
-                pending_anchor_id = id_match.group(1)
-            else:
-                out.append(line.strip())
-            continue
+        reload_btn = ttk.Button(actions_frame, text="Reload Help",
+                                 command=self._load_help_text)
+        reload_btn.pack(side=tk.RIGHT, padx=(4, 0))
 
-        # Horizontal rules
-        if line.strip() == "---":
-            close_paragraph()
-            close_lists(0)
-            if pending_anchor_id:
-                out.append(f'<span id="{pending_anchor_id}" style="display:block;"></span>')
-                pending_anchor_id = None
-            out.append("<hr/>")
-            continue
+        # Text viewer
+        viewer_frame = ttk.Frame(pad)
+        viewer_frame.pack(fill=tk.BOTH, expand=True)
+        viewer_frame.columnconfigure(0, weight=1)
+        viewer_frame.rowconfigure(0, weight=1)
 
-        # Headings — attach any buffered anchor directly to the heading text
-        # so scrollToAnchor() can locate it reliably.
-        m = re.match(r"^(#{1,6})\s+(.*)$", line)
-        if m:
-            close_paragraph()
-            close_lists(0)
-            level = len(m.group(1))
-            text = _inline_to_html(m.group(2).strip())
-            # Keep headings within h2-h4 visually (h1 is huge)
-            h_level = min(max(level + 1, 2), 4)
-            if pending_anchor_id:
-                out.append(
-                    f'<h{h_level}><a name="{pending_anchor_id}" id="{pending_anchor_id}">'
-                    f"{text}</a></h{h_level}>"
-                )
-                pending_anchor_id = None
-            else:
-                out.append(f"<h{h_level}>{text}</h{h_level}>")
-            continue
+        self.viewer = tk.Text(
+            viewer_frame,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            font=("Segoe UI", 11),
+            bg=c("base"),
+            fg=c("text"),
+            insertbackground=c("text"),
+            selectbackground=c("blue"),
+            selectforeground=c("base"),
+            relief=tk.FLAT,
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=c("surface0"),
+            highlightcolor=c("blue"),
+            padx=16,
+            pady=12,
+            cursor="arrow",
+        )
+        self.viewer.grid(row=0, column=0, sticky="nsew")
 
-        # Blank line: end paragraphs/lists cleanly
-        if not line.strip():
-            close_paragraph()
-            close_lists(0)
-            continue
+        scrollbar = ttk.Scrollbar(viewer_frame, orient=tk.VERTICAL,
+                                   command=self.viewer.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.viewer.configure(yscrollcommand=scrollbar.set)
 
-        # List items (supports indentation by 2-space steps)
-        lm = re.match(r"^(\s*)-\s+(.*)$", line)
-        if lm:
-            close_paragraph()
-            indent = len(lm.group(1).replace("\t", "  "))
-            level = indent // 2
-            # open/close lists to current level
-            if len(ul_stack) < level + 1:
-                while len(ul_stack) < level + 1:
-                    out.append("<ul>")
-                    ul_stack.append(level)
-            elif len(ul_stack) > level + 1:
-                close_lists(level + 1)
-            out.append(f"<li>{_inline_to_html(lm.group(2).strip())}</li>")
-            continue
+        self._configure_tags()
 
-        # Default: paragraph text
-        close_lists(0)
-        if not in_para:
-            out.append("<p>")
-            in_para = True
-            out.append(_inline_to_html(line.strip()))
+    def _configure_tags(self):
+        """Set up text tags for markdown formatting."""
+        self.viewer.tag_configure("h2", font=("Segoe UI", 18, "bold"),
+                                  foreground=c("green"), spacing1=18, spacing3=8)
+        self.viewer.tag_configure("h3", font=("Segoe UI", 15, "bold"),
+                                  foreground=c("green"), spacing1=14, spacing3=6)
+        self.viewer.tag_configure("h4", font=("Segoe UI", 13, "bold"),
+                                  foreground=c("green"), spacing1=10, spacing3=4)
+        self.viewer.tag_configure("bold", font=("Segoe UI", 11, "bold"))
+        self.viewer.tag_configure("code", font=("Consolas", 11),
+                                  background=c("mantle"), foreground=c("text"))
+        self.viewer.tag_configure("bullet", lmargin1=20, lmargin2=32)
+        self.viewer.tag_configure("bullet2", lmargin1=40, lmargin2=52)
+        self.viewer.tag_configure("hr", foreground=c("surface1"),
+                                  font=("Consolas", 6), spacing1=8, spacing3=8)
+        self.viewer.tag_configure("normal", font=("Segoe UI", 11),
+                                  spacing1=2, spacing3=2)
+
+    def _on_jump_changed(self, event=None):
+        sel = self._jump_var.get()
+        anchor = self._jump_anchors.get(sel)
+        if anchor:
+            self.scroll_to_anchor(anchor)
+        self._jump_var.set("Jump to\u2026")
+
+    def _on_additional_help(self):
+        if messagebox.askyesno(
+            "Additional Help",
+            f"For additional help join our discord {DISCORD_HELP_URL}\n\n"
+            "Open Discord invite in your browser?",
+        ):
+            try:
+                webbrowser.open(DISCORD_HELP_URL)
+            except Exception:
+                pass
+
+    def _help_md_path(self):
+        return Path(__file__).resolve().parents[1] / "help" / "GUI_HELP.md"
+
+    def scroll_to_anchor(self, anchor):
+        """Scroll the viewer to an internal anchor."""
+        anchor = (anchor or "").strip().lstrip("#")
+        if not anchor:
+            return
+        mark = self._anchor_marks.get(anchor)
+        if mark:
+            self.viewer.see(mark)
+
+    def _insert_inline(self, line, extra_tags=()):
+        """Parse inline markdown (bold, code, links) and insert into the text widget."""
+        # Split line into segments: bold, code, links, and plain text
+        # Process in order: find all matches, sort by position, insert segments
+        segments = []  # (start, end, type, data)
+
+        for m in _RE_LINK.finditer(line):
+            segments.append((m.start(), m.end(), "link", (m.group(1), m.group(2))))
+        for m in _RE_BOLD.finditer(line):
+            # Don't add bold if it overlaps with a link
+            if not any(s[0] <= m.start() < s[1] for s in segments):
+                segments.append((m.start(), m.end(), "bold", m.group(1)))
+        for m in _RE_CODE.finditer(line):
+            if not any(s[0] <= m.start() < s[1] for s in segments):
+                segments.append((m.start(), m.end(), "code", m.group(1)))
+
+        segments.sort(key=lambda s: s[0])
+
+        pos = 0
+        for start, end, seg_type, data in segments:
+            # Insert plain text before this segment
+            if start > pos:
+                self.viewer.insert(tk.END, line[pos:start], tuple(extra_tags) + ("normal",) if extra_tags else ("normal",))
+
+            if seg_type == "link":
+                link_text, url = data
+                tag_name = f"link_{len(self._link_ranges)}"
+                self.viewer.tag_configure(tag_name, foreground=c("blue"),
+                                           underline=True)
+                self.viewer.tag_bind(tag_name, "<Button-1>",
+                                      lambda e, u=url: self._handle_href(u))
+                self.viewer.tag_bind(tag_name, "<Enter>",
+                                      lambda e: self.viewer.configure(cursor="hand2"))
+                self.viewer.tag_bind(tag_name, "<Leave>",
+                                      lambda e: self.viewer.configure(cursor="arrow"))
+                self._link_ranges.append((tag_name, url))
+                tags = tuple(extra_tags) + (tag_name,) if extra_tags else (tag_name,)
+                self.viewer.insert(tk.END, link_text, tags)
+            elif seg_type == "bold":
+                tags = tuple(extra_tags) + ("bold",) if extra_tags else ("bold",)
+                self.viewer.insert(tk.END, data, tags)
+            elif seg_type == "code":
+                tags = tuple(extra_tags) + ("code",) if extra_tags else ("code",)
+                self.viewer.insert(tk.END, data, tags)
+
+            pos = end
+
+        # Insert remaining plain text
+        if pos < len(line):
+            tags = tuple(extra_tags) + ("normal",) if extra_tags else ("normal",)
+            self.viewer.insert(tk.END, line[pos:], tags)
+
+    def _handle_href(self, href):
+        href = (href or "").strip()
+        if not href:
+            return
+        if href.startswith("#"):
+            self.scroll_to_anchor(href[1:])
         else:
-            out.append("<br/>" + _inline_to_html(line.strip()))
+            try:
+                webbrowser.open(href)
+            except Exception:
+                pass
 
-    close_paragraph()
-    close_lists(0)
-    if pending_anchor_id:
-        out.append(f'<span id="{pending_anchor_id}" style="display:block;"></span>')
-
-    body = "\n".join(out)
-    return f"""
-    <html>
-      <head>
-        <style>
-          body {{ font-family: Segoe UI, Consolas, monospace; font-size: 13px; color: {c('text')}; }}
-          a {{ color: {c('blue')}; text-decoration: none; }}
-          a:hover {{ text-decoration: underline; }}
-          h2,h3,h4 {{ color: {c('green')}; margin: 14px 0 6px 0; }}
-          hr {{ border: 0; border-top: 1px solid {c('sep')}; margin: 14px 0; }}
-          code {{ background: {c('mantle')}; color: {c('text')}; padding: 1px 4px; border-radius: 4px; }}
-          ul {{ margin-top: 6px; margin-bottom: 6px; }}
-        </style>
-      </head>
-      <body>
-        {body}
-        {"<br/>" * 8}
-      </body>
-    </html>
-    """
-
-
-class HelpBrowser(QTextBrowser):
-    """QTextBrowser that reliably detects link clicks.
-
-    QTextBrowser's anchorClicked can be inconsistent with markdown-rendered links.
-    This uses anchorAt() on mouse release to detect the href directly.
-    """
-
-    href_clicked = pyqtSignal(str)
-
-    def mouseReleaseEvent(self, event):
+    def _load_help_text(self):
+        md = None
+        p = self._help_md_path()
         try:
-            if event.button() == Qt.MouseButton.LeftButton:
-                href = self.anchorAt(event.pos())
-                if href:
-                    self.href_clicked.emit(str(href))
-                    event.accept()
-                    return
-        except Exception:
-            pass
-        super().mouseReleaseEvent(event)
+            if p.exists():
+                md = p.read_text(encoding="utf-8", errors="ignore")
+        except Exception as e:
+            log.debug(f"Failed reading help markdown: {e}")
+
+        if not md:
+            md = _FALLBACK_HELP_MD
+
+        self._render_markdown(md)
+
+    def _render_markdown(self, md):
+        """Render markdown content into the tk.Text widget with tags."""
+        self.viewer.configure(state=tk.NORMAL)
+        self.viewer.delete("1.0", tk.END)
+        self._anchor_marks.clear()
+        self._link_ranges.clear()
+
+        lines = (md or "").splitlines()
+        pending_anchor = None
+
+        for raw in lines:
+            line = raw.rstrip()
+
+            # Buffer <a id="..."> anchor lines
+            if line.strip().startswith("<a ") and line.strip().endswith("</a>"):
+                id_match = re.search(
+                    r'id=[\"\'\u201c\u201d]([^\"\'\u201c\u201d]+)[\"\'\u201c\u201d]',
+                    line.strip()
+                )
+                if id_match:
+                    pending_anchor = id_match.group(1)
+                continue
+
+            # Horizontal rules
+            if line.strip() == "---":
+                if pending_anchor:
+                    mark = f"anchor_{pending_anchor}"
+                    self.viewer.mark_set(mark, tk.END)
+                    self.viewer.mark_gravity(mark, tk.LEFT)
+                    self._anchor_marks[pending_anchor] = mark
+                    pending_anchor = None
+                self.viewer.insert(tk.END, "\u2500" * 80 + "\n", "hr")
+                continue
+
+            # Headings
+            m = re.match(r"^(#{1,6})\s+(.*)$", line)
+            if m:
+                level = len(m.group(1))
+                text = m.group(2).strip()
+                # Strip inline markdown for heading display
+                text = _RE_LINK.sub(r"\1", text)
+                text = _RE_BOLD.sub(r"\1", text)
+                text = _RE_CODE.sub(r"\1", text)
+
+                h_tag = f"h{min(max(level + 1, 2), 4)}"
+
+                if pending_anchor:
+                    mark = f"anchor_{pending_anchor}"
+                    self.viewer.mark_set(mark, tk.END)
+                    self.viewer.mark_gravity(mark, tk.LEFT)
+                    self._anchor_marks[pending_anchor] = mark
+                    pending_anchor = None
+
+                self.viewer.insert(tk.END, text + "\n", h_tag)
+                continue
+
+            # Blank lines
+            if not line.strip():
+                self.viewer.insert(tk.END, "\n")
+                continue
+
+            # List items
+            lm = re.match(r"^(\s*)-\s+(.*)$", line)
+            if lm:
+                indent = len(lm.group(1).replace("\t", "  "))
+                bullet_tag = "bullet2" if indent >= 2 else "bullet"
+                self.viewer.insert(tk.END, "\u2022 ", bullet_tag)
+                self._insert_inline(lm.group(2).strip(), extra_tags=(bullet_tag,))
+                self.viewer.insert(tk.END, "\n")
+                continue
+
+            # Flush pending anchor before paragraph text
+            if pending_anchor:
+                mark = f"anchor_{pending_anchor}"
+                self.viewer.mark_set(mark, tk.END)
+                self.viewer.mark_gravity(mark, tk.LEFT)
+                self._anchor_marks[pending_anchor] = mark
+                pending_anchor = None
+
+            # Normal paragraph text
+            self._insert_inline(line.strip())
+            self.viewer.insert(tk.END, "\n")
+
+        # Flush any remaining anchor
+        if pending_anchor:
+            mark = f"anchor_{pending_anchor}"
+            self.viewer.mark_set(mark, tk.END)
+            self.viewer.mark_gravity(mark, tk.LEFT)
+            self._anchor_marks[pending_anchor] = mark
+
+        self.viewer.configure(state=tk.DISABLED)
+
+    def update_theme(self):
+        """Re-apply theme colors."""
+        self.viewer.configure(
+            bg=c("base"),
+            fg=c("text"),
+            highlightbackground=c("surface0"),
+            highlightcolor=c("blue"),
+            selectbackground=c("blue"),
+            selectforeground=c("base"),
+        )
+        self._configure_tags()
 
 
 _FALLBACK_HELP_MD = """\
@@ -233,7 +391,7 @@ These are the sources to scan (depending on action):
 #### Advanced Scrape Options
 - **Allow duplicates (do NOT skip duplicates; treat reposts as new items)**: Disables duplicate-skipping logic.
 - **Rescrape everything (ignore cache / scan from the beginning)**: Forces a full history scan.
-  - **Delete model DB before scraping (resets downloaded/unlocked history)**: Deletes the model DB folder so the run starts “fresh”.
+  - **Delete model DB before scraping (resets downloaded/unlocked history)**: Deletes the model DB folder so the run starts "fresh".
   - **Also delete existing downloaded files for selected models**: Removes downloaded files under your save location for that model.
 
 #### Daemon Mode (Auto-Repeat Scraping)
@@ -272,9 +430,9 @@ Tips:
 - The **overall progress bar** is shown in the footer at the bottom of the table page.
 - The console area shows detailed logs and trace output.
 
-#### “Unlocked” column meanings (important)
+#### "Unlocked" column meanings (important)
 
-The **Unlocked** column is not a direct 1:1 match with “purchased”.
+The **Unlocked** column is not a direct 1:1 match with "purchased".
 
 - **Locked**: Not viewable (paywalled).
 - **Preview**: Viewable teaser/preview media for a priced item.
@@ -300,210 +458,5 @@ The **Unlocked** column is not a direct 1:1 match with “purchased”.
 ## Common troubleshooting
 
 - If a purge option deletes files/DB and you immediately start a download scrape, the scraper may recreate folders/databases right away.
-- “Unlocked” values can include non-purchased viewable media depending on the source type (messages/PPV behavior differs from timeline posts).
+- "Unlocked" values can include non-purchased viewable media depending on the source type (messages/PPV behavior differs from timeline posts).
 """
-
-
-class HelpPage(QWidget):
-    """In-app README / help page for the GUI."""
-
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
-        self.manager = manager
-        self._pending_anchor = None
-        self._setup_ui()
-        self._load_help_text()
-        app_signals.theme_changed.connect(lambda _: self._load_help_text())
-
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(12)
-
-        header = QLabel("Help / README")
-        header.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        header.setProperty("heading", True)
-        layout.addWidget(header)
-
-        subtitle = QLabel(
-            "Quick guide to the OF-Scraper GUI: what each section does and how to use it."
-        )
-        subtitle.setProperty("subheading", True)
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
-
-        # Actions row
-        actions = QHBoxLayout()
-        self.jump_combo = QComboBox()
-        self.jump_combo.setMinimumWidth(260)
-        self.jump_combo.addItem("Jump to…", "")
-        self.jump_combo.addItem("Left navigation", "nav-left")
-        self.jump_combo.addItem("Scraper workflow", "scraper-workflow")
-        self.jump_combo.addItem("Select Content Areas & Filters", "sca-root")
-        self.jump_combo.addItem("Select Models", "models-root")
-        self.jump_combo.addItem("Configuration (config.json)", "config-root")
-        self.jump_combo.addItem("Table / Scraping page", "table-root")
-        self.jump_combo.addItem("Filters", "filters-root")
-        self.jump_combo.addItem("Table columns", "table-columns")
-        self.jump_combo.addItem("Merge DBs", "merge-dbs")
-        self.jump_combo.addItem("Troubleshooting notes", "troubleshooting")
-        self.jump_combo.addItem("Auth Issues", "auth-issues")
-        self.jump_combo.currentIndexChanged.connect(self._on_jump_changed)
-        actions.addWidget(self.jump_combo)
-        actions.addStretch()
-
-        self.additional_help_btn = QPushButton("Additional Help")
-        self.additional_help_btn.clicked.connect(self._on_additional_help)
-        actions.addWidget(self.additional_help_btn)
-
-        self.reload_btn = QPushButton("Reload Help")
-        self.reload_btn.clicked.connect(self._load_help_text)
-        actions.addWidget(self.reload_btn)
-        layout.addLayout(actions)
-
-        self.viewer = HelpBrowser()
-        # We'll handle all links ourselves for reliability.
-        self.viewer.setOpenExternalLinks(False)
-        self.viewer.setOpenLinks(False)
-        # With HTML rendering, QTextBrowser's anchorClicked is reliable; keep the
-        # mouse-based fallback too.
-        try:
-            self.viewer.anchorClicked.connect(
-                lambda url: self._handle_href(url.toString())
-            )
-        except Exception:
-            pass
-        self.viewer.href_clicked.connect(self._handle_href)
-        self.viewer.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextBrowserInteraction
-        )
-        layout.addWidget(self.viewer, stretch=1)
-
-    def _on_jump_changed(self, idx: int):
-        try:
-            anchor = self.jump_combo.currentData()
-            if anchor:
-                self.scroll_to_anchor(str(anchor))
-                # reset back to placeholder
-                self.jump_combo.blockSignals(True)
-                self.jump_combo.setCurrentIndex(0)
-                self.jump_combo.blockSignals(False)
-        except Exception:
-            pass
-
-    def _handle_href(self, href: str):
-        """Handle internal #anchors and external links."""
-        try:
-            href = (href or "").strip()
-            if not href:
-                return
-            if href.startswith("#"):
-                self.scroll_to_anchor(href[1:])
-                return
-            url = QUrl(href)
-            if url.isValid():
-                QDesktopServices.openUrl(url)
-        except Exception:
-            pass
-
-    def _on_additional_help(self):
-        msg = f"For additional help join our discord {DISCORD_HELP_URL}"
-        reply = QMessageBox.question(
-            self,
-            "Additional Help",
-            msg + "\n\nOpen Discord invite in your browser?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                QDesktopServices.openUrl(QUrl(DISCORD_HELP_URL))
-            except Exception:
-                pass
-
-    def _help_md_path(self) -> Path:
-        # ofscraper/gui/pages/help_page.py → ofscraper/gui/help/GUI_HELP.md
-        return Path(__file__).resolve().parents[1] / "help" / "GUI_HELP.md"
-
-    def scroll_to_anchor(self, anchor: str):
-        """Scroll the viewer to an internal anchor (used by '?' help buttons)."""
-        try:
-            anchor = (anchor or "").strip().lstrip("#")
-            if not anchor:
-                return
-            self._pending_anchor = anchor
-
-            def _do_scroll():
-                try:
-                    if not self._pending_anchor:
-                        return
-                    a = self._pending_anchor
-                    self._pending_anchor = None
-                    # Qt6's scrollToAnchor() silently fails for dynamically set
-                    # HTML.  Walk the document blocks manually instead.
-                    if not self._scroll_to_anchor_manual(a):
-                        # Fall back to the built-in as a last resort
-                        self.viewer.scrollToAnchor(a)
-                except Exception:
-                    pass
-
-            # Defer so markdown→html render/layout is complete.
-            # 50ms avoids the race between setHtml() and the document
-            # layout pass completing (which 0ms does not guarantee).
-            QTimer.singleShot(50, _do_scroll)
-        except Exception:
-            pass
-
-    def _scroll_to_anchor_manual(self, anchor: str) -> bool:
-        """Walk QTextDocument blocks to find an anchor by name and scroll to it."""
-        try:
-            doc = self.viewer.document()
-            layout = doc.documentLayout()
-            layout.documentSize()  # force full layout pass before reading positions
-            sb = self.viewer.verticalScrollBar()
-            block = doc.begin()
-            while block.isValid():
-                it = block.begin()
-                while not it.atEnd():
-                    frag = it.fragment()
-                    if frag.isValid():
-                        fmt = frag.charFormat()
-                        names = fmt.anchorNames() or []
-                        if anchor in names:
-                            rect = layout.blockBoundingRect(block)
-                            y = max(0, int(rect.y()) - 8)
-                            sb.setValue(y)
-                            return True
-                    it += 1
-                block = block.next()
-        except Exception:
-            pass
-        return False
-
-    def _load_help_text(self):
-        md = None
-        p = self._help_md_path()
-        try:
-            if p.exists():
-                md = p.read_text(encoding="utf-8", errors="ignore")
-        except Exception as e:
-            log.debug(f"Failed reading help markdown: {e}")
-
-        if not md:
-            md = _FALLBACK_HELP_MD
-
-        try:
-            _html = _help_md_to_html(md)
-            self.viewer.setHtml(_html)
-        except Exception:
-            self.viewer.setPlainText(md)
-
-        # If we have a pending anchor request, scroll after loading.
-        try:
-            if self._pending_anchor:
-                a = self._pending_anchor
-                self._pending_anchor = None
-                QTimer.singleShot(50, lambda: self._scroll_to_anchor_manual(a)
-                                  or self.viewer.scrollToAnchor(a))
-        except Exception:
-            pass
-

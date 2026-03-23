@@ -1,3 +1,8 @@
+"""Progress bridge — forwards scraper progress events to the GUI.
+
+Replaces PyQt signal-based bridge with the callback-based AppSignals hub.
+"""
+
 import logging
 import time
 
@@ -9,18 +14,18 @@ _task_start_times = {}
 
 
 def add_download_task(task_id, total):
-    """Mirror of updater.add_download_task — emits Qt signal."""
+    """Mirror of updater.add_download_task — emits signal."""
     _task_start_times[str(task_id)] = time.time()
     app_signals.progress_task_added.emit(str(task_id), total)
 
 
 def update_download_task(task_id, advance):
-    """Mirror of updater.increment — emits Qt signal."""
+    """Mirror of updater.increment — emits signal."""
     app_signals.progress_task_updated.emit(str(task_id), advance)
 
 
 def remove_download_task(task_id):
-    """Mirror of updater.remove_download_job_task — emits Qt signal."""
+    """Mirror of updater.remove_download_job_task — emits signal."""
     _task_start_times.pop(str(task_id), None)
     app_signals.progress_task_removed.emit(str(task_id))
 

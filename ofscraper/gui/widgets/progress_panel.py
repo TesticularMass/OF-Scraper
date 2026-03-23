@@ -1,26 +1,11 @@
-from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
-    QProgressBar,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
-)
+import tkinter as tk
+from tkinter import ttk
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import c
 
 
-def _progress_bar_qss(radius=4):
-    return (
-        f"QProgressBar {{ border: 1px solid {c('surface1')}; border-radius: {radius}px;"
-        f" background-color: {c('surface0')}; color: #f8fafc; text-align: center; padding: 0px; }}"
-        f" QProgressBar::chunk {{ background-color: #1d4ed8; border-radius: {radius}px; }}"
-    )
-
-
-class ProgressSummaryBar(QWidget):
+class ProgressSummaryBar(ttk.Frame):
     """Compact overall progress bar for embedding in a status/footer area."""
 
     def __init__(self, parent=None):
@@ -30,101 +15,132 @@ class ProgressSummaryBar(QWidget):
 
     def _setup_ui(self):
         self._peak_bytes = 0
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
 
-        self.overall_label = QLabel("Downloads: 0 / 0")
-        self.overall_label.setProperty("muted", True)
-        layout.addWidget(self.overall_label)
+        self.overall_label = ttk.Label(
+            self, text="Downloads: 0 / 0", style="Muted.TLabel"
+        )
+        self.overall_label.pack(side=tk.LEFT, padx=(0, 8))
 
-        self.overall_progress = QProgressBar()
-        self.overall_progress.setRange(0, 100)
-        self.overall_progress.setValue(0)
-        self.overall_progress.setTextVisible(True)
-        self.overall_progress.setFixedHeight(18)
-        # Keep % text legible even when the bar fills.
-        # The key is a darker chunk color + bright text.
-        self.overall_progress.setStyleSheet(_progress_bar_qss(4))
-        layout.addWidget(self.overall_progress, stretch=1)
+        self._progress_var = tk.DoubleVar(value=0)
+        self.overall_progress = ttk.Progressbar(
+            self,
+            orient=tk.HORIZONTAL,
+            mode="determinate",
+            maximum=100,
+            variable=self._progress_var,
+            length=200,
+        )
+        self.overall_progress.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
 
-        self.bytes_label = QLabel("Total: 0 B")
-        self.bytes_label.setProperty("muted", True)
-        layout.addWidget(self.bytes_label)
+        self.bytes_label = ttk.Label(
+            self, text="Total: 0 B", style="Muted.TLabel"
+        )
+        self.bytes_label.pack(side=tk.LEFT)
 
-        self.setFixedHeight(22)
+        self.configure(height=22)
 
     def _connect_signals(self):
         app_signals.overall_progress_updated.connect(self._update_overall)
         app_signals.total_bytes_updated.connect(self._update_bytes)
 
-    @pyqtSlot(int, int)
     def _update_overall(self, completed, total):
-        self.overall_label.setText(f"Downloads: {completed} / {total}")
+        self.overall_label.configure(text=f"Downloads: {completed} / {total}")
         if total > 0:
-            self.overall_progress.setValue(int((completed / total) * 100))
+            self._progress_var.set(int((completed / total) * 100))
         else:
-            self.overall_progress.setValue(0)
+            self._progress_var.set(0)
 
-    @pyqtSlot(int)
     def _update_bytes(self, total_bytes):
         self._peak_bytes = max(self._peak_bytes, total_bytes)
-        self.bytes_label.setText(f"Total: {_format_bytes(self._peak_bytes)}")
+        self.bytes_label.configure(text=f"Total: {_format_bytes(self._peak_bytes)}")
 
     def clear_all(self):
         self._peak_bytes = 0
-        self.overall_progress.setValue(0)
-        self.overall_label.setText("Downloads: 0 / 0")
-        self.bytes_label.setText("Total: 0 B")
+        self._progress_var.set(0)
+        self.overall_label.configure(text="Downloads: 0 / 0")
+        self.bytes_label.configure(text="Total: 0 B")
 
 
-class ProgressPanel(QWidget):
+class ProgressPanel(ttk.Frame):
     """Panel displaying download progress bars and statistics."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._tasks = {}  # task_id -> (QProgressBar, QLabel)
+        self._tasks = {}  # task_id -> (DoubleVar, ttk.Frame)
+        self._task_maximums = {}  # task_id -> int (max value for the bar)
+        self._task_currents = {}  # task_id -> int (current value)
         self._setup_ui()
         self._connect_signals()
 
     def _setup_ui(self):
         self._peak_bytes = 0
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(8, 8, 8, 8)
 
-        # Overall stats
-        stats_layout = QHBoxLayout()
-        self.overall_label = QLabel("Downloads: 0 / 0")
-        self.overall_label.setProperty("subheading", True)
-        stats_layout.addWidget(self.overall_label)
+        # Overall stats row
+        stats_frame = ttk.Frame(self)
+        stats_frame.pack(fill=tk.X, padx=8, pady=(8, 4))
 
-        self.bytes_label = QLabel("Total: 0 B")
-        self.bytes_label.setProperty("muted", True)
-        stats_layout.addWidget(self.bytes_label)
-        stats_layout.addStretch()
-        main_layout.addLayout(stats_layout)
+        self.overall_label = ttk.Label(
+            stats_frame, text="Downloads: 0 / 0", style="Subheading.TLabel"
+        )
+        self.overall_label.pack(side=tk.LEFT)
+
+        self.bytes_label = ttk.Label(
+            stats_frame, text="Total: 0 B", style="Muted.TLabel"
+        )
+        self.bytes_label.pack(side=tk.LEFT, padx=(12, 0))
 
         # Overall progress bar
-        self.overall_progress = QProgressBar()
-        self.overall_progress.setRange(0, 100)
-        self.overall_progress.setValue(0)
-        self.overall_progress.setTextVisible(True)
-        self.overall_progress.setFixedHeight(24)
-        self.overall_progress.setStyleSheet(_progress_bar_qss(6))
-        main_layout.addWidget(self.overall_progress)
-
-        # Scroll area for per-file progress bars
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        self._overall_var = tk.DoubleVar(value=0)
+        self.overall_progress = ttk.Progressbar(
+            self,
+            orient=tk.HORIZONTAL,
+            mode="determinate",
+            maximum=100,
+            variable=self._overall_var,
         )
-        self.tasks_container = QWidget()
-        self.tasks_layout = QVBoxLayout(self.tasks_container)
-        self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.tasks_layout.setSpacing(4)
-        scroll.setWidget(self.tasks_container)
-        main_layout.addWidget(scroll)
+        self.overall_progress.pack(fill=tk.X, padx=8, pady=(0, 4))
+
+        # Scrollable area for per-file progress bars
+        scroll_frame = ttk.Frame(self)
+        scroll_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+
+        self._canvas = tk.Canvas(scroll_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(
+            scroll_frame, orient=tk.VERTICAL, command=self._canvas.yview
+        )
+        self.tasks_container = ttk.Frame(self._canvas)
+
+        self.tasks_container.bind(
+            "<Configure>",
+            lambda e: self._canvas.configure(scrollregion=self._canvas.bbox("all")),
+        )
+        self._canvas_window = self._canvas.create_window(
+            (0, 0), window=self.tasks_container, anchor=tk.NW
+        )
+
+        # Make the inner frame stretch to canvas width
+        self._canvas.bind(
+            "<Configure>",
+            lambda e: self._canvas.itemconfig(self._canvas_window, width=e.width),
+        )
+
+        self._canvas.configure(yscrollcommand=scrollbar.set)
+
+        self._canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Bind mousewheel scrolling
+        self._canvas.bind("<Enter>", self._bind_mousewheel)
+        self._canvas.bind("<Leave>", self._unbind_mousewheel)
+
+    def _bind_mousewheel(self, event):
+        self._canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, event):
+        self._canvas.unbind_all("<MouseWheel>")
+
+    def _on_mousewheel(self, event):
+        self._canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _connect_signals(self):
         app_signals.progress_task_added.connect(self._add_task)
@@ -133,66 +149,67 @@ class ProgressPanel(QWidget):
         app_signals.overall_progress_updated.connect(self._update_overall)
         app_signals.total_bytes_updated.connect(self._update_bytes)
 
-    @pyqtSlot(str, int)
     def _add_task(self, task_id, total):
         if task_id in self._tasks:
             return
 
-        row = QWidget()
-        row_layout = QVBoxLayout(row)
-        row_layout.setContentsMargins(0, 2, 0, 2)
-        row_layout.setSpacing(2)
+        row = ttk.Frame(self.tasks_container)
+        row.pack(fill=tk.X, pady=2)
 
-        label = QLabel(task_id)
-        label.setProperty("muted", True)
-        row_layout.addWidget(label)
+        label = ttk.Label(row, text=task_id, style="Muted.TLabel")
+        label.pack(fill=tk.X)
 
-        bar = QProgressBar()
-        bar.setRange(0, max(total, 1))
-        bar.setValue(0)
-        bar.setFixedHeight(16)
-        bar.setTextVisible(True)
-        bar.setStyleSheet(_progress_bar_qss(4))
-        row_layout.addWidget(bar)
+        max_val = max(total, 1)
+        progress_var = tk.DoubleVar(value=0)
+        bar = ttk.Progressbar(
+            row,
+            orient=tk.HORIZONTAL,
+            mode="determinate",
+            maximum=max_val,
+            variable=progress_var,
+        )
+        bar.pack(fill=tk.X)
 
-        self.tasks_layout.addWidget(row)
-        self._tasks[task_id] = (bar, row)
+        self._tasks[task_id] = (progress_var, row)
+        self._task_maximums[task_id] = max_val
+        self._task_currents[task_id] = 0
 
-    @pyqtSlot(str, int)
     def _update_task(self, task_id, advance):
         if task_id not in self._tasks:
             return
-        bar, _ = self._tasks[task_id]
-        bar.setValue(min(bar.value() + advance, bar.maximum()))
+        progress_var, _ = self._tasks[task_id]
+        max_val = self._task_maximums[task_id]
+        current = self._task_currents[task_id]
+        new_val = min(current + advance, max_val)
+        self._task_currents[task_id] = new_val
+        progress_var.set(new_val)
 
-    @pyqtSlot(str)
     def _remove_task(self, task_id):
         if task_id not in self._tasks:
             return
         _, row = self._tasks.pop(task_id)
-        self.tasks_layout.removeWidget(row)
-        row.deleteLater()
+        self._task_maximums.pop(task_id, None)
+        self._task_currents.pop(task_id, None)
+        row.destroy()
 
-    @pyqtSlot(int, int)
     def _update_overall(self, completed, total):
-        self.overall_label.setText(f"Downloads: {completed} / {total}")
+        self.overall_label.configure(text=f"Downloads: {completed} / {total}")
         if total > 0:
-            self.overall_progress.setValue(int((completed / total) * 100))
+            self._overall_var.set(int((completed / total) * 100))
         else:
-            self.overall_progress.setValue(0)
+            self._overall_var.set(0)
 
-    @pyqtSlot(int)
     def _update_bytes(self, total_bytes):
         self._peak_bytes = max(self._peak_bytes, total_bytes)
-        self.bytes_label.setText(f"Total: {_format_bytes(self._peak_bytes)}")
+        self.bytes_label.configure(text=f"Total: {_format_bytes(self._peak_bytes)}")
 
     def clear_all(self):
         self._peak_bytes = 0
         for task_id in list(self._tasks.keys()):
             self._remove_task(task_id)
-        self.overall_progress.setValue(0)
-        self.overall_label.setText("Downloads: 0 / 0")
-        self.bytes_label.setText("Total: 0 B")
+        self._overall_var.set(0)
+        self.overall_label.configure(text="Downloads: 0 / 0")
+        self.bytes_label.configure(text="Total: 0 B")
 
 
 def _format_bytes(num_bytes):

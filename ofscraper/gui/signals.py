@@ -1,79 +1,197 @@
-from PyQt6.QtCore import QObject, pyqtSignal
+"""Central event hub for cross-component communication in the GUI.
+
+Replaces PyQt signals with a lightweight callback-based event system.
+Thread-safe: callbacks are dispatched on the main (tkinter) thread via
+root.after() when a tkinter root is available.
+"""
+
+import logging
+import threading
+from typing import Any, Callable, Dict, List, Optional
+
+log = logging.getLogger("shared")
+
+# Reference to the tkinter root window — set by app.py at launch time.
+_tk_root = None
 
 
-class AppSignals(QObject):
-    """Central signal hub for cross-component communication in the GUI."""
+def set_tk_root(root):
+    """Register the tkinter root for thread-safe callback dispatch."""
+    global _tk_root
+    _tk_root = root
 
-    # Navigation
-    navigate_to_page = pyqtSignal(str)  # page name
-    help_anchor_requested = pyqtSignal(str)  # anchor id within Help/README
 
-    # Scraper workflow
-    action_selected = pyqtSignal(set)  # set of action names
-    models_selected = pyqtSignal(list)  # list of model objects
-    areas_selected = pyqtSignal(list)  # list of area strings
-    scrape_paid_toggled = pyqtSignal(bool)
-    scrape_labels_toggled = pyqtSignal(bool)
-    advanced_scrape_configured = pyqtSignal(object)  # dict of advanced options
-    discord_configured = pyqtSignal(bool)  # enable discord webhook updates (uses --discord)
+class AppSignals:
+    """Central signal hub for cross-component communication in the GUI.
 
-    # Data loading
-    data_loading_started = pyqtSignal()
-    data_loading_finished = pyqtSignal(list)  # table data rows (appended)
-    data_replace = pyqtSignal(list)           # table data rows (replaces all existing rows)
-    data_loading_error = pyqtSignal(str)  # error message
+    Each signal is a named event that can have multiple subscribers.
+    Emitting a signal calls all connected callbacks with the provided args.
+    When emitted from a background thread, callbacks are scheduled on the
+    main thread via ``root.after(0, ...)``.
+    """
 
-    # Table / Downloads
-    downloads_queued = pyqtSignal(list)  # list of row data to download
-    download_cart_updated = pyqtSignal(int)  # count of items in cart
+    # All known signal names — declared here for documentation / IDE support.
+    _SIGNAL_NAMES = [
+        # Navigation
+        "navigate_to_page",        # (page_name: str)
+        "help_anchor_requested",   # (anchor: str)
 
-    # Progress
-    progress_task_added = pyqtSignal(str, int)  # task_id, total
-    progress_task_updated = pyqtSignal(str, int)  # task_id, current
-    progress_task_removed = pyqtSignal(str)  # task_id
-    overall_progress_updated = pyqtSignal(int, int)  # completed, total
-    download_speed_updated = pyqtSignal(float)  # bytes per second
-    total_bytes_updated = pyqtSignal(int)  # total bytes downloaded
+        # Scraper workflow
+        "action_selected",         # (actions: set)
+        "models_selected",         # (models: list)
+        "areas_selected",          # (areas: list)
+        "scrape_paid_toggled",     # (enabled: bool)
+        "scrape_labels_toggled",   # (enabled: bool)
+        "advanced_scrape_configured",  # (options: dict)
+        "discord_configured",      # (enabled: bool)
 
-    # Cell updates from download process
-    cell_update = pyqtSignal(str, str, str)  # row_key, column_name, new_value
+        # Data loading
+        "data_loading_started",    # ()
+        "data_loading_finished",   # (rows: list)
+        "data_replace",            # (rows: list)
+        "data_loading_error",      # (error_msg: str)
 
-    # Log
-    log_message = pyqtSignal(str, str)  # level, message
+        # Table / Downloads
+        "downloads_queued",        # (row_data_list: list)
+        "download_cart_updated",   # (count: int)
 
-    # Scraping lifecycle
-    scraping_finished = pyqtSignal()  # emitted when scraper thread completes
-    cancel_scrape_requested = pyqtSignal()  # UI requests current scrape cancel
+        # Progress
+        "progress_task_added",     # (task_id: str, total: int)
+        "progress_task_updated",   # (task_id: str, current: int)
+        "progress_task_removed",   # (task_id: str)
+        "overall_progress_updated",  # (completed: int, total: int)
+        "download_speed_updated",  # (bytes_per_sec: float)
+        "total_bytes_updated",     # (total_bytes: int)
 
-    # Media type filter from area selector page
-    mediatypes_configured = pyqtSignal(list)  # list of media type strings e.g. ["Images", "Videos"]
+        # Cell updates
+        "cell_update",             # (row_key: str, column_name: str, new_value: str)
 
-    # Date range filter from area selector page
-    date_range_configured = pyqtSignal(object)  # dict: {enabled, from_date, to_date} (date strings "YYYY-MM-DD")
+        # Log
+        "log_message",             # (level: str, message: str)
 
-    # Daemon mode
-    daemon_configured = pyqtSignal(bool, float, bool, bool)  # enabled, interval_min, notify, sound
-    daemon_next_run = pyqtSignal(str)  # countdown text like "Next scrape in 12:34"
-    daemon_run_starting = pyqtSignal(int)  # run number (emitted when a daemon re-run begins)
-    daemon_stopped = pyqtSignal()  # emitted when daemon loop is cancelled
-    stop_daemon_requested = pyqtSignal()  # UI requests daemon stop
+        # Scraping lifecycle
+        "scraping_finished",       # ()
+        "cancel_scrape_requested", # ()
 
-    # Notifications
-    show_notification = pyqtSignal(str, str)  # title, message (system tray toast)
+        # Media type filter
+        "mediatypes_configured",   # (types: list)
 
-    # Like/Unlike results: dict of {post_id (int): status_str} where
-    # status_str is "Liked", "Unliked", or "Failed"
-    posts_liked_updated = pyqtSignal(object)
+        # Date range filter
+        "date_range_configured",   # (config: dict)
 
-    # Status
-    status_message = pyqtSignal(str)  # status bar text
-    error_occurred = pyqtSignal(str, str)  # title, message
+        # Daemon mode
+        "daemon_configured",       # (enabled: bool, interval_min: float, notify: bool, sound: bool)
+        "daemon_next_run",         # (countdown_text: str)
+        "daemon_run_starting",     # (run_number: int)
+        "daemon_stopped",          # ()
+        "stop_daemon_requested",   # ()
 
-    # Theme
-    theme_changed = pyqtSignal(bool)  # True = dark, False = light
+        # Notifications
+        "show_notification",       # (title: str, message: str)
 
-    # Config
-    config_updated = pyqtSignal()  # emitted whenever config.json is written programmatically
+        # Like/Unlike results
+        "posts_liked_updated",     # (results: dict)
+
+        # Status
+        "status_message",          # (message: str)
+        "error_occurred",          # (title: str, message: str)
+
+        # Theme
+        "theme_changed",           # (is_dark: bool)
+
+        # Config
+        "config_updated",          # ()
+    ]
+
+    def __init__(self):
+        self._callbacks: Dict[str, List[Callable]] = {
+            name: [] for name in self._SIGNAL_NAMES
+        }
+        self._lock = threading.Lock()
+
+    def connect(self, signal_name: str, callback: Callable):
+        """Subscribe *callback* to the named signal."""
+        with self._lock:
+            if signal_name not in self._callbacks:
+                self._callbacks[signal_name] = []
+            self._callbacks[signal_name].append(callback)
+
+    def disconnect(self, signal_name: str, callback: Optional[Callable] = None):
+        """Unsubscribe *callback* from the named signal.
+
+        If *callback* is ``None``, all callbacks for the signal are removed.
+        """
+        with self._lock:
+            if signal_name not in self._callbacks:
+                return
+            if callback is None:
+                self._callbacks[signal_name].clear()
+            else:
+                try:
+                    self._callbacks[signal_name].remove(callback)
+                except ValueError:
+                    pass
+
+    def emit(self, signal_name: str, *args: Any):
+        """Emit the named signal, calling all connected callbacks with *args*.
+
+        If called from a background thread and a tkinter root is available,
+        callbacks are dispatched on the main thread.
+        """
+        with self._lock:
+            cbs = list(self._callbacks.get(signal_name, []))
+
+        if not cbs:
+            return
+
+        def _dispatch():
+            for cb in cbs:
+                try:
+                    cb(*args)
+                except Exception as e:
+                    log.debug(f"[Signal] Error in callback for '{signal_name}': {e}")
+
+        # If we're on the main thread or no root is set, call directly.
+        # Otherwise schedule on the main thread.
+        if _tk_root is not None and threading.current_thread() is not threading.main_thread():
+            try:
+                _tk_root.after(0, _dispatch)
+            except Exception:
+                # Root may have been destroyed; call directly as fallback.
+                _dispatch()
+        else:
+            _dispatch()
+
+    # ---- Convenience attribute-style access ----
+    # Allows:  app_signals.action_selected.emit(actions)
+    #          app_signals.action_selected.connect(callback)
+    # This preserves the PyQt-style API that existing code uses.
+
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        # Return a proxy that exposes .connect(), .disconnect(), .emit()
+        return _SignalProxy(self, name)
+
+
+class _SignalProxy:
+    """Proxy object that provides .connect(), .disconnect(), .emit()
+    for a named signal on an AppSignals instance."""
+
+    __slots__ = ("_hub", "_name")
+
+    def __init__(self, hub: AppSignals, name: str):
+        object.__setattr__(self, "_hub", hub)
+        object.__setattr__(self, "_name", name)
+
+    def connect(self, callback: Callable):
+        self._hub.connect(self._name, callback)
+
+    def disconnect(self, callback: Optional[Callable] = None):
+        self._hub.disconnect(self._name, callback)
+
+    def emit(self, *args: Any):
+        self._hub.emit(self._name, *args)
 
 
 # Global signal instance

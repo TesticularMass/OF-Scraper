@@ -54,11 +54,12 @@ class mainManager:
                 from ofscraper.gui.app import launch_gui
             except ModuleNotFoundError as e:
                 msg = str(e) or repr(e)
-                if "PyQt6" in msg:
+                if "tkinter" in msg:
                     print(
-                        "ERROR: GUI requested but PyQt6 is not installed.\n\n"
-                        "Install it with:\n"
-                        "  python -m pip install PyQt6\n\n"
+                        "ERROR: GUI requested but tkinter is not available.\n\n"
+                        "tkinter is included with most Python installations.\n"
+                        "On Linux, install it with:\n"
+                        "  sudo apt install python3-tk\n\n"
                         "Then re-run:\n"
                         "  ofscraper --gui\n"
                     )

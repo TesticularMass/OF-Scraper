@@ -1,26 +1,10 @@
 import logging
-from pathlib import Path
-
-from PyQt6.QtCore import Qt, pyqtSlot, QTimer
-from PyQt6.QtWidgets import (
-    QApplication,
-    QButtonGroup,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QPushButton,
-    QSizePolicy,
-    QStackedWidget,
-    QStatusBar,
-    QVBoxLayout,
-    QWidget,
-)
+import tkinter as tk
+from tkinter import ttk, messagebox
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import (
-    get_dark_theme_qss,
-    get_light_theme_qss,
+    apply_theme,
     set_theme,
     c,
     DARK_SIDEBAR_BG,
@@ -36,15 +20,37 @@ from ofscraper.gui.widgets.styled_button import NavButton
 log = logging.getLogger("shared")
 
 
-class MainWindow(QMainWindow):
-    """Central application window with navigation sidebar and stacked pages."""
+class _PageStack(ttk.Frame):
+    """Container that manages overlapping pages via place geometry.
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    Pages are stacked on top of each other; _show_page() brings one to the front.
+    """
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self._pages = {}     # index -> frame
+        self._current_idx = None
+
+    def add_page(self, index, frame):
+        self._pages[index] = frame
+        frame.place(in_=self, x=0, y=0, relwidth=1, relheight=1)
+
+    def _show_page(self, index):
+        if index in self._pages:
+            self._pages[index].tkraise()
+            self._current_idx = index
+
+    def count(self):
+        return len(self._pages)
+
+
+class MainWindow(ttk.Frame):
+    """Central application frame with navigation sidebar and stacked pages."""
+
+    def __init__(self, parent, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
+        self._root = parent
         self.manager = manager
-        self.setWindowTitle("OF-Scraper")
-        self.setMinimumSize(1200, 750)
-        self.resize(1400, 850)
 
         self._pages = {}
         self._nav_buttons = {}
@@ -62,29 +68,22 @@ class MainWindow(QMainWindow):
         if self._verbose_log:
             self._apply_verbose_log(True)
 
-        # Initialize the workflow runner that bridges GUI → scraper backend
+        # Initialize the workflow runner that bridges GUI -> scraper backend
         self.workflow = GUIWorkflow(manager)
 
         self._setup_ui()
-        # _setup_ui hardcodes dark visuals; fix up if light mode is preferred
         if not self._is_dark:
             self._apply_theme_visuals(emit_signal=False)
-        # Sync verbose button label to loaded preference
         if self._verbose_log:
-            self._verbose_btn.setText("Verbose Log: On")
+            self._verbose_btn.configure(text="Verbose Log: On")
         self._connect_signals()
         self._navigate("scraper")
-        # After the window is created and painted, show missing dependency notices once.
-        QTimer.singleShot(250, self._maybe_show_missing_dependency_notice)
-        # Optional: if CLI args fully specify a scrape run, auto-start in GUI mode.
-        QTimer.singleShot(350, self._maybe_autostart_from_cli_args)
+        # Deferred startup tasks
+        self.after(250, self._maybe_show_missing_dependency_notice)
+        self.after(350, self._maybe_autostart_from_cli_args)
 
     def _maybe_autostart_from_cli_args(self):
-        """If invoked with --gui and sufficient CLI args, skip the GUI wizard and start scraping.
-
-        Mirrors TUI behavior: when action/areas/usernames/daemon are provided, the app can
-        begin scraping immediately without additional prompts/clicks.
-        """
+        """If invoked with --gui and sufficient CLI args, skip the GUI wizard."""
         try:
             import ofscraper.utils.args.accessors.read as read_args
             import ofscraper.utils.args.accessors.areas as areas_accessor
@@ -99,7 +98,6 @@ class MainWindow(QMainWindow):
         if not bool(getattr(args, "gui", False)):
             return
 
-        # Require explicit action(s) and username selection; otherwise keep normal GUI flow.
         raw_actions = getattr(args, "action", None) or []
         raw_users = getattr(args, "usernames", None) or []
         raw_posts = getattr(args, "posts", None) or []
@@ -134,38 +132,33 @@ class MainWindow(QMainWindow):
             f"usernames={('ALL' if 'all' in usernames else sorted(usernames))}"
         )
 
-        # Compute final areas using the same accessor logic the CLI uses.
         try:
             final_areas = set(areas_accessor.get_final_posts_area() or set())
         except Exception:
             final_areas = set()
 
-        # Normalize label naming differences between CLI and GUI.
         if "Label" in final_areas and "Labels" not in final_areas:
             final_areas.discard("Label")
             final_areas.add("Labels")
 
-        # Configure the Area Selector page state (areas + daemon).
+        # Configure the Area Selector page state
         try:
-            # Ensure the scraper sidebar is the active page (so widgets exist/rendered).
             self._navigate("scraper")
-            self.scraper_stack.setCurrentWidget(self.area_page)
+            self.scraper_stack._show_page(2)  # area page
         except Exception:
             pass
 
         try:
-            # Apply scrape-paid from CLI (prevents GUI defaults from clobbering it)
-            self.area_page.scrape_paid_check.setChecked(
+            self.area_page._scrape_paid_var.set(
                 bool(getattr(args, "scrape_paid", False))
             )
         except Exception:
             pass
 
         try:
-            # Apply areas selection
             if final_areas:
-                for area, cb in getattr(self.area_page, "_area_checks", {}).items():
-                    cb.setChecked(area in final_areas)
+                for area, (cb, var) in getattr(self.area_page, "_area_checks", {}).items():
+                    var.set(area in final_areas)
         except Exception:
             pass
 
@@ -173,19 +166,15 @@ class MainWindow(QMainWindow):
         try:
             daemon_val = getattr(args, "daemon", None)
             if daemon_val is not None and float(daemon_val) > 0:
-                self.area_page.daemon_check.setChecked(True)
-                self.area_page.daemon_interval.setValue(float(daemon_val))
+                self.area_page._daemon_var.set(True)
+                self.area_page._daemon_interval_var.set(float(daemon_val))
             else:
-                self.area_page.daemon_check.setChecked(False)
+                self.area_page._daemon_var.set(False)
         except Exception:
             pass
 
-        # Load models in the background, then auto-select, then start scraping.
-        try:
-            from ofscraper.gui.utils.thread_worker import Worker
-            from PyQt6.QtCore import QThreadPool, QTimer as _QT
-        except Exception:
-            return
+        # Load models in the background, then auto-select, then start scraping
+        from ofscraper.gui.utils.thread_worker import Worker
 
         if not (self.manager and getattr(self.manager, "model_manager", None)):
             return
@@ -199,7 +188,6 @@ class MainWindow(QMainWindow):
                 models = list(models or [])
                 if not models:
                     return
-                # Apply excluded usernames from CLI args (if any)
                 excluded = set()
                 try:
                     excluded = {
@@ -212,25 +200,20 @@ class MainWindow(QMainWindow):
 
                 if "all" in usernames:
                     selected_models = [
-                        m
-                        for m in models
+                        m for m in models
                         if getattr(m, "name", "").strip().lower() not in excluded
                     ]
                 else:
                     want = set(usernames)
                     selected_models = [
-                        m
-                        for m in models
+                        m for m in models
                         if getattr(m, "name", "").strip().lower() in want
                         and getattr(m, "name", "").strip().lower() not in excluded
                     ]
                 if not selected_models:
-                    # Fall back to normal flow if no matches.
                     log.warning("[GUI] Auto-start: no matching models found for usernames")
                     return
 
-                # Seed action selection into the GUI workflow (without triggering the
-                # AreaSelectorPage model loader twice).
                 try:
                     app_signals.action_selected.emit(set(actions))
                 except Exception:
@@ -238,43 +221,30 @@ class MainWindow(QMainWindow):
 
                 app_signals.models_selected.emit(selected_models)
 
-                # After the table page is shown, start scraping automatically.
                 def _start():
                     try:
                         self.table_page._on_start_scraping()
                     except Exception:
                         pass
-
-                _QT.singleShot(0, _start)
+                self.after(0, _start)
             except Exception:
                 return
 
         worker = Worker(_fetch_models)
         worker.signals.finished.connect(_on_models)
-        try:
-            QThreadPool.globalInstance().start(worker)
-        except Exception:
-            # If the threadpool isn't available, do nothing (normal GUI flow remains).
-            return
+        worker.start()
 
     def _setup_ui(self):
-        # Central widget
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        self.columnconfigure(1, weight=1)  # content gets the stretch
+        self.rowconfigure(0, weight=1)     # main row stretches
 
         # -- Left navigation sidebar --
-        nav_frame = QFrame()
-        nav_frame.setFixedWidth(190)
-        nav_frame.setStyleSheet("QFrame { background-color: #181825; }")
-        nav_layout = QVBoxLayout(nav_frame)
-        nav_layout.setContentsMargins(8, 12, 8, 12)
-        nav_layout.setSpacing(4)
+        nav_frame = tk.Frame(self, width=190, bg=DARK_SIDEBAR_BG)
+        nav_frame.grid(row=0, column=0, sticky="ns")
+        nav_frame.grid_propagate(False)
+        self._nav_frame = nav_frame
 
-        # Logo / title (ASCII art) — use HTML <pre> for correct monospace alignment
-        import html as _html
+        # Logo (ASCII art)
         _logo_lines = [
             r"        __                                    ",
             r"  ___  / _|___  ___ _ __ __ _ _ __   ___ _ __ ",
@@ -287,24 +257,19 @@ class MainWindow(QMainWindow):
             r"      | |  (_)  | |    | |  (_)  | |          ",
             r"       \_\     /_/      \_\     /_/           ",
         ]
-        _logo_html = "<pre style='color:#89b4fa; font-family:Consolas,monospace; font-size:5pt; margin:0;'>" + "\n".join(_html.escape(l) for l in _logo_lines) + "</pre>"
-        title_label = QLabel(_logo_html)
-        title_label.setTextFormat(Qt.TextFormat.RichText)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet("padding: 4px 0 12px 0;")
-        nav_layout.addWidget(title_label)
+        logo_text = "\n".join(_logo_lines)
+        self._title_label = tk.Label(
+            nav_frame, text=logo_text,
+            font=("Consolas", 5), fg=DARK_LOGO_COLOR, bg=DARK_SIDEBAR_BG,
+            justify=tk.CENTER,
+        )
+        self._title_label.pack(pady=(4, 12))
 
         # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #313244;")
-        nav_layout.addWidget(sep)
-        nav_layout.addSpacing(8)
+        self._nav_sep = tk.Frame(nav_frame, height=1, bg=DARK_SEP_COLOR)
+        self._nav_sep.pack(fill=tk.X, padx=4, pady=4)
 
         # Nav buttons
-        self._nav_group = QButtonGroup(self)
-        self._nav_group.setExclusive(True)
-
         nav_items = [
             ("scraper", "Scraper"),
             ("auth", "Authentication"),
@@ -316,83 +281,59 @@ class MainWindow(QMainWindow):
         ]
 
         for page_id, label in nav_items:
-            btn = NavButton(label)
-            self._nav_group.addButton(btn)
+            btn = NavButton(nav_frame, text=label,
+                            command=lambda pid=page_id: self._navigate(pid))
+            btn.pack(fill=tk.X, padx=8, pady=2)
             self._nav_buttons[page_id] = btn
-            nav_layout.addWidget(btn)
-            btn.clicked.connect(lambda checked, pid=page_id: self._navigate(pid))
 
-        nav_layout.addStretch()
+        # Spacer
+        spacer = tk.Frame(nav_frame, bg=DARK_SIDEBAR_BG)
+        spacer.pack(fill=tk.BOTH, expand=True)
+        self._nav_spacer = spacer
 
         # Theme toggle button
-        self._theme_btn = QPushButton("Light Mode")
-        self._theme_btn.setFixedHeight(28)
-        self._theme_btn.setStyleSheet(
-            "QPushButton { font-size: 11px; padding: 2px 8px; }"
-        )
-        self._theme_btn.clicked.connect(self._toggle_theme)
-        nav_layout.addWidget(self._theme_btn)
+        self._theme_btn = ttk.Button(nav_frame, text="Light Mode",
+                                      command=self._toggle_theme)
+        self._theme_btn.pack(fill=tk.X, padx=8, pady=2)
 
         # Verbose log toggle button
-        self._verbose_btn = QPushButton("Verbose Log: Off")
-        self._verbose_btn.setFixedHeight(28)
-        self._verbose_btn.setStyleSheet(
-            "QPushButton { font-size: 11px; padding: 2px 8px; }"
-        )
-        self._verbose_btn.clicked.connect(self._toggle_verbose_log)
-        nav_layout.addWidget(self._verbose_btn)
+        self._verbose_btn = ttk.Button(nav_frame, text="Verbose Log: Off",
+                                        command=self._toggle_verbose_log)
+        self._verbose_btn.pack(fill=tk.X, padx=8, pady=2)
 
-        nav_layout.addSpacing(4)
-
-        # Version label at bottom of nav
+        # Version label
         try:
             from ofscraper.__version__ import __version__
-            ver_label = QLabel(f"v{__version__}")
+            ver_text = f"v{__version__}"
         except Exception:
-            ver_label = QLabel("v3.12.9")
-        ver_label.setProperty("muted", True)
-        ver_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        nav_layout.addWidget(ver_label)
-
-        # Store references for theme switching
-        self._nav_frame = nav_frame
-        self._title_label = title_label
-        self._nav_sep = sep
-        self._ver_label = ver_label
-
-        main_layout.addWidget(nav_frame)
-
-        # Vertical separator
-        vsep = QFrame()
-        vsep.setFrameShape(QFrame.Shape.VLine)
-        vsep.setStyleSheet(f"color: {DARK_SEP_COLOR};")
-        self._vsep = vsep
-        main_layout.addWidget(vsep)
+            ver_text = "v3.12.9"
+        self._ver_label = tk.Label(nav_frame, text=ver_text,
+                                    font=("Segoe UI", 9),
+                                    fg=c("muted"), bg=DARK_SIDEBAR_BG)
+        self._ver_label.pack(pady=(4, 8))
 
         # -- Right content area (stacked pages) --
-        self.stack = QStackedWidget()
-        self.stack.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
-        main_layout.addWidget(self.stack)
+        self.stack = _PageStack(self)
+        self.stack.grid(row=0, column=1, sticky="nsew")
 
-        # Create pages (lazy imports to avoid circular deps)
+        # Create pages
         self._create_pages()
 
         # Status bar
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
+        self._status_label = ttk.Label(self, text="Ready", style="Muted.TLabel")
+        self._status_label.grid(row=1, column=0, columnspan=2, sticky="ew",
+                                 padx=12, pady=4)
 
     def _toggle_theme(self):
-        """Switch between dark and light themes, then offer to save as default."""
+        """Switch between dark and light themes, then offer to save."""
         self._is_dark = not self._is_dark
         set_theme(self._is_dark)
+        apply_theme(self._root)
         self._apply_theme_visuals()
         self._prompt_save_theme()
 
     def _toggle_verbose_log(self):
-        """Toggle verbose (DEBUG-level) logging on or off."""
+        """Toggle verbose (DEBUG-level) logging."""
         self._verbose_log = not self._verbose_log
         self._apply_verbose_log(self._verbose_log)
         try:
@@ -405,18 +346,8 @@ class MainWindow(QMainWindow):
         state = "On" if self._verbose_log else "Off"
         app_signals.status_message.emit(f"Verbose logging {state}")
 
-    def _apply_verbose_log(self, enable: bool):
-        """Toggle verbose (DEBUG) logging on or off.
-
-        When enabled:
-          - Lowers the 'shared' logger and all existing handlers to DEBUG.
-          - Opens a dedicated gui_verbose log file named
-            ofscraper_gui_verbose_<profile>_<timestamp>.log in the same
-            logging folder so it is clearly distinguished from normal runs.
-        When disabled:
-          - Restores original handler levels.
-          - Closes and removes the gui_verbose file handler.
-        """
+    def _apply_verbose_log(self, enable):
+        """Toggle verbose (DEBUG) logging on or off."""
         import logging as _logging
         logger = _logging.getLogger("shared")
 
@@ -429,13 +360,11 @@ class MainWindow(QMainWindow):
                     h._gui_prev_level = h.level
                     h.setLevel(_logging.DEBUG)
 
-            # Add a dedicated gui_verbose file handler if not already present
             if not any(getattr(h, _GUI_VERBOSE_TAG, False) for h in logger.handlers):
                 try:
                     import datetime as _dt
                     import ofscraper.utils.paths.common as _paths
                     import ofscraper.utils.config.data as _data
-                    import ofscraper.utils.logs.classes.classes as _log_class
 
                     log_folder = _paths.get_log_folder()
                     profile = _data.get_main_profile()
@@ -461,7 +390,6 @@ class MainWindow(QMainWindow):
                 prev = getattr(h, "_gui_prev_level", _logging.INFO)
                 h.setLevel(prev)
 
-            # Remove and close the gui_verbose file handler
             for h in logger.handlers[:]:
                 if getattr(h, _GUI_VERBOSE_TAG, False):
                     logger.removeHandler(h)
@@ -473,78 +401,43 @@ class MainWindow(QMainWindow):
                     except Exception:
                         pass
 
-        # Update button text if widget already exists
         try:
-            self._verbose_btn.setText(f"Verbose Log: {'On' if enable else 'Off'}")
-        except AttributeError:
+            self._verbose_btn.configure(text=f"Verbose Log: {'On' if enable else 'Off'}")
+        except Exception:
             pass
 
     def _apply_theme_visuals(self, emit_signal=True):
-        """Apply all visual elements for the current theme (self._is_dark).
-
-        Called both at startup (emit_signal=False, to avoid premature signal
-        before pages are connected) and after every toggle (emit_signal=True).
-        """
-        import html as _html
-
-        app = QApplication.instance()
+        """Apply all visual elements for the current theme."""
         if self._is_dark:
-            app.setStyleSheet(get_dark_theme_qss())
-            self._theme_btn.setText("Light Mode")
+            self._theme_btn.configure(text="Light Mode")
             sidebar_bg = DARK_SIDEBAR_BG
             sep_color = DARK_SEP_COLOR
             logo_color = DARK_LOGO_COLOR
         else:
-            app.setStyleSheet(get_light_theme_qss())
-            self._theme_btn.setText("Dark Mode")
+            self._theme_btn.configure(text="Dark Mode")
             sidebar_bg = LIGHT_SIDEBAR_BG
             sep_color = LIGHT_SEP_COLOR
             logo_color = LIGHT_LOGO_COLOR
 
-        # Update hardcoded sidebar and separator colors
-        self._nav_frame.setStyleSheet(f"QFrame {{ background-color: {sidebar_bg}; }}")
-        self._nav_sep.setStyleSheet(f"color: {sep_color};")
-        self._vsep.setStyleSheet(f"color: {sep_color};")
-
-        # Update logo color
-        _logo_lines = [
-            r"        __                                    ",
-            r"  ___  / _|___  ___ _ __ __ _ _ __   ___ _ __ ",
-            r" / _ \| |_/ __|/ __| '__/ _` | '_ \ / _ \ '__|",
-            r"| (_) |  _\__ \ (__| | | (_| | |_) |  __/ |   ",
-            r" \___/|_|_|___/\___|_|  \__,_| .__/ \___|_|   ",
-            r"       / /     \ \      / /  |_|\ \           ",
-            r"      | |       | |    | |       | |          ",
-            r"      | |   _   | |    | |   _   | |          ",
-            r"      | |  (_)  | |    | |  (_)  | |          ",
-            r"       \_\     /_/      \_\     /_/           ",
-        ]
-        _logo_html = (
-            f"<pre style='color:{logo_color}; font-family:Consolas,monospace; "
-            f"font-size:5pt; margin:0;'>"
-            + "\n".join(_html.escape(l) for l in _logo_lines)
-            + "</pre>"
-        )
-        self._title_label.setText(_logo_html)
+        # Update sidebar and separator colors
+        self._nav_frame.configure(bg=sidebar_bg)
+        self._nav_sep.configure(bg=sep_color)
+        self._title_label.configure(fg=logo_color, bg=sidebar_bg)
+        self._ver_label.configure(fg=c("muted"), bg=sidebar_bg)
+        self._nav_spacer.configure(bg=sidebar_bg)
 
         if emit_signal:
             app_signals.theme_changed.emit(self._is_dark)
 
     def _prompt_save_theme(self):
-        """Ask the user if they want to save the current theme as the default."""
-        from PyQt6.QtWidgets import QMessageBox
-
+        """Ask the user if they want to save the current theme as default."""
         theme_name = "Dark" if self._is_dark else "Light"
-        reply = QMessageBox.question(
-            self,
+        if messagebox.askyesno(
             "Save Theme Preference",
             f"Set {theme_name} Mode as your default theme?\n\n"
             f"The preference will be saved to gui_settings.json in your "
             f"ofscraper config directory.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
+        ):
             try:
                 from ofscraper.gui.utils.gui_settings import (
                     load_gui_settings,
@@ -572,29 +465,30 @@ class MainWindow(QMainWindow):
         from ofscraper.gui.dialogs.drm_dialog import DRMKeyPage
 
         # Scraper workflow pages (nested in a sub-stack)
-        self.scraper_stack = QStackedWidget()
+        self.scraper_stack = _PageStack(self.stack)
 
-        self.action_page = ActionPage(manager=self.manager)
-        self.model_page = ModelSelectorPage(manager=self.manager)
-        self.area_page = AreaSelectorPage(manager=self.manager)
-        self.table_page = TablePage(manager=self.manager)
+        self.action_page = ActionPage(self.scraper_stack, manager=self.manager)
+        self.model_page = ModelSelectorPage(self.scraper_stack, manager=self.manager)
+        self.area_page = AreaSelectorPage(self.scraper_stack, manager=self.manager)
+        self.table_page = TablePage(self.scraper_stack, manager=self.manager)
 
-        self.scraper_stack.addWidget(self.action_page)
-        self.scraper_stack.addWidget(self.model_page)
-        self.scraper_stack.addWidget(self.area_page)
-        self.scraper_stack.addWidget(self.table_page)
+        self.scraper_stack.add_page(0, self.action_page)
+        self.scraper_stack.add_page(1, self.model_page)
+        self.scraper_stack.add_page(2, self.area_page)
+        self.scraper_stack.add_page(3, self.table_page)
+        self.scraper_stack._show_page(0)
 
         self._add_page("scraper", self.scraper_stack)
-        self._add_page("auth", AuthPage(manager=self.manager))
-        self._add_page("config", ConfigPage(manager=self.manager))
-        self._add_page("drm", DRMKeyPage(manager=self.manager))
-        self._add_page("profiles", ProfilePage(manager=self.manager))
-        self._add_page("merge", MergePage(manager=self.manager))
-        self._add_page("help", HelpPage(manager=self.manager))
+        self._add_page("auth", AuthPage(self.stack, manager=self.manager))
+        self._add_page("config", ConfigPage(self.stack, manager=self.manager))
+        self._add_page("drm", DRMKeyPage(self.stack, manager=self.manager))
+        self._add_page("profiles", ProfilePage(self.stack, manager=self.manager))
+        self._add_page("merge", MergePage(self.stack, manager=self.manager))
+        self._add_page("help", HelpPage(self.stack, manager=self.manager))
 
     def _add_page(self, page_id, widget):
         self._pages[page_id] = widget
-        self.stack.addWidget(widget)
+        self.stack.add_page(page_id, widget)
 
     def _connect_signals(self):
         app_signals.navigate_to_page.connect(self._on_navigate_signal)
@@ -611,90 +505,76 @@ class MainWindow(QMainWindow):
 
     def _navigate(self, page_id):
         if page_id in self._pages:
-            self.stack.setCurrentWidget(self._pages[page_id])
-            # Update nav button states
-            if page_id in self._nav_buttons:
-                self._nav_buttons[page_id].setChecked(True)
+            self.stack._show_page(page_id)
+            # Update nav button active states
+            for pid, btn in self._nav_buttons.items():
+                btn.set_active(pid == page_id)
 
-    @pyqtSlot(str)
     def _on_navigate_signal(self, page_id):
         self._navigate(page_id)
 
-    @pyqtSlot(str)
     def _on_help_anchor_requested(self, anchor):
-        """Navigate to Help page and scroll to requested anchor."""
         try:
             self._navigate("help")
             help_page = self._pages.get("help")
             if help_page and hasattr(help_page, "scroll_to_anchor"):
-                # Defer until the Help page has rendered its markdown.
-                QTimer.singleShot(
-                    0, lambda: help_page.scroll_to_anchor(str(anchor))
-                )
+                self.after(0, lambda: help_page.scroll_to_anchor(str(anchor)))
         except Exception:
             pass
 
-    @pyqtSlot(str)
     def _on_status_message(self, message):
-        self.status_bar.showMessage(message, 5000)
+        self._status_label.configure(text=message)
+        # Auto-clear after 5 seconds
+        self.after(5000, lambda: self._status_label.configure(text="Ready"))
 
-    @pyqtSlot(str, str)
     def _on_error(self, title, message):
-        from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.critical(self, title, message)
+        messagebox.showerror(title, message)
 
-    @pyqtSlot(set)
     def _on_action_selected(self, actions):
         """Move from action page to area/filter configuration page."""
-        self.scraper_stack.setCurrentWidget(self.area_page)
+        self.scraper_stack._show_page(2)  # area page
 
-    @pyqtSlot(list)
     def _on_models_selected(self, models):
         """Move from model selection to table page."""
-        self.scraper_stack.setCurrentWidget(self.table_page)
-        self.table_page.sidebar.setVisible(True)
-        self.table_page.toggle_sidebar_btn.setChecked(True)
+        self.scraper_stack._show_page(3)  # table page
+        self.table_page.show_sidebar()
         # Copy filter state from area page to table page sidebar
         self.area_page.copy_filter_state_to(self.table_page.sidebar)
         _check_modes = {"post_check", "msg_check", "paid_check", "story_check"}
         _subscribe_mode = {"subscribe"}
         _current = getattr(self.area_page, "_current_actions", set()) or set()
         if bool(_current & _check_modes):
-            app_signals.status_message.emit("Checking — fetching data, please wait...")
+            app_signals.status_message.emit("Checking -- fetching data, please wait...")
         elif bool(_current & _subscribe_mode):
             app_signals.status_message.emit("Subscribing to free accounts, please wait...")
         else:
             app_signals.status_message.emit("Click Start Scraping to begin")
 
-    @pyqtSlot(list)
     def _on_areas_selected(self, areas):
-        """Areas selected — begin scraping."""
+        """Areas selected -- begin scraping."""
         app_signals.status_message.emit("Loading data...")
 
-    @pyqtSlot(list)
     def _on_data_loaded(self, table_data):
-        """Data loaded for a user — append to table."""
+        """Data loaded for a user -- append to table."""
         self.table_page.append_data(table_data)
 
     def _on_data_replace(self, table_data):
-        """DB fallback loaded — replace table with authoritative DB rows."""
+        """DB fallback loaded -- replace table with authoritative DB rows."""
         self.table_page.load_data(table_data)
 
     def go_to_scraper_step(self, step_index):
         """Navigate to a specific step in the scraper workflow."""
-        if 0 <= step_index < self.scraper_stack.count():
-            self.scraper_stack.setCurrentIndex(step_index)
+        if step_index in self.scraper_stack._pages:
+            self.scraper_stack._show_page(step_index)
 
     def _maybe_show_missing_dependency_notice(self):
-        """Popup a single combined notice if FFmpeg or manual CDM key paths are missing."""
-        # Ensure we only show once per session
+        """Popup a notice if FFmpeg or manual CDM key paths are missing."""
         if getattr(self, "_missing_deps_notice_shown", False):
             return
         self._missing_deps_notice_shown = True
 
         try:
             from ofscraper.utils.config.config import read_config
-
             cfg = read_config(update=False) or {}
         except Exception:
             cfg = {}
@@ -716,7 +596,8 @@ class MainWindow(QMainWindow):
             else None
         )
 
-        # Missing/invalid FFmpeg path: show notice if empty OR points to a non-file.
+        from pathlib import Path
+
         ffmpeg_raw = (str(ffmpeg_path).strip() if ffmpeg_path is not None else "")
         missing_ffmpeg = True
         if ffmpeg_raw:
@@ -725,7 +606,7 @@ class MainWindow(QMainWindow):
                 missing_ffmpeg = not p.is_file()
             except Exception:
                 missing_ffmpeg = True
-        # Manual keys: only check if key-mode-default is "manual"; other modes don't need them.
+
         cdm_opts = cfg.get("cdm_options") if isinstance(cfg.get("cdm_options"), dict) else {}
         key_mode = str(cdm_opts.get("key-mode-default") or "cdrm").lower().strip() or "cdrm"
         missing_manual_cdm = False
@@ -756,7 +637,6 @@ class MainWindow(QMainWindow):
                 self._navigate("config")
                 page = self._pages.get("config")
                 if page and hasattr(page, "go_to_config_field"):
-                    # Focus first missing field; prefer client-id
                     key = "client-id" if not bool(client_raw) else "private-key"
                     page.go_to_config_field("CDM", key)
             except Exception:
@@ -770,15 +650,14 @@ class MainWindow(QMainWindow):
 
         try:
             from ofscraper.gui.dialogs.missing_deps_dialog import MissingDepsDialog
-
             dlg = MissingDepsDialog(
                 missing_ffmpeg=missing_ffmpeg,
                 missing_manual_cdm=missing_manual_cdm,
                 on_open_ffmpeg=open_ffmpeg,
                 on_open_cdm=open_cdm,
                 on_open_drm=open_drm,
-                parent=self,
+                parent=self._root,
             )
-            dlg.exec()
+            # Modal dialog — waits until closed
         except Exception as e:
             log.debug(f"Missing deps dialog failed: {e}")

@@ -1,29 +1,18 @@
 import logging
-
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QTextBrowser,
-    QVBoxLayout,
-)
+import tkinter as tk
+from tkinter import messagebox, ttk
 
 log = logging.getLogger("shared")
 
 
-class MissingDepsDialog(QDialog):
+class MissingDepsDialog(tk.Toplevel):
     """Single popup that warns about missing ffmpeg / manual CDM key paths."""
 
     def __init__(
         self,
         *,
-        missing_ffmpeg: bool,
-        missing_manual_cdm: bool,
+        missing_ffmpeg,
+        missing_manual_cdm,
         on_open_ffmpeg=None,
         on_open_cdm=None,
         on_open_drm=None,
@@ -36,102 +25,153 @@ class MissingDepsDialog(QDialog):
         self._on_open_cdm = on_open_cdm
         self._on_open_drm = on_open_drm
 
-        self.setWindowTitle("Missing configuration paths")
-        self.setModal(True)
-        self.setMinimumWidth(720)
+        self.title("Missing configuration paths")
+        self.minsize(720, 400)
+        self.resizable(True, True)
+
+        # Make modal
+        if parent:
+            self.transient(parent)
+        self.grab_set()
+
         self._setup_ui()
 
+        # Center on parent
+        self.update_idletasks()
+        if parent:
+            x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+            y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+            self.geometry(f"+{x}+{y}")
+
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 14)
-        layout.setSpacing(10)
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=18, pady=(16, 14))
 
-        title = QLabel("Missing required file paths in `config.json`")
-        title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-        layout.addWidget(title)
-
-        subtitle = QLabel(
-            "Some features require external binaries/keys. Add the missing paths below."
+        title = ttk.Label(
+            main_frame,
+            text="Missing required file paths in config.json",
+            font=("Segoe UI", 13, "bold"),
         )
-        subtitle.setWordWrap(True)
-        subtitle.setProperty("muted", True)
-        layout.addWidget(subtitle)
+        title.pack(anchor="w")
 
-        viewer = QTextBrowser()
-        viewer.setOpenExternalLinks(True)
-        viewer.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        viewer.setMinimumHeight(220)
-        viewer.setHtml(self._build_html())
-        layout.addWidget(viewer, stretch=1)
+        subtitle = ttk.Label(
+            main_frame,
+            text="Some features require external binaries/keys. Add the missing paths below.",
+            style="Muted.TLabel",
+            wraplength=680,
+        )
+        subtitle.pack(anchor="w", pady=(4, 10))
+
+        # Info text area
+        viewer = tk.Text(main_frame, wrap=tk.WORD, height=12,
+                         relief=tk.SUNKEN, borderwidth=1,
+                         font=("Segoe UI", 10), state=tk.NORMAL)
+        viewer.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        self._insert_info_text(viewer)
+
+        viewer.configure(state=tk.DISABLED)
 
         # Action buttons (conditional)
-        actions_row = QHBoxLayout()
-        actions_row.addStretch()
+        actions_frame = ttk.Frame(main_frame)
+        actions_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Spacer to push buttons right
+        spacer = ttk.Frame(actions_frame)
+        spacer.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         if self._missing_ffmpeg:
-            self.ffmpeg_btn = QPushButton("Open Config → Download (FFmpeg)")
-            self.ffmpeg_btn.clicked.connect(self._open_ffmpeg)
-            actions_row.addWidget(self.ffmpeg_btn)
+            self.ffmpeg_btn = ttk.Button(
+                actions_frame,
+                text="Open Config -> Download (FFmpeg)",
+                command=self._open_ffmpeg,
+            )
+            self.ffmpeg_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         if self._missing_manual_cdm:
-            self.drm_btn = QPushButton("Generate DRM Keys")
-            self.drm_btn.clicked.connect(self._open_drm)
-            actions_row.addWidget(self.drm_btn)
+            self.drm_btn = ttk.Button(
+                actions_frame,
+                text="Generate DRM Keys",
+                command=self._open_drm,
+            )
+            self.drm_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-            self.cdm_btn = QPushButton("Open Config → CDM (Manual keys)")
-            self.cdm_btn.clicked.connect(self._open_cdm)
-            actions_row.addWidget(self.cdm_btn)
-
-        layout.addLayout(actions_row)
+            self.cdm_btn = ttk.Button(
+                actions_frame,
+                text="Open Config -> CDM (Manual keys)",
+                command=self._open_cdm,
+            )
+            self.cdm_btn.pack(side=tk.LEFT)
 
         # Close button
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        close_frame = ttk.Frame(main_frame)
+        close_frame.pack(fill=tk.X)
 
-    def _build_html(self) -> str:
-        parts = []
+        close_btn = ttk.Button(close_frame, text="Close", command=self.destroy)
+        close_btn.pack(side=tk.RIGHT)
+
+    def _insert_info_text(self, text_widget):
+        """Insert the informational text into the Text widget with basic formatting."""
+        # Configure tags for formatting
+        text_widget.tag_configure("h3", font=("Segoe UI", 12, "bold"),
+                                  spacing1=8, spacing3=4)
+        text_widget.tag_configure("bold", font=("Segoe UI", 10, "bold"))
+        text_widget.tag_configure("normal", font=("Segoe UI", 10))
+        text_widget.tag_configure("code", font=("Consolas", 10))
+        text_widget.tag_configure("hr", font=("Segoe UI", 4),
+                                  spacing1=6, spacing3=6)
+
+        sections = []
 
         if self._missing_ffmpeg:
-            parts.append(
-                """
-                <h3>FFmpeg</h3>
-                <p><b>Missing file path for FFmpeg in your config.</b> This is needed to merge DRM protected audio and video files.</p>
-                <p>Use version <b>7.1.1 or lower</b> from
-                <a href="https://www.gyan.dev/ffmpeg/builds">https://www.gyan.dev/ffmpeg/builds</a>.</p>
-                """
-            )
+            sections.append("ffmpeg")
 
         if self._missing_manual_cdm:
-            parts.append(
-                """
-                <h3>Manual CDM keys</h3>
-                <p><b>Manual DRM key paths are not set in your config.</b>
-                These are required to scrape DRM-protected content.</p>
-                <ul>
-                  <li><b>Already have keys?</b> Click <i>Open Config → CDM (Manual keys)</i>
-                  to enter the paths to your <code>client_id.bin</code> and
-                  <code>private_key.pem</code> files.</li>
-                  <li><b>Don't have keys yet?</b> Click <i>Generate DRM Keys</i> to use the
-                  built-in extraction tool to create them automatically.</li>
-                </ul>
-                """
-            )
+            sections.append("cdm")
 
-        if not parts:
-            parts.append("<p>No missing settings detected.</p>")
+        if not sections:
+            text_widget.insert(tk.END, "No missing settings detected.", "normal")
+            return
 
-        return "\n<hr/>\n".join(parts)
+        first = True
+        for section in sections:
+            if not first:
+                text_widget.insert(tk.END, "\n" + "-" * 60 + "\n", "hr")
+            first = False
 
-    def _confirm_jump(self, title: str, msg: str) -> bool:
+            if section == "ffmpeg":
+                text_widget.insert(tk.END, "FFmpeg\n", "h3")
+                text_widget.insert(tk.END,
+                    "Missing file path for FFmpeg in your config. "
+                    "This is needed to merge DRM protected audio and video files.\n\n",
+                    "normal")
+                text_widget.insert(tk.END,
+                    "Use version 7.1.1 or lower from:\n"
+                    "https://www.gyan.dev/ffmpeg/builds\n",
+                    "normal")
+
+            elif section == "cdm":
+                text_widget.insert(tk.END, "Manual CDM keys\n", "h3")
+                text_widget.insert(tk.END,
+                    "Manual DRM key paths are not set in your config. "
+                    "These are required to scrape DRM-protected content.\n\n",
+                    "normal")
+                text_widget.insert(tk.END,
+                    "Already have keys? ", "bold")
+                text_widget.insert(tk.END,
+                    "Click 'Open Config -> CDM (Manual keys)' to enter the paths "
+                    "to your client_id.bin and private_key.pem files.\n\n",
+                    "normal")
+                text_widget.insert(tk.END,
+                    "Don't have keys yet? ", "bold")
+                text_widget.insert(tk.END,
+                    "Click 'Generate DRM Keys' to use the built-in extraction "
+                    "tool to create them automatically.\n",
+                    "normal")
+
+    def _confirm_jump(self, title, msg):
         try:
-            reply = QMessageBox.question(
-                self,
-                title,
-                msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            return reply == QMessageBox.StandardButton.Yes
+            return messagebox.askyesno(title, msg, parent=self)
         except Exception:
             return True
 
@@ -139,7 +179,7 @@ class MissingDepsDialog(QDialog):
         if not callable(self._on_open_drm):
             return
         self._on_open_drm()
-        self.accept()
+        self.destroy()
 
     def _open_ffmpeg(self):
         if not callable(self._on_open_ffmpeg):
@@ -158,4 +198,3 @@ class MissingDepsDialog(QDialog):
             "Open Configuration to the CDM tab to enter the manual DRM key paths?",
         ):
             self._on_open_cdm()
-

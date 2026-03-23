@@ -2,22 +2,9 @@ import logging
 import os
 import subprocess
 import sys
-
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
-    QFileDialog,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPlainTextEdit,
-    QScrollArea,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.styles import c
@@ -62,18 +49,20 @@ OUTPUT FILES
 """
 
 
-class _ScriptRunner(QThread):
+class _ScriptRunner:
     """Runs drm_keydive.py in a subprocess and streams output line by line."""
 
-    line_ready = pyqtSignal(str)
-    finished = pyqtSignal(int)  # exit code
-
-    def __init__(self, script_path: str, output_dir: str):
-        super().__init__()
+    def __init__(self, script_path, output_dir, on_line, on_finished, root):
         self.script_path = script_path
         self.output_dir = output_dir
+        self._on_line = on_line
+        self._on_finished = on_finished
+        self._root = root
 
-    def run(self):
+    def start(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
         cmd = [sys.executable, self.script_path, "--out-dir", self.output_dir]
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
@@ -90,210 +79,224 @@ class _ScriptRunner(QThread):
                 cwd=os.path.dirname(self.script_path),
             )
             for line in proc.stdout:
-                self.line_ready.emit(line.rstrip())
+                stripped = line.rstrip()
+                try:
+                    self._root.after(0, self._on_line, stripped)
+                except Exception:
+                    pass
             proc.wait()
-            self.finished.emit(proc.returncode)
+            try:
+                self._root.after(0, self._on_finished, proc.returncode)
+            except Exception:
+                pass
         except Exception as e:
-            self.line_ready.emit(f"ERROR launching script: {e}")
-            self.finished.emit(1)
+            try:
+                self._root.after(0, self._on_line, f"ERROR launching script: {e}")
+                self._root.after(0, self._on_finished, 1)
+            except Exception:
+                pass
 
 
-class DRMKeyPage(QWidget):
-    """DRM Key Creation page — runs drm_keydive.py and optionally updates config.json."""
+class DRMKeyPage(ttk.Frame):
+    """DRM Key Creation page -- runs drm_keydive.py and optionally updates config.json."""
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, parent, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
         self.manager = manager
         self._runner = None
         self._last_output_dir = None
         self._setup_ui()
         self._try_prefill_script()
 
+    def _get_root(self):
+        """Return the tkinter root window."""
+        return self.winfo_toplevel()
+
     def _try_prefill_script(self):
         """Pre-fill the script path with the bundled script if it exists."""
         if os.path.isfile(_BUNDLED_SCRIPT):
-            self.script_input.setText(_BUNDLED_SCRIPT)
+            self.script_input.delete(0, tk.END)
+            self.script_input.insert(0, _BUNDLED_SCRIPT)
 
     def _setup_ui(self):
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        # Scrollable container using canvas
+        canvas = tk.Canvas(self, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        self._scroll_frame = ttk.Frame(canvas)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        outer.addWidget(scroll)
-
-        container = QWidget()
-        scroll.setWidget(container)
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(16)
-
-        # ── Header ────────────────────────────────────────────────────────────
-        header = QLabel("DRM Key Creation")
-        header.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        header.setProperty("heading", True)
-        layout.addWidget(header)
-
-        subtitle = QLabel(
-            "Generate Widevine L3 keys using an Android emulator. "
-            "Produces client_id.bin and private_key.pem for use with OF-Scraper."
+        self._scroll_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        subtitle.setProperty("subheading", True)
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
 
-        # ── Requirements box ──────────────────────────────────────────────────
-        req_frame = QFrame()
-        req_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        req_frame.setObjectName("reqFrame")
-        req_layout = QVBoxLayout(req_frame)
-        req_layout.setContentsMargins(16, 12, 16, 12)
-        req_layout.setSpacing(4)
+        canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        req_title = QLabel("Requirements & Information")
-        req_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        req_layout.addWidget(req_title)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        req_body = QLabel(_REQUIREMENTS_TEXT)
-        req_body.setFont(QFont("Consolas", 9))
-        req_body.setWordWrap(False)
-        req_body.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        req_layout.addWidget(req_body)
+        # Bind mousewheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-        layout.addWidget(req_frame)
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
-        layout.addSpacing(8)
+        container = self._scroll_frame
+        pad_x = 40
+        pad_y = 10
 
-        # ── Script path ───────────────────────────────────────────────────────
-        script_row = QHBoxLayout()
-        script_lbl = QLabel("Extraction Script:")
-        script_lbl.setFixedWidth(140)
-        script_row.addWidget(script_lbl)
-        self.script_input = QLineEdit()
-        self.script_input.setPlaceholderText("Path to drm_keydive.py ...")
-        self.script_input.setClearButtonEnabled(True)
-        self.script_input.setToolTip(
-            "Full path to drm_keydive.py.\n"
-            "The bundled copy is detected automatically if found."
+        # -- Header --
+        header = ttk.Label(container, text="DRM Key Creation",
+                           style="Heading.TLabel")
+        header.pack(anchor="w", padx=pad_x, pady=(pad_y * 2, 4))
+
+        subtitle = ttk.Label(
+            container,
+            text="Generate Widevine L3 keys using an Android emulator. "
+                 "Produces client_id.bin and private_key.pem for use with OF-Scraper.",
+            style="Subheading.TLabel",
+            wraplength=700,
         )
-        script_row.addWidget(self.script_input)
-        script_browse = StyledButton("Browse")
-        script_browse.clicked.connect(self._browse_script)
-        script_row.addWidget(script_browse)
-        layout.addLayout(script_row)
+        subtitle.pack(anchor="w", padx=pad_x, pady=(0, pad_y))
 
-        # ── Output directory ──────────────────────────────────────────────────
-        out_row = QHBoxLayout()
-        out_lbl = QLabel("Output Folder:")
-        out_lbl.setFixedWidth(140)
-        out_row.addWidget(out_lbl)
-        self.output_input = QLineEdit()
-        self.output_input.setPlaceholderText("Folder where keys will be saved (default: ~/.config/ofscraper/device)")
-        self.output_input.setClearButtonEnabled(True)
-        self.output_input.setToolTip(
-            "Directory where client_id.bin and private_key.pem will be written.\n"
-            "Leave blank to use the default: ~/.config/ofscraper/device"
+        # -- Requirements box --
+        req_frame = ttk.LabelFrame(container, text="Requirements & Information")
+        req_frame.pack(fill=tk.X, padx=pad_x, pady=pad_y)
+
+        req_body = tk.Text(req_frame, wrap=tk.NONE, height=18, font=("Consolas", 9),
+                           relief=tk.FLAT, borderwidth=0)
+        req_body.insert(tk.END, _REQUIREMENTS_TEXT)
+        req_body.configure(state=tk.DISABLED)
+        req_body.pack(fill=tk.X, padx=12, pady=8)
+
+        # -- Script path --
+        script_frame = ttk.Frame(container)
+        script_frame.pack(fill=tk.X, padx=pad_x, pady=(pad_y, 4))
+
+        script_lbl = ttk.Label(script_frame, text="Extraction Script:", width=18)
+        script_lbl.pack(side=tk.LEFT)
+
+        self.script_input = ttk.Entry(script_frame)
+        self.script_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
+
+        script_browse = StyledButton(script_frame, text="Browse",
+                                     command=self._browse_script)
+        script_browse.pack(side=tk.LEFT)
+
+        # -- Output directory --
+        out_frame = ttk.Frame(container)
+        out_frame.pack(fill=tk.X, padx=pad_x, pady=(4, pad_y))
+
+        out_lbl = ttk.Label(out_frame, text="Output Folder:", width=18)
+        out_lbl.pack(side=tk.LEFT)
+
+        self.output_input = ttk.Entry(out_frame)
+        self.output_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 4))
+
+        out_browse = StyledButton(out_frame, text="Browse",
+                                  command=self._browse_output)
+        out_browse.pack(side=tk.LEFT)
+
+        # -- Warning --
+        self._warning_label = ttk.Label(
+            container,
+            text="WARNING: First run downloads ~3 GB of tools and may take 45-90 min "
+                 "on systems without hardware virtualization (VT-x / KVM).",
+            wraplength=700,
+            font=("Segoe UI", 11, "bold"),
+            foreground=c("warning"),
         )
-        out_row.addWidget(self.output_input)
-        out_browse = StyledButton("Browse")
-        out_browse.clicked.connect(self._browse_output)
-        out_row.addWidget(out_browse)
-        layout.addLayout(out_row)
-
-        layout.addSpacing(8)
-
-        # ── Warning ───────────────────────────────────────────────────────────
-        self._warning_label = QLabel(
-            "WARNING: First run downloads ~3 GB of tools and may take 45–90 min "
-            "on systems without hardware virtualization (VT-x / KVM)."
-        )
-        self._warning_label.setStyleSheet(f"color: {c('warning')}; font-weight: bold;")
-        self._warning_label.setWordWrap(True)
-        layout.addWidget(self._warning_label)
+        self._warning_label.pack(anchor="w", padx=pad_x, pady=pad_y)
 
         app_signals.theme_changed.connect(self._apply_theme)
 
-        # ── Generate button ───────────────────────────────────────────────────
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        self.generate_btn = StyledButton("Generate Keys", primary=True)
-        self.generate_btn.setFixedWidth(200)
-        self.generate_btn.clicked.connect(self._on_generate)
-        btn_row.addWidget(self.generate_btn)
-        layout.addLayout(btn_row)
+        # -- Generate button --
+        btn_frame = ttk.Frame(container)
+        btn_frame.pack(fill=tk.X, padx=pad_x, pady=pad_y)
 
-        # ── Live output log ───────────────────────────────────────────────────
-        self.output_text = QPlainTextEdit()
-        self.output_text.setReadOnly(True)
-        self.output_text.setMaximumBlockCount(2000)
-        self.output_text.setPlaceholderText("Script output will appear here...")
-        self.output_text.setFont(QFont("Consolas", 9))
-        self.output_text.setMinimumHeight(300)
-        layout.addWidget(self.output_text)
+        self.generate_btn = StyledButton(btn_frame, text="Generate Keys",
+                                         primary=True, command=self._on_generate)
+        self.generate_btn.pack(side=tk.RIGHT)
+
+        # -- Live output log --
+        self.output_text = tk.Text(container, wrap=tk.WORD, height=18,
+                                   font=("Consolas", 9), state=tk.DISABLED,
+                                   relief=tk.SUNKEN, borderwidth=1)
+        self.output_text.pack(fill=tk.BOTH, expand=True, padx=pad_x, pady=(pad_y, pad_y * 2))
 
     def _apply_theme(self, _is_dark=True):
-        self._warning_label.setStyleSheet(f"color: {c('warning')}; font-weight: bold;")
+        self._warning_label.configure(foreground=c("warning"))
 
     def _browse_script(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Extraction Script", "", "Python Scripts (*.py)"
+        path = filedialog.askopenfilename(
+            title="Select Extraction Script",
+            filetypes=[("Python Scripts", "*.py"), ("All Files", "*.*")],
         )
         if path:
-            self.script_input.setText(path)
+            self.script_input.delete(0, tk.END)
+            self.script_input.insert(0, path)
 
     def _browse_output(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        folder = filedialog.askdirectory(title="Select Output Folder")
         if folder:
-            self.output_input.setText(folder)
+            self.output_input.delete(0, tk.END)
+            self.output_input.insert(0, folder)
 
     def _on_generate(self):
-        script = self.script_input.text().strip()
+        script = self.script_input.get().strip()
         if not script:
-            QMessageBox.warning(self, "Missing", "No extraction script path set.\n"
-                                "The bundled script was not found — please browse to drm_keydive.py.")
+            messagebox.showwarning(
+                "Missing",
+                "No extraction script path set.\n"
+                "The bundled script was not found -- please browse to drm_keydive.py.",
+            )
             return
         if not os.path.isfile(script):
-            QMessageBox.warning(self, "Not Found", f"Script not found:\n{script}")
+            messagebox.showwarning("Not Found", f"Script not found:\n{script}")
             return
 
         # Use typed path or fall back to the script's own default
-        output_dir = self.output_input.text().strip()
+        output_dir = self.output_input.get().strip()
         if not output_dir:
             output_dir = os.path.normpath(os.path.expanduser("~/.config/ofscraper/device"))
 
         os.makedirs(output_dir, exist_ok=True)
         self._last_output_dir = output_dir
 
-        self.output_text.clear()
-        self.output_text.appendPlainText(
-            f"Starting DRM key extraction...\nOutput directory: {output_dir}\n"
-        )
-        self.generate_btn.setEnabled(False)
+        self._text_clear()
+        self._text_append(f"Starting DRM key extraction...\nOutput directory: {output_dir}\n")
+        self.generate_btn.configure(state=tk.DISABLED)
         app_signals.status_message.emit("DRM key extraction in progress...")
 
-        self._runner = _ScriptRunner(script, output_dir)
-        self._runner.line_ready.connect(self._on_line)
-        self._runner.finished.connect(self._on_finished)
+        self._runner = _ScriptRunner(
+            script, output_dir, self._on_line, self._on_finished, self._get_root()
+        )
         self._runner.start()
 
-    def _on_line(self, line: str):
-        self.output_text.appendPlainText(line)
-        sb = self.output_text.verticalScrollBar()
-        sb.setValue(sb.maximum())
+    def _text_clear(self):
+        self.output_text.configure(state=tk.NORMAL)
+        self.output_text.delete("1.0", tk.END)
+        self.output_text.configure(state=tk.DISABLED)
 
-    def _on_finished(self, exit_code: int):
-        self.generate_btn.setEnabled(True)
+    def _text_append(self, text):
+        self.output_text.configure(state=tk.NORMAL)
+        self.output_text.insert(tk.END, text + "\n")
+        self.output_text.see(tk.END)
+        self.output_text.configure(state=tk.DISABLED)
+
+    def _on_line(self, line):
+        self._text_append(line)
+
+    def _on_finished(self, exit_code):
+        self.generate_btn.configure(state=tk.NORMAL)
         if exit_code == 0:
-            self.output_text.appendPlainText("\n✓ Key extraction completed successfully.")
+            self._text_append("\nKey extraction completed successfully.")
             app_signals.status_message.emit("DRM key extraction complete")
             self._offer_config_update()
         else:
-            self.output_text.appendPlainText(f"\n✗ Script exited with code {exit_code}.")
+            self._text_append(f"\nScript exited with code {exit_code}.")
             app_signals.status_message.emit("DRM key extraction failed")
-            QMessageBox.critical(
-                self,
+            messagebox.showerror(
                 "Extraction Failed",
                 f"The extraction script exited with code {exit_code}.\n"
                 "Check the output log for details.",
@@ -308,8 +311,7 @@ class DRMKeyPage(QWidget):
 
         missing = [p for p in (client_id, private_key) if not os.path.isfile(p)]
         if missing:
-            QMessageBox.warning(
-                self,
+            messagebox.showwarning(
                 "Key Files Not Found",
                 "Extraction reported success but the key files were not found:\n"
                 + "\n".join(missing)
@@ -317,36 +319,34 @@ class DRMKeyPage(QWidget):
             )
             return
 
-        reply = QMessageBox.question(
-            self,
+        reply = messagebox.askyesno(
             "Update Configuration",
             "Keys were saved successfully!\n\n"
             f"  Client ID:   {client_id}\n"
             f"  Private Key: {private_key}\n\n"
             "Would you like to update config.json with these paths\n"
             "and set Key Mode to manual?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.StandardButton.Yes:
+        if not reply:
             return
 
         try:
             self._update_config(client_id, private_key)
             app_signals.config_updated.emit()
-            QMessageBox.information(
-                self,
+            messagebox.showinfo(
                 "Config Updated",
                 "config.json has been updated:\n"
-                "  • key-mode-default → manual\n"
-                f"  • client-id → {client_id}\n"
-                f"  • private-key → {private_key}",
+                "  - key-mode-default -> manual\n"
+                f"  - client-id -> {client_id}\n"
+                f"  - private-key -> {private_key}",
             )
             app_signals.status_message.emit("Config updated with DRM keys")
         except Exception as e:
             log.debug(f"Config update failed: {e}", exc_info=True)
-            QMessageBox.critical(self, "Config Update Failed", f"Could not update config.json:\n{e}")
+            messagebox.showerror("Config Update Failed",
+                                 f"Could not update config.json:\n{e}")
 
-    def _update_config(self, client_id: str, private_key: str):
+    def _update_config(self, client_id, private_key):
         from ofscraper.utils.config.file import open_config, write_config
         import ofscraper.utils.config.config as config_module
 

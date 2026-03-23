@@ -1,22 +1,12 @@
 import json
 import logging
+import os
 import platform
+import tkinter as tk
+from tkinter import ttk, messagebox
 import traceback
+import webbrowser
 from typing import Optional
-
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QAction, QColor, QFont, QDesktopServices, QIcon, QPainter, QPixmap
-from PyQt6.QtWidgets import (
-    QComboBox,
-    QFormLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QVBoxLayout,
-    QWidget,
-)
 
 from ofscraper.gui.signals import app_signals
 from ofscraper.gui.widgets.styled_button import StyledButton
@@ -173,193 +163,192 @@ def _find_firefox_cookie_file() -> Optional[str]:
     return None
 
 
-class AuthPage(QWidget):
-    """Authentication credential editor page — replaces the InquirerPy auth prompt.
+class AuthPage(ttk.Frame):
+    """Authentication credential editor page -- replaces the InquirerPy auth prompt.
     Displayed inline as a page in the main window stack."""
 
-    def __init__(self, manager=None, parent=None):
-        super().__init__(parent)
+    def __init__(self, parent=None, manager=None, **kwargs):
+        super().__init__(parent, **kwargs)
         self.manager = manager
-        self._inputs = {}
+        self._inputs = {}       # field_key -> tk.StringVar
+        self._entries = {}      # field_key -> ttk.Entry (needed for sess show/hide)
+        self._sess_visible = False
         self._setup_ui()
         self._load_auth()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(16)
+        # Outer padding
+        outer = ttk.Frame(self, padding=(40, 40, 40, 40))
+        outer.pack(fill="both", expand=True)
 
         # Header
-        header = QLabel("Authentication")
-        header.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
-        header.setProperty("heading", True)
-        layout.addWidget(header)
+        header = ttk.Label(outer, text="Authentication", style="Heading.TLabel")
+        header.pack(anchor="w", pady=(0, 4))
 
-        subtitle = QLabel(
-            "Enter your OnlyFans authentication credentials. "
-            "These are stored in auth.json in your profile directory."
+        subtitle = ttk.Label(
+            outer,
+            text=(
+                "Enter your OnlyFans authentication credentials. "
+                "These are stored in auth.json in your profile directory."
+            ),
+            style="Subheading.TLabel",
+            wraplength=700,
         )
-        subtitle.setProperty("subheading", True)
-        subtitle.setWordWrap(True)
-        layout.addWidget(subtitle)
+        subtitle.pack(anchor="w", pady=(0, 16))
 
-        layout.addSpacing(8)
+        # --- Credentials group ---
+        form_group = ttk.LabelFrame(outer, text="Credentials", padding=(12, 12))
+        form_group.pack(fill="x", pady=(0, 12))
+        form_group.columnconfigure(1, weight=1)
 
-        # Credential fields
-        form_group = QGroupBox("Credentials")
-        form_layout = QFormLayout(form_group)
-        form_layout.setSpacing(12)
+        for i, (field_key, label_text) in enumerate(AUTH_FIELDS):
+            ttk.Label(form_group, text=label_text + ":").grid(
+                row=i, column=0, sticky="w", padx=(8, 4), pady=4
+            )
+            var = tk.StringVar()
+            entry = ttk.Entry(form_group, textvariable=var, width=50)
+            entry.grid(row=i, column=1, sticky="ew", padx=(4, 4), pady=4)
+            self._inputs[field_key] = var
+            self._entries[field_key] = entry
 
-        _auth_tips = {
-            "sess": "Your 'sess' session cookie from OnlyFans.\nFound in browser DevTools > Application > Cookies.",
-            "auth_id": "Your 'auth_id' cookie from OnlyFans.\nFound in browser DevTools > Application > Cookies.",
-            "auth_uid": "Your 'auth_uid_XXXX' cookie (only needed for 2FA accounts).\nLeave empty if you don't use two-factor authentication.",
-            "user_agent": "Your browser's User-Agent string.\nFound in browser DevTools > Console: navigator.userAgent",
-            "x-bc": "The 'x-bc' header from OnlyFans API requests.\nFound in browser DevTools > Network tab > any OF API request > Request Headers.",
-        }
-        for field_key, label_text in AUTH_FIELDS:
-            line_edit = QLineEdit()
-            line_edit.setPlaceholderText(f"Enter {label_text}...")
-            line_edit.setClearButtonEnabled(True)
-            line_edit.setToolTip(_auth_tips.get(field_key, ""))
             if field_key == "sess":
-                # Add eye toggle action for showing/hiding the session cookie
-                self._sess_toggle = QAction(self)
-                self._sess_toggle.setIcon(self._make_eye_icon(visible=True))
-                self._sess_toggle.setToolTip("Show/hide session cookie")
-                self._sess_toggle.triggered.connect(self._toggle_sess_visibility)
-                line_edit.addAction(self._sess_toggle, QLineEdit.ActionPosition.TrailingPosition)
-            form_layout.addRow(label_text + ":", line_edit)
-            self._inputs[field_key] = line_edit
+                # Password toggle button next to sess entry
+                entry.configure(show="*")
+                toggle_btn = ttk.Button(
+                    form_group, text="Show", width=6,
+                    command=self._toggle_sess_visibility,
+                )
+                toggle_btn.grid(row=i, column=2, padx=(2, 8), pady=4)
+                self._sess_toggle_btn = toggle_btn
 
-        layout.addWidget(form_group)
-
-        # Browser import
-        import_group = QGroupBox("Import from Browser *")
-        import_inner = QVBoxLayout(import_group)
-
-        # Info label
-        info_label = QLabel(
-            "* This feature is a work in progress and may not work on all systems.\n"
-            "Imports cookies (sess, auth_id) and detects User Agent automatically.\n"
-            "X-BC Header must still be entered manually from browser DevTools (F12 > Network tab).\n"
-            "Only works with the browser's default profile. The browser must be closed before importing."
+        # --- Import from browser group ---
+        import_group = ttk.LabelFrame(
+            outer, text="Import from Browser *", padding=(12, 12)
         )
-        info_label.setWordWrap(True)
-        info_label.setProperty("muted", True)
-        import_inner.addWidget(info_label)
+        import_group.pack(fill="x", pady=(0, 12))
 
-        import_row = QHBoxLayout()
-        self.browser_combo = QComboBox()
-        self.browser_combo.addItems(BROWSERS)
-        self.browser_combo.setToolTip(
-            "Select which browser to import cookies from.\n"
-            "The browser must be closed before importing."
+        info_label = ttk.Label(
+            import_group,
+            text=(
+                "* This feature is a work in progress and may not work on all systems.\n"
+                "Imports cookies (sess, auth_id) and detects User Agent automatically.\n"
+                "X-BC Header must still be entered manually from browser DevTools "
+                "(F12 > Network tab).\n"
+                "Only works with the browser's default profile. "
+                "The browser must be closed before importing."
+            ),
+            style="Muted.TLabel",
+            wraplength=700,
+            justify="left",
         )
-        import_row.addWidget(QLabel("Browser:"))
-        import_row.addWidget(self.browser_combo)
+        info_label.pack(anchor="w", pady=(0, 8))
 
-        import_btn = StyledButton("Import Cookies")
-        import_btn.clicked.connect(self._import_from_browser)
-        import_row.addWidget(import_btn)
-        import_row.addStretch()
+        import_row = ttk.Frame(import_group)
+        import_row.pack(anchor="w")
 
-        import_inner.addLayout(import_row)
-        layout.addWidget(import_group)
+        ttk.Label(import_row, text="Browser:").pack(side="left", padx=(0, 4))
 
-        # Troubleshooting help
-        help_group = QGroupBox("Still having issues?")
-        help_layout = QVBoxLayout(help_group)
-        help_label = QLabel(
-            "If authentication keeps failing, try the following:\n"
-            "\n"
-            "1. Make sure you are logged into OnlyFans in your browser\n"
-            "2. Try changing the Dynamic Rules setting in Configuration > General\n"
-            "    (try 'digitalcriminals', 'datawhores', or 'xagler')\n"
-            "3. Clear your browser cookies for OnlyFans, log in again, and re-import\n"
-            "4. Manually copy all values from browser DevTools (F12 > Network tab > any API request headers)\n"
-            "5. Check the OF-Scraper docs: "
+        self._browser_var = tk.StringVar(value=BROWSERS[0])
+        self.browser_combo = ttk.Combobox(
+            import_row,
+            textvariable=self._browser_var,
+            values=BROWSERS,
+            state="readonly",
+            width=16,
         )
-        help_label.setWordWrap(True)
-        help_label.setProperty("muted", True)
-        help_layout.addWidget(help_label)
+        self.browser_combo.pack(side="left", padx=(0, 8))
 
-        docs_btn = StyledButton("Open Auth Help Docs")
-        docs_btn.clicked.connect(
-            lambda: QDesktopServices.openUrl(
-                QUrl("https://of-scraper.gitbook.io/of-scraper/auth")
-            )
+        import_btn = StyledButton(
+            import_row, text="Import Cookies", command=self._import_from_browser
         )
-        help_layout.addWidget(docs_btn)
-        layout.addWidget(help_group)
+        import_btn.pack(side="left")
 
-        layout.addStretch()
-
-        # Action buttons
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-
-        open_auth_btn = StyledButton("Open auth.json")
-        open_auth_btn.clicked.connect(
-            lambda: QDesktopServices.openUrl(
-                QUrl.fromLocalFile(str(common_paths.get_auth_file()))
-            )
+        # --- Troubleshooting help group ---
+        help_group = ttk.LabelFrame(
+            outer, text="Still having issues?", padding=(12, 12)
         )
-        btn_layout.addWidget(open_auth_btn)
+        help_group.pack(fill="x", pady=(0, 12))
 
-        reload_btn = StyledButton("Reload")
-        reload_btn.clicked.connect(self._load_auth)
-        btn_layout.addWidget(reload_btn)
+        help_label = ttk.Label(
+            help_group,
+            text=(
+                "If authentication keeps failing, try the following:\n"
+                "\n"
+                "1. Make sure you are logged into OnlyFans in your browser\n"
+                "2. Try changing the Dynamic Rules setting in Configuration > General\n"
+                "    (try 'digitalcriminals', 'datawhores', or 'xagler')\n"
+                "3. Clear your browser cookies for OnlyFans, log in again, and re-import\n"
+                "4. Manually copy all values from browser DevTools "
+                "(F12 > Network tab > any API request headers)\n"
+                "5. Check the OF-Scraper docs:"
+            ),
+            style="Muted.TLabel",
+            wraplength=700,
+            justify="left",
+        )
+        help_label.pack(anchor="w", pady=(0, 8))
 
-        save_btn = StyledButton("Save", primary=True)
-        save_btn.setFixedWidth(120)
-        save_btn.clicked.connect(self._save_auth)
-        btn_layout.addWidget(save_btn)
+        docs_btn = StyledButton(
+            help_group,
+            text="Open Auth Help Docs",
+            command=lambda: webbrowser.open(
+                "https://of-scraper.gitbook.io/of-scraper/auth"
+            ),
+        )
+        docs_btn.pack(anchor="w")
 
-        layout.addLayout(btn_layout)
+        # --- Spacer (pushes action buttons to bottom) ---
+        spacer = ttk.Frame(outer)
+        spacer.pack(fill="both", expand=True)
+
+        # --- Action buttons ---
+        btn_frame = ttk.Frame(outer)
+        btn_frame.pack(fill="x", pady=(12, 0))
+
+        save_btn = StyledButton(
+            btn_frame, text="Save", primary=True, command=self._save_auth, width=14
+        )
+        save_btn.pack(side="right", padx=(8, 0))
+
+        reload_btn = StyledButton(
+            btn_frame, text="Reload", command=self._load_auth
+        )
+        reload_btn.pack(side="right", padx=(8, 0))
+
+        open_auth_btn = StyledButton(
+            btn_frame, text="Open auth.json", command=self._open_auth_file
+        )
+        open_auth_btn.pack(side="right")
 
     @staticmethod
-    def _make_eye_icon(visible: bool = True) -> QIcon:
-        """Create a simple eye icon. visible=True means 'click to show', False means 'click to hide'."""
-        size = 16
-        pm = QPixmap(size, size)
-        pm.fill(QColor(0, 0, 0, 0))  # transparent
-        p = QPainter(pm)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor("#a6adc8") if visible else QColor("#cdd6f4")
-        p.setPen(color)
-        p.setBrush(QColor(0, 0, 0, 0))
-        # Draw eye outline
-        from PyQt6.QtCore import QPointF
-        from PyQt6.QtGui import QPainterPath
-        path = QPainterPath()
-        path.moveTo(1, 8)
-        path.cubicTo(4, 3, 12, 3, 15, 8)
-        path.cubicTo(12, 13, 4, 13, 1, 8)
-        p.drawPath(path)
-        # Draw pupil
-        p.setBrush(color)
-        p.drawEllipse(QPointF(8, 8), 2.5, 2.5)
-        # Draw strike-through line when hidden
-        if visible:
-            p.setPen(QColor("#f38ba8"))
-            p.drawLine(3, 13, 13, 3)
-        p.end()
-        return QIcon(pm)
+    def _open_auth_file():
+        """Open auth.json in the system default editor/viewer."""
+        try:
+            auth_path = str(common_paths.get_auth_file())
+            if platform.system() == "Windows":
+                os.startfile(auth_path)
+            elif platform.system() == "Darwin":
+                import subprocess
+                subprocess.Popen(["open", auth_path])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", auth_path])
+        except Exception as e:
+            log.error(f"Failed to open auth.json: {e}")
 
     def _toggle_sess_visibility(self):
         """Toggle session cookie field between visible text and dots."""
-        sess = self._inputs.get("sess")
-        if not sess:
+        sess_entry = self._entries.get("sess")
+        if not sess_entry:
             return
-        if sess.echoMode() == QLineEdit.EchoMode.Password:
-            sess.setEchoMode(QLineEdit.EchoMode.Normal)
-            self._sess_toggle.setIcon(self._make_eye_icon(visible=False))
-            self._sess_toggle.setToolTip("Hide session cookie")
+        if self._sess_visible:
+            sess_entry.configure(show="*")
+            self._sess_toggle_btn.configure(text="Show")
+            self._sess_visible = False
         else:
-            sess.setEchoMode(QLineEdit.EchoMode.Password)
-            self._sess_toggle.setIcon(self._make_eye_icon(visible=True))
-            self._sess_toggle.setToolTip("Show session cookie")
+            sess_entry.configure(show="")
+            self._sess_toggle_btn.configure(text="Hide")
+            self._sess_visible = True
 
     def _load_auth(self):
         """Load current auth.json values into the form."""
@@ -372,12 +361,15 @@ class AuthPage(QWidget):
 
             for field_key, _ in AUTH_FIELDS:
                 value = auth.get(field_key, "")
-                self._inputs[field_key].setText(str(value) if value else "")
+                self._inputs[field_key].set(str(value) if value else "")
 
             # Mask session cookie after loading
-            sess = self._inputs.get("sess")
-            if sess and sess.text():
-                sess.setEchoMode(QLineEdit.EchoMode.Password)
+            sess_entry = self._entries.get("sess")
+            if sess_entry and self._inputs["sess"].get():
+                sess_entry.configure(show="*")
+                self._sess_visible = False
+                if hasattr(self, "_sess_toggle_btn"):
+                    self._sess_toggle_btn.configure(text="Show")
 
             app_signals.status_message.emit("Auth credentials loaded")
         except Exception as e:
@@ -389,21 +381,19 @@ class AuthPage(QWidget):
         try:
             auth = {}
             for field_key, _ in AUTH_FIELDS:
-                auth[field_key] = self._inputs[field_key].text().strip()
+                auth[field_key] = self._inputs[field_key].get().strip()
 
             # Warn about missing required fields but still allow save
             required = ["sess", "auth_id", "user_agent", "x-bc"]
             missing = [k for k in required if not auth.get(k)]
             if missing:
-                reply = QMessageBox.warning(
-                    self,
+                reply = messagebox.askyesno(
                     "Missing Fields",
                     f"The following required fields are empty: {', '.join(missing)}\n\n"
                     "Save anyway? (Auth may not work until all fields are filled.)",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
+                    default="no",
                 )
-                if reply != QMessageBox.StandardButton.Yes:
+                if not reply:
                     return
 
             from ofscraper.utils.auth.file import write_auth
@@ -415,19 +405,22 @@ class AuthPage(QWidget):
             log.info(f"Auth saved successfully. Keys with values: {[k for k in required if auth.get(k)]}")
 
             # Mask session cookie after saving
-            sess = self._inputs.get("sess")
-            if sess and sess.text():
-                sess.setEchoMode(QLineEdit.EchoMode.Password)
+            sess_entry = self._entries.get("sess")
+            if sess_entry and self._inputs["sess"].get():
+                sess_entry.configure(show="*")
+                self._sess_visible = False
+                if hasattr(self, "_sess_toggle_btn"):
+                    self._sess_toggle_btn.configure(text="Show")
 
             app_signals.status_message.emit("Auth credentials saved")
-            QMessageBox.information(self, "Saved", "Authentication credentials saved successfully.")
+            messagebox.showinfo("Saved", "Authentication credentials saved successfully.")
         except Exception as e:
             log.error(f"Failed to save auth: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to save: {e}")
+            messagebox.showerror("Error", f"Failed to save: {e}")
 
     def _import_from_browser(self):
         """Attempt to import cookies and detect user agent from the selected browser."""
-        browser_display = self.browser_combo.currentText()
+        browser_display = self._browser_var.get()
         browser_name = browser_display.lower().replace(" ", "")
         try:
             import browser_cookie3
@@ -445,8 +438,8 @@ class AuthPage(QWidget):
 
             func = browser_func_map.get(browser_name)
             if not func:
-                QMessageBox.warning(
-                    self, "Error", f"Unsupported browser: {browser_name}"
+                messagebox.showwarning(
+                    "Error", f"Unsupported browser: {browser_name}"
                 )
                 return
 
@@ -464,24 +457,24 @@ class AuthPage(QWidget):
 
             imported = []
             if "sess" in cookies:
-                self._inputs["sess"].setText(cookies["sess"])
+                self._inputs["sess"].set(cookies["sess"])
                 imported.append("sess")
             if "auth_id" in cookies:
-                self._inputs["auth_id"].setText(cookies["auth_id"])
+                self._inputs["auth_id"].set(cookies["auth_id"])
                 imported.append("auth_id")
             for name, val in cookies.items():
                 if name.startswith("auth_uid_"):
-                    self._inputs["auth_uid"].setText(val)
+                    self._inputs["auth_uid"].set(val)
                     imported.append("auth_uid")
                     break
 
             # Try to auto-detect user agent from installed browser version
             ua_detected = False
-            if not self._inputs["user_agent"].text().strip():
+            if not self._inputs["user_agent"].get().strip():
                 try:
                     ua = _detect_user_agent(browser_name)
                     if ua:
-                        self._inputs["user_agent"].setText(ua)
+                        self._inputs["user_agent"].set(ua)
                         imported.append("user_agent")
                         ua_detected = True
                 except Exception as e:
@@ -509,12 +502,11 @@ class AuthPage(QWidget):
                     "Open OnlyFans in your browser, press F12, go to Network tab,\n"
                     "click any API request, and copy the 'x-bc' value from Request Headers."
                 )
-                QMessageBox.information(
-                    self, "Import Results", "\n\n".join(msg_parts)
+                messagebox.showinfo(
+                    "Import Results", "\n\n".join(msg_parts)
                 )
             else:
-                QMessageBox.warning(
-                    self,
+                messagebox.showwarning(
                     "No Cookies Found",
                     f"No OnlyFans cookies found in {browser_display}.\n\n"
                     "Make sure you are logged into OnlyFans in that browser\n"
@@ -524,8 +516,7 @@ class AuthPage(QWidget):
         except Exception as e:
             log.error(f"Browser import failed: {e}")
             log.debug(traceback.format_exc())
-            QMessageBox.critical(
-                self,
+            messagebox.showerror(
                 "Import Failed",
                 f"Could not import cookies from {browser_display}:\n{e}\n\n"
                 "Make sure the browser is fully closed and try again.",

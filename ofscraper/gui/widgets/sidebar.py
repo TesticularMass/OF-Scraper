@@ -1,55 +1,165 @@
 import re
+import tkinter as tk
+from tkinter import ttk
 
 import arrow
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QDateEdit,
-    QDoubleSpinBox,
-    QFrame,
-    QFormLayout,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QScrollArea,
-    QSpinBox,
-    QTimeEdit,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-    QSizePolicy,
-)
 
 from ofscraper.gui.signals import app_signals
+from ofscraper.gui.styles import c
 
 
-def _make_help_btn(anchor: str) -> QToolButton:
-    b = QToolButton()
-    b.setText("?")
-    b.setToolTip("Open help for this section")
-    b.setCursor(Qt.CursorShape.PointingHandCursor)
-    b.setAutoRaise(True)
-    b.setFixedSize(18, 18)
-    b.setStyleSheet(
-        """
-        QToolButton {
-            border: 1px solid #45475a;
-            border-radius: 9px;
-            background-color: #313244;
-            color: #cdd6f4;
-            font-weight: bold;
-        }
-        QToolButton:hover {
-            border-color: #89b4fa;
-            background-color: #45475a;
-        }
-        """
-    )
-    b.clicked.connect(lambda: app_signals.help_anchor_requested.emit(anchor))
-    return b
+class _CheckVar:
+    """Thin wrapper around ttk.Checkbutton + BooleanVar providing a Qt-like API.
+
+    Used by FilterSidebar so copy_filter_state_to() can call
+    .isChecked() / .setChecked() uniformly.
+    """
+
+    def __init__(self, parent, text, checked=True, **kw):
+        self._var = tk.BooleanVar(value=checked)
+        self.widget = ttk.Checkbutton(parent, text=text, variable=self._var, **kw)
+
+    def isChecked(self):
+        return self._var.get()
+
+    def setChecked(self, val):
+        self._var.set(bool(val))
+
+    # Layout helpers — delegate to the underlying widget
+    def pack(self, **kw):
+        self.widget.pack(**kw)
+
+    def grid(self, **kw):
+        self.widget.grid(**kw)
+
+
+class _EntryVar:
+    """Thin wrapper around ttk.Entry + StringVar providing a Qt-like API."""
+
+    def __init__(self, parent, placeholder="", **kw):
+        self._var = tk.StringVar()
+        self.widget = ttk.Entry(parent, textvariable=self._var, **kw)
+        self._placeholder = placeholder
+
+    def text(self):
+        return self._var.get()
+
+    def setText(self, val):
+        self._var.set(str(val))
+
+    def clear(self):
+        self._var.set("")
+
+    def pack(self, **kw):
+        self.widget.pack(**kw)
+
+    def grid(self, **kw):
+        self.widget.grid(**kw)
+
+
+class _SpinVar:
+    """Thin wrapper around ttk.Spinbox + DoubleVar providing .value()/.setValue()."""
+
+    def __init__(self, parent, from_=0, to=99999, increment=1.0, **kw):
+        self._var = tk.DoubleVar(value=0)
+        self.widget = ttk.Spinbox(
+            parent, textvariable=self._var,
+            from_=from_, to=to, increment=increment, **kw
+        )
+
+    def value(self):
+        try:
+            return self._var.get()
+        except (tk.TclError, ValueError):
+            return 0.0
+
+    def setValue(self, val):
+        self._var.set(float(val))
+
+    def pack(self, **kw):
+        self.widget.pack(**kw)
+
+    def grid(self, **kw):
+        self.widget.grid(**kw)
+
+
+class _DateVar:
+    """Simple date entry wrapper — stores date as YYYY-MM-DD string."""
+
+    def __init__(self, parent, **kw):
+        self._var = tk.StringVar(value="")
+        self.widget = ttk.Entry(parent, textvariable=self._var, width=12, **kw)
+
+    def date_str(self):
+        return self._var.get().strip()
+
+    def setDate(self, val):
+        """Accept a string (YYYY-MM-DD) or another _DateVar."""
+        if isinstance(val, _DateVar):
+            self._var.set(val.date_str())
+        else:
+            self._var.set(str(val))
+
+    # Qt compat — area_selector_page calls .date() and .setDate()
+    def date(self):
+        return self
+
+    def toString(self, fmt="yyyy-MM-dd"):
+        return self.date_str()
+
+    def pack(self, **kw):
+        self.widget.pack(**kw)
+
+    def grid(self, **kw):
+        self.widget.grid(**kw)
+
+
+class _TimeVar:
+    """Simple time entry wrapper — stores time as HH:MM:SS string."""
+
+    def __init__(self, parent, **kw):
+        self._var = tk.StringVar(value="00:00:00")
+        self.widget = ttk.Entry(parent, textvariable=self._var, width=10, **kw)
+
+    def time_str(self):
+        return self._var.get().strip() or "00:00:00"
+
+    def setTime(self, val):
+        if isinstance(val, _TimeVar):
+            self._var.set(val.time_str())
+        else:
+            self._var.set(str(val))
+
+    # Qt compat — area_selector_page calls .time()
+    def time(self):
+        return self
+
+    def hour(self):
+        parts = self.time_str().split(":")
+        try:
+            return int(parts[0])
+        except (IndexError, ValueError):
+            return 0
+
+    def minute(self):
+        parts = self.time_str().split(":")
+        try:
+            return int(parts[1])
+        except (IndexError, ValueError):
+            return 0
+
+    def second(self):
+        parts = self.time_str().split(":")
+        try:
+            return int(parts[2])
+        except (IndexError, ValueError):
+            return 0
+
+    def pack(self, **kw):
+        self.widget.pack(**kw)
+
+    def grid(self, **kw):
+        self.widget.grid(**kw)
 
 
 class FilterState:
@@ -67,8 +177,8 @@ class FilterState:
         self.unlocked = None  # None = all, or set of bools
         self.mindate = None
         self.maxdate = None
-        self.min_length = None  # QTime or None
-        self.max_length = None  # QTime or None
+        self.min_length = None
+        self.max_length = None
         self.min_price = None
         self.max_price = None
         self.media_id = None
@@ -207,287 +317,182 @@ class FilterState:
         return str(filter_val).lower() in str(value).lower()
 
 
-class FilterSidebar(QWidget):
-    """Collapsible filter sidebar — replaces the Textual sidebar with all filter fields."""
+class FilterSidebar(ttk.Frame):
+    """Filter sidebar with all filter fields — tkinter version."""
 
-    filter_changed = pyqtSignal()  # emitted when any filter value changes
-
-    def __init__(self, parent=None, embedded=False):
-        super().__init__(parent)
+    def __init__(self, parent=None, embedded=False, **kwargs):
+        super().__init__(parent, **kwargs)
         self.state = FilterState()
         self._embedded = embedded
         self._setup_ui()
 
     def _setup_ui(self):
-        outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
+        if not self._embedded:
+            # Scrollable version: canvas + scrollbar
+            canvas = tk.Canvas(self, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+            self._scroll_frame = ttk.Frame(canvas)
+            self._scroll_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+            )
+            canvas_window = canvas.create_window((0, 0), window=self._scroll_frame, anchor=tk.NW)
+            canvas.bind(
+                "<Configure>",
+                lambda e: canvas.itemconfig(canvas_window, width=e.width),
+            )
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Keep input controls visually aligned across different widgets.
-        # (QLineEdit/QSpinBox/QDateEdit/etc have slightly different native heights otherwise.)
-        self.setStyleSheet(
-            """
-            QLineEdit, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit, QComboBox {
-                min-height: 28px;
-            }
-            """
+            # Mousewheel scrolling
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+            canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+            container = self._scroll_frame
+        else:
+            container = self
+
+        # Title
+        ttk.Label(container, text="Filters", font=("Segoe UI", 14, "bold")).pack(
+            anchor=tk.W, padx=8, pady=(8, 4)
         )
 
-        def _expanding(w: QWidget):
-            """Force range widgets to consume the same available width."""
-            try:
-                w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            except Exception:
-                pass
-            return w
-
-        def _tune_range_grid(grid: QGridLayout):
-            """Standard column sizing so From/To, Min/Max, Price Min/Max align identically."""
-            try:
-                grid.setContentsMargins(8, 6, 8, 6)
-            except Exception:
-                pass
-            grid.setHorizontalSpacing(10)
-            grid.setVerticalSpacing(8)
-            # Columns: 0 label, 1 field, 2 label, 3 field, 4 enable, 5 help
-            grid.setColumnMinimumWidth(0, 46)  # fits "From:" / "Min:"
-            grid.setColumnMinimumWidth(2, 34)  # fits "To:" / "Max:"
-            grid.setColumnMinimumWidth(4, 70)  # fits "Enable"
-            grid.setColumnMinimumWidth(5, 22)  # fits "(?)"
-            grid.setColumnStretch(1, 1)
-            grid.setColumnStretch(3, 1)
-
-        if not self._embedded:
-            scroll = QScrollArea()
-            scroll.setWidgetResizable(True)
-            scroll.setHorizontalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-            )
-            container = QWidget()
-            layout = QVBoxLayout(container)
-        else:
-            # Embedded mode: no scroll wrapper, widgets go directly in layout
-            container = None
-            layout = outer_layout
-
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
-
-        title = QLabel("Filters")
-        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        layout.addWidget(title)
-
         # -- Text search --
-        text_group = QGroupBox("Text Search")
-        text_layout = QVBoxLayout(text_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-text-search"))
-        text_layout.addLayout(h)
-        self.text_input = QLineEdit()
-        self.text_input.setPlaceholderText("Search text content...")
-        self.text_input.setClearButtonEnabled(True)
-        text_layout.addWidget(self.text_input)
-        self.fullstring_check = QCheckBox("Full string match")
-        text_layout.addWidget(self.fullstring_check)
-        layout.addWidget(text_group)
+        text_group = ttk.LabelFrame(container, text="Text Search")
+        text_group.pack(fill=tk.X, padx=8, pady=4)
+
+        self.text_input = _EntryVar(text_group)
+        self.text_input.pack(fill=tk.X, padx=8, pady=(4, 2))
+
+        self.fullstring_check = _CheckVar(text_group, "Full string match", checked=False)
+        self.fullstring_check.pack(anchor=tk.W, padx=8, pady=(0, 4))
 
         # -- Media type --
-        media_group = QGroupBox("Media Type")
-        media_layout = QVBoxLayout(media_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-media-type"))
-        media_layout.addLayout(h)
+        media_group = ttk.LabelFrame(container, text="Media Type")
+        media_group.pack(fill=tk.X, padx=8, pady=4)
+
         self.media_checks = {}
         for mt in ["audios", "images", "videos"]:
-            cb = QCheckBox(mt.capitalize())
-            cb.setChecked(True)
-            media_layout.addWidget(cb)
-            self.media_checks[mt] = cb
-        layout.addWidget(media_group)
+            cv = _CheckVar(media_group, mt.capitalize(), checked=True)
+            cv.pack(anchor=tk.W, padx=8, pady=1)
+            self.media_checks[mt] = cv
 
         # -- Response type --
-        resp_group = QGroupBox("Response Type")
-        resp_layout = QVBoxLayout(resp_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-response-type"))
-        resp_layout.addLayout(h)
+        resp_group = ttk.LabelFrame(container, text="Response Type")
+        resp_group.pack(fill=tk.X, padx=8, pady=4)
+
         self.resp_checks = {}
         for rt in ["pinned", "archived", "timeline", "stories", "highlights", "streams"]:
-            cb = QCheckBox(rt.capitalize())
-            cb.setChecked(True)
-            resp_layout.addWidget(cb)
-            self.resp_checks[rt] = cb
-        layout.addWidget(resp_group)
+            cv = _CheckVar(resp_group, rt.capitalize(), checked=True)
+            cv.pack(anchor=tk.W, padx=8, pady=1)
+            self.resp_checks[rt] = cv
 
         # -- Downloaded / Unlocked --
-        status_group = QGroupBox("Status")
-        status_layout = QVBoxLayout(status_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-status"))
-        status_layout.addLayout(h)
+        status_group = ttk.LabelFrame(container, text="Status")
+        status_group.pack(fill=tk.X, padx=8, pady=4)
 
-        # Use a grid so the checkbox columns align neatly.
-        status_grid = QGridLayout()
-        status_grid.setHorizontalSpacing(16)
-        status_grid.setVerticalSpacing(8)
-        status_grid.setColumnStretch(0, 1)
-        status_grid.setColumnStretch(1, 1)
-        status_grid.setColumnStretch(2, 1)
+        ttk.Label(status_group, text="Downloaded:", style="Muted.TLabel").pack(
+            anchor=tk.W, padx=8, pady=(4, 0)
+        )
+        dl_frame = ttk.Frame(status_group)
+        dl_frame.pack(fill=tk.X, padx=8, pady=2)
+        self.dl_true = _CheckVar(dl_frame, "True", checked=True)
+        self.dl_true.pack(side=tk.LEFT, padx=(0, 8))
+        self.dl_false = _CheckVar(dl_frame, "False", checked=True)
+        self.dl_false.pack(side=tk.LEFT, padx=(0, 8))
+        self.dl_no = _CheckVar(dl_frame, "No (Paid)", checked=True)
+        self.dl_no.pack(side=tk.LEFT)
 
-        dl_label = QLabel("Downloaded:")
-        dl_label.setProperty("muted", True)
-        status_grid.addWidget(dl_label, 0, 0, 1, 3)
-
-        self.dl_true = QCheckBox("True")
-        self.dl_true.setChecked(True)
-        self.dl_false = QCheckBox("False")
-        self.dl_false.setChecked(True)
-        self.dl_no = QCheckBox("No (Paid)")
-        self.dl_no.setChecked(True)
-        status_grid.addWidget(self.dl_true, 1, 0)
-        status_grid.addWidget(self.dl_false, 1, 1)
-        status_grid.addWidget(self.dl_no, 1, 2)
-
-        ul_label = QLabel("Unlocked:")
-        ul_label.setProperty("muted", True)
-        status_grid.addWidget(ul_label, 2, 0, 1, 3)
-
-        self.ul_true = QCheckBox("True")
-        self.ul_true.setChecked(True)
-        self.ul_false = QCheckBox("False")
-        self.ul_false.setChecked(True)
-        self.ul_not_paid = QCheckBox("Locked")
-        self.ul_not_paid.setChecked(True)
-        status_grid.addWidget(self.ul_true, 3, 0)
-        status_grid.addWidget(self.ul_false, 3, 1)
-        status_grid.addWidget(self.ul_not_paid, 3, 2)
-
-        status_layout.addLayout(status_grid)
-        layout.addWidget(status_group)
+        ttk.Label(status_group, text="Unlocked:", style="Muted.TLabel").pack(
+            anchor=tk.W, padx=8, pady=(4, 0)
+        )
+        ul_frame = ttk.Frame(status_group)
+        ul_frame.pack(fill=tk.X, padx=8, pady=(2, 4))
+        self.ul_true = _CheckVar(ul_frame, "True", checked=True)
+        self.ul_true.pack(side=tk.LEFT, padx=(0, 8))
+        self.ul_false = _CheckVar(ul_frame, "False", checked=True)
+        self.ul_false.pack(side=tk.LEFT, padx=(0, 8))
+        self.ul_not_paid = _CheckVar(ul_frame, "Locked", checked=True)
+        self.ul_not_paid.pack(side=tk.LEFT)
 
         # -- Date range --
-        date_group = QGroupBox("Post Date Range")
-        date_layout = QGridLayout(date_group)
-        _tune_range_grid(date_layout)
-        date_help = _make_help_btn("filters-date-range")
-        date_help.setToolTip("Open help for Post Date Range")
-        self.min_date = QDateEdit()
-        self.min_date.setCalendarPopup(True)
-        self.min_date.setSpecialValueText("No min")
-        self.min_date.setMinimumDate(self.min_date.minimumDate())
-        date_layout.addWidget(QLabel("From:"), 0, 0)
-        date_layout.addWidget(_expanding(self.min_date), 0, 1)
-        self.max_date = QDateEdit()
-        self.max_date.setCalendarPopup(True)
-        self.max_date.setSpecialValueText("No max")
-        date_layout.addWidget(QLabel("To:"), 0, 2)
-        date_layout.addWidget(_expanding(self.max_date), 0, 3)
-        self.date_enabled = QCheckBox("Enable")
-        date_layout.addWidget(self.date_enabled, 0, 4)
-        date_layout.addWidget(date_help, 0, 5)
-        layout.addWidget(date_group)
+        date_group = ttk.LabelFrame(container, text="Post Date Range")
+        date_group.pack(fill=tk.X, padx=8, pady=4)
+
+        date_row = ttk.Frame(date_group)
+        date_row.pack(fill=tk.X, padx=8, pady=4)
+        ttk.Label(date_row, text="From:").pack(side=tk.LEFT, padx=(0, 4))
+        self.min_date = _DateVar(date_row)
+        self.min_date.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(date_row, text="To:").pack(side=tk.LEFT, padx=(0, 4))
+        self.max_date = _DateVar(date_row)
+        self.max_date.pack(side=tk.LEFT, padx=(0, 8))
+        self.date_enabled = _CheckVar(date_row, "Enable", checked=False)
+        self.date_enabled.pack(side=tk.LEFT)
 
         # -- Duration / Length --
-        length_group = QGroupBox("Duration (Length)")
-        length_layout = QGridLayout(length_group)
-        _tune_range_grid(length_layout)
-        length_help = _make_help_btn("filters-duration")
-        length_help.setToolTip("Open help for Duration (Length)")
-        self.min_time = QTimeEdit()
-        self.min_time.setDisplayFormat("HH:mm:ss")
-        self.min_time.setSpecialValueText("No min")
-        length_layout.addWidget(QLabel("Min:"), 0, 0)
-        length_layout.addWidget(_expanding(self.min_time), 0, 1)
-        self.max_time = QTimeEdit()
-        self.max_time.setDisplayFormat("HH:mm:ss")
-        self.max_time.setSpecialValueText("No max")
-        length_layout.addWidget(QLabel("Max:"), 0, 2)
-        length_layout.addWidget(_expanding(self.max_time), 0, 3)
-        self.length_enabled = QCheckBox("Enable")
-        length_layout.addWidget(self.length_enabled, 0, 4)
-        length_layout.addWidget(length_help, 0, 5)
-        layout.addWidget(length_group)
+        length_group = ttk.LabelFrame(container, text="Duration (Length)")
+        length_group.pack(fill=tk.X, padx=8, pady=4)
+
+        length_row = ttk.Frame(length_group)
+        length_row.pack(fill=tk.X, padx=8, pady=4)
+        ttk.Label(length_row, text="Min:").pack(side=tk.LEFT, padx=(0, 4))
+        self.min_time = _TimeVar(length_row)
+        self.min_time.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(length_row, text="Max:").pack(side=tk.LEFT, padx=(0, 4))
+        self.max_time = _TimeVar(length_row)
+        self.max_time.pack(side=tk.LEFT, padx=(0, 8))
+        self.length_enabled = _CheckVar(length_row, "Enable", checked=False)
+        self.length_enabled.pack(side=tk.LEFT)
 
         # -- Price range --
-        price_group = QGroupBox("Price Range")
-        price_layout = QGridLayout(price_group)
-        _tune_range_grid(price_layout)
-        price_help = _make_help_btn("filters-price")
-        price_help.setToolTip("Open help for Price Range")
-        self.price_min = QDoubleSpinBox()
-        self.price_min.setRange(0, 99999)
-        self.price_min.setSpecialValueText("No min")
-        self.price_min.setDecimals(2)
-        price_layout.addWidget(QLabel("Min:"), 0, 0)
-        price_layout.addWidget(_expanding(self.price_min), 0, 1)
-        self.price_max = QDoubleSpinBox()
-        self.price_max.setRange(0, 99999)
-        self.price_max.setSpecialValueText("No max")
-        self.price_max.setDecimals(2)
-        price_layout.addWidget(QLabel("Max:"), 0, 2)
-        price_layout.addWidget(_expanding(self.price_max), 0, 3)
-        price_layout.addWidget(price_help, 0, 5)
-        layout.addWidget(price_group)
+        price_group = ttk.LabelFrame(container, text="Price Range")
+        price_group.pack(fill=tk.X, padx=8, pady=4)
+
+        price_row = ttk.Frame(price_group)
+        price_row.pack(fill=tk.X, padx=8, pady=4)
+        ttk.Label(price_row, text="Min:").pack(side=tk.LEFT, padx=(0, 4))
+        self.price_min = _SpinVar(price_row, from_=0, to=99999, increment=1.0)
+        self.price_min.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(price_row, text="Max:").pack(side=tk.LEFT, padx=(0, 4))
+        self.price_max = _SpinVar(price_row, from_=0, to=99999, increment=1.0)
+        self.price_max.pack(side=tk.LEFT)
 
         # -- Numeric IDs --
-        ids_group = QGroupBox("ID Filters")
-        ids_layout = QVBoxLayout(ids_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-id"))
-        ids_layout.addLayout(h)
+        ids_group = ttk.LabelFrame(container, text="ID Filters")
+        ids_group.pack(fill=tk.X, padx=8, pady=4)
 
-        # Use a QFormLayout so all fields start at the same X position.
-        ids_form = QFormLayout()
-        ids_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        ids_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-        ids_form.setHorizontalSpacing(10)
-        ids_form.setVerticalSpacing(10)
+        ids_inner = ttk.Frame(ids_group)
+        ids_inner.pack(fill=tk.X, padx=8, pady=4)
 
-        self.media_id_input = QLineEdit()
-        self.media_id_input.setPlaceholderText("Exact match")
-        self.media_id_input.setClearButtonEnabled(True)
-        ids_form.addRow("Media ID:", self.media_id_input)
+        ttk.Label(ids_inner, text="Media ID:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.media_id_input = _EntryVar(ids_inner)
+        self.media_id_input.grid(row=0, column=1, sticky=tk.EW, padx=(8, 0), pady=2)
 
-        self.post_id_input = QLineEdit()
-        self.post_id_input.setPlaceholderText("Exact match")
-        self.post_id_input.setClearButtonEnabled(True)
-        ids_form.addRow("Post ID:", self.post_id_input)
+        ttk.Label(ids_inner, text="Post ID:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.post_id_input = _EntryVar(ids_inner)
+        self.post_id_input.grid(row=1, column=1, sticky=tk.EW, padx=(8, 0), pady=2)
 
-        self.post_media_count_input = QSpinBox()
-        self.post_media_count_input.setRange(0, 99999)
-        self.post_media_count_input.setSpecialValueText("Any")
-        ids_form.addRow("Post Media Count:", self.post_media_count_input)
+        ttk.Label(ids_inner, text="Post Media Count:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        self.post_media_count_input = _SpinVar(ids_inner, from_=0, to=99999)
+        self.post_media_count_input.grid(row=2, column=1, sticky=tk.EW, padx=(8, 0), pady=2)
 
-        self.other_posts_input = QSpinBox()
-        self.other_posts_input.setRange(0, 99999)
-        self.other_posts_input.setSpecialValueText("Any")
-        ids_form.addRow("Other Posts w/ Media:", self.other_posts_input)
+        ttk.Label(ids_inner, text="Other Posts w/ Media:").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.other_posts_input = _SpinVar(ids_inner, from_=0, to=99999)
+        self.other_posts_input.grid(row=3, column=1, sticky=tk.EW, padx=(8, 0), pady=2)
 
-        ids_layout.addLayout(ids_form)
-
-        layout.addWidget(ids_group)
+        ids_inner.columnconfigure(1, weight=1)
 
         # -- Username --
-        user_group = QGroupBox("Username")
-        user_layout = QVBoxLayout(user_group)
-        h = QHBoxLayout()
-        h.addStretch()
-        h.addWidget(_make_help_btn("filters-username"))
-        user_layout.addLayout(h)
-        self.username_input = QLineEdit()
-        self.username_input.setPlaceholderText("Filter by username...")
-        self.username_input.setClearButtonEnabled(True)
-        user_layout.addWidget(self.username_input)
-        layout.addWidget(user_group)
+        user_group = ttk.LabelFrame(container, text="Username")
+        user_group.pack(fill=tk.X, padx=8, pady=4)
 
-        if not self._embedded:
-            layout.addStretch()
-            scroll.setWidget(container)
-            outer_layout.addWidget(scroll)
+        self.username_input = _EntryVar(user_group)
+        self.username_input.pack(fill=tk.X, padx=8, pady=4)
 
     def collect_state(self):
         """Read all widget values into the FilterState object."""
@@ -536,25 +541,25 @@ class FilterSidebar(QWidget):
 
         # Date
         if self.date_enabled.isChecked():
-            s.mindate = self.min_date.date().toString("yyyy-MM-dd")
-            s.maxdate = self.max_date.date().toString("yyyy-MM-dd")
+            s.mindate = self.min_date.date_str() or None
+            s.maxdate = self.max_date.date_str() or None
         else:
             s.mindate = None
             s.maxdate = None
 
         # Length
         if self.length_enabled.isChecked():
-            min_t = self.min_time.time()
-            max_t = self.max_time.time()
-            if min_t.hour() > 0 or min_t.minute() > 0 or min_t.second() > 0:
+            mt = self.min_time
+            if mt.hour() > 0 or mt.minute() > 0 or mt.second() > 0:
                 s.min_length = arrow.get(
-                    f"{min_t.hour()}:{min_t.minute()}:{min_t.second()}", "h:m:s"
+                    f"{mt.hour()}:{mt.minute()}:{mt.second()}", "h:m:s"
                 )
             else:
                 s.min_length = None
-            if max_t.hour() > 0 or max_t.minute() > 0 or max_t.second() > 0:
+            xt = self.max_time
+            if xt.hour() > 0 or xt.minute() > 0 or xt.second() > 0:
                 s.max_length = arrow.get(
-                    f"{max_t.hour()}:{max_t.minute()}:{max_t.second()}", "h:m:s"
+                    f"{xt.hour()}:{xt.minute()}:{xt.second()}", "h:m:s"
                 )
             else:
                 s.max_length = None
@@ -570,12 +575,12 @@ class FilterSidebar(QWidget):
         s.media_id = self.media_id_input.text().strip() or None
         s.post_id = self.post_id_input.text().strip() or None
         s.post_media_count = (
-            self.post_media_count_input.value()
+            int(self.post_media_count_input.value())
             if self.post_media_count_input.value() > 0
             else None
         )
         s.other_posts_with_media = (
-            self.other_posts_input.value()
+            int(self.other_posts_input.value())
             if self.other_posts_input.value() > 0
             else None
         )
@@ -600,7 +605,11 @@ class FilterSidebar(QWidget):
         self.ul_false.setChecked(True)
         self.ul_not_paid.setChecked(True)
         self.date_enabled.setChecked(False)
+        self.min_date.setDate("")
+        self.max_date.setDate("")
         self.length_enabled.setChecked(False)
+        self.min_time.setTime("00:00:00")
+        self.max_time.setTime("00:00:00")
         self.price_min.setValue(0)
         self.price_max.setValue(0)
         self.media_id_input.clear()
@@ -621,4 +630,3 @@ class FilterSidebar(QWidget):
             self.media_id_input.setText(str(value))
         elif field_name == "post_id":
             self.post_id_input.setText(str(value))
-
