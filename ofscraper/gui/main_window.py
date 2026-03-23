@@ -21,9 +21,11 @@ log = logging.getLogger("shared")
 
 
 class _PageStack(ttk.Frame):
-    """Container that manages overlapping pages via place geometry.
+    """Container that manages pages via place geometry.
 
-    Pages are stacked on top of each other; _show_page() brings one to the front.
+    Only the active page is placed; all others are place_forget()'d so
+    they are fully hidden.  This is more reliable than tkraise() on
+    Windows where stacking order can be unpredictable with ttk frames.
     """
 
     def __init__(self, parent, **kwargs):
@@ -33,12 +35,18 @@ class _PageStack(ttk.Frame):
 
     def add_page(self, index, frame):
         self._pages[index] = frame
-        frame.place(in_=self, x=0, y=0, relwidth=1, relheight=1)
+        # Don't place yet — _show_page() will place the active one
+        frame.place_forget()
 
     def _show_page(self, index):
-        if index in self._pages:
-            self._pages[index].tkraise()
-            self._current_idx = index
+        if index not in self._pages:
+            return
+        # Hide current page
+        if self._current_idx is not None and self._current_idx in self._pages:
+            self._pages[self._current_idx].place_forget()
+        # Show new page
+        self._pages[index].place(in_=self, x=0, y=0, relwidth=1, relheight=1)
+        self._current_idx = index
 
     def count(self):
         return len(self._pages)
