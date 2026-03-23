@@ -48,8 +48,7 @@ def _cart_color(key):
 
 
 class MediaDataTable(ttk.Frame):
-    """ttk.Treeview-based table for displaying media data — replaces the
-    PyQt6 QTableWidget / Textual DataTable.
+    """ttk.Treeview-based table for displaying media data.
 
     Supports sorting, download cart toggling, right-click filter-by-cell,
     and communicates with the download queue via the app_signals hub.

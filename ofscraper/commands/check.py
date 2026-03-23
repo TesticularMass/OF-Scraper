@@ -283,7 +283,7 @@ def gui_checker(check_mode=None):
 
     Runs the same data-fetching pipeline as ``checker()`` but skips
     the Textual TUI table (``start_helper``).  Instead it emits the
-    collected ROWS via ``app_signals.data_replace`` so the Qt table
+    collected ROWS via ``app_signals.data_replace`` so the GUI table
     page can display them.
     """
     global ROWS

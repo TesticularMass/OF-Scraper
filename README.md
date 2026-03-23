@@ -40,12 +40,12 @@ ofscraper --gui
 
 ## GUI Mode
 
-An optional PyQt6-based graphical interface provides a visual alternative to the command line.
+An optional graphical interface (built with tkinter) provides a visual alternative to the command line.
 
 ### Requirements
 
-- Python 3.11 or 3.12
-- PyQt6 (included as a dependency)
+- Python 3.11–3.14
+- tkinter (included with standard Python installations)
 
 ### What the GUI Provides
 

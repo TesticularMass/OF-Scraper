@@ -1305,8 +1305,8 @@ class GUIWorkflow:
         )
 
     def _send_notification(self, title, message):
-        """Send a system tray notification via signal (thread-safe).
-        The actual QSystemTrayIcon work happens on the main GUI thread."""
+        """Send a notification via signal (thread-safe).
+        The actual notification display happens on the main GUI thread."""
         try:
             app_signals.show_notification.emit(title, message)
         except Exception as e:
@@ -1376,7 +1376,7 @@ class GUIWorkflow:
         app_signals.log_message.emit("INFO", "Starting subscribe mode")
 
         try:
-            results = subscribe_mod.process_subscribe(
+            results = subscribe_mod.process_subscribe_batch(
                 models=self._selected_models,
             )
             succeeded = sum(1 for r in results if r.get("status") == "success")

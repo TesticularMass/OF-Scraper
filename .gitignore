@@ -69,3 +69,7 @@ wiki/
 docs/
 
 repomix-output*
+
+# Claude Code context
+claude.md
+CLAUDE.md
