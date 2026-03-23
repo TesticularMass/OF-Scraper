@@ -136,6 +136,13 @@ def launch_gui(manager=None):
 
     app_signals.show_notification.connect(_on_show_notification)
 
+    # Capture callback exceptions — log instead of crashing silently
+    def _on_tk_error(exc_type, exc_value, exc_tb):
+        import traceback as _tb
+        err = "".join(_tb.format_exception(exc_type, exc_value, exc_tb))
+        log.error(f"[GUI] Unhandled callback error:\n{err}")
+    root.report_callback_exception = _on_tk_error
+
     # Create main window
     from ofscraper.gui.main_window import MainWindow
     window = MainWindow(root, manager=manager)

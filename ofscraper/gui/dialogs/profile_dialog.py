@@ -66,9 +66,6 @@ class ProfilePage(ttk.Frame):
         self.profile_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Tag for active profile highlight
-        self.profile_list.tag_configure("active", foreground=c("blue"))
-
         # Action buttons
         btn_frame = ttk.Frame(content_frame)
         btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(16, 0))
