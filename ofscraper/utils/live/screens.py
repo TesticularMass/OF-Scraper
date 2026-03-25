@@ -13,7 +13,7 @@ from ofscraper.utils.live.groups import (
     metadata_group,
     userlist_group,
 )
-from ofscraper.utils.live.live import get_live, stop_live,start_live
+from ofscraper.utils.live.live import get_live
 
 from ofscraper.utils.live.clear import clear_tasks_by_name
 from ofscraper.utils.live.updater import ActivityManager
@@ -24,6 +24,10 @@ def stop_live_screen(clear=False):
     """
     A context manager to safely stop the live display, show a prompt,
     and then resume the display.
+
+    Uses the local reference directly instead of stop_live()/start_live()
+    to avoid destroying the global Live instance (which would prevent
+    progress bars from rendering after interactive model selection).
     """
     live = get_live()
     if not live.is_started:
@@ -33,14 +37,12 @@ def stop_live_screen(clear=False):
     live.transient = False
 
     try:
-        # Stop the live display. Because it's transient, it will be erased.
-        stop_live()
+        live.stop()
         yield
     finally:
-        # Restore the original state before restarting
         live.transient = original_transient_state
-        # Restart the live display with its original content
-        start_live(refresh=True)
+        if not live.is_started:
+            live.start(refresh=True)
         if clear:
             clear_tasks_by_name(clear)
 
