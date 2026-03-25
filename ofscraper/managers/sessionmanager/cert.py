@@ -1,8 +1,10 @@
 import ssl
 import logging
 import random
-import hashlib            
+import hashlib
 import getpass
+
+import certifi
 
 import ofscraper.utils.auth.request as auth_requests
 
@@ -114,5 +116,11 @@ def create_custom_ssl_context(
             if not cache["logged_certs"]:
                 log.debug(f"Warning: Could not load default CAcerts: {e}.")
                 cache["logged_certs"] = True
+        # Always load certifi certs as a fallback — load_default_certs
+        # may not find system CA certs on Windows.
+        try:
+            context.load_verify_locations(cafile=certifi.where())
+        except Exception as e:
+            log.debug(f"Warning: Could not load certifi CAcerts: {e}")
 
     return context
