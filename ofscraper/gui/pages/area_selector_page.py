@@ -3,10 +3,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ofscraper.gui.signals import app_signals
-from ofscraper.gui.styles import c
 from ofscraper.gui.utils.thread_worker import Worker
-from ofscraper.gui.widgets.sidebar import FilterSidebar, _CheckVar, _SpinVar
-from ofscraper.gui.widgets.styled_button import StyledButton
+from ofscraper.gui.widgets.sidebar import FilterSidebar
 import ofscraper.utils.config.data as config_data
 
 log = logging.getLogger("shared")

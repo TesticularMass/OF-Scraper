@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ofscraper.gui.signals import app_signals
-from ofscraper.gui.styles import c
 from ofscraper.gui.widgets.console_log import ConsoleLogWidget
 from ofscraper.gui.widgets.data_table import MediaDataTable
 from ofscraper.gui.widgets.progress_panel import ProgressSummaryBar
@@ -134,18 +133,18 @@ class TablePage(ttk.Frame):
         self._content_pane.grid(row=1, column=0, sticky="nsew")
 
         # Sidebar
-        self.sidebar = FilterSidebar()
+        self.sidebar = FilterSidebar(self._content_pane)
         self._content_pane.add(self.sidebar, weight=0)
 
         # Right side: table + console (vertical pane)
         right_pane = ttk.PanedWindow(self._content_pane, orient=tk.VERTICAL)
 
         # Data table
-        self.data_table = MediaDataTable()
+        self.data_table = MediaDataTable(right_pane)
         right_pane.add(self.data_table, weight=3)
 
         # Console log
-        self.console_widget = ConsoleLogWidget()
+        self.console_widget = ConsoleLogWidget(right_pane)
         right_pane.add(self.console_widget, weight=1)
 
         self._content_pane.add(right_pane, weight=1)

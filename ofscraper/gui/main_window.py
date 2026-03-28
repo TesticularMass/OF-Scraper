@@ -314,7 +314,7 @@ class MainWindow(ttk.Frame):
             from ofscraper.__version__ import __version__
             ver_text = f"v{__version__}"
         except Exception:
-            ver_text = "v3.12.9"
+            ver_text = ""
         self._ver_label = tk.Label(nav_frame, text=ver_text,
                                     font=("Segoe UI", 9),
                                     fg=c("muted"), bg=DARK_SIDEBAR_BG)

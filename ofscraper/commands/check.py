@@ -287,7 +287,7 @@ def gui_checker(check_mode=None):
     page can display them.
     """
     global ROWS
-    ROWS = {}
+    ROWS = []
 
     if check_mode is None:
         check_mode = settings.get_settings().command

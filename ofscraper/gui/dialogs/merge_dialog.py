@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk

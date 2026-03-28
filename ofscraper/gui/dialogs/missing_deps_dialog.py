@@ -189,6 +189,7 @@ class MissingDepsDialog(tk.Toplevel):
             "Open Configuration to the Download tab to enter the FFmpeg file path?",
         ):
             self._on_open_ffmpeg()
+            self.destroy()
 
     def _open_cdm(self):
         if not callable(self._on_open_cdm):
@@ -198,3 +199,4 @@ class MissingDepsDialog(tk.Toplevel):
             "Open Configuration to the CDM tab to enter the manual DRM key paths?",
         ):
             self._on_open_cdm()
+            self.destroy()

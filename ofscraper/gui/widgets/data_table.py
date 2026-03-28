@@ -581,8 +581,10 @@ class MediaDataTable(ttk.Frame):
             if str(row_data.get("media_id", "")) == row_key or str(
                 row_data.get("index", "")
             ) == row_key:
-                # Update backing data
+                # Update backing data (both display and raw)
                 row_data[col_lower] = new_value
+                if row_idx < len(self._raw_data):
+                    self._raw_data[row_idx][col_lower] = new_value
 
                 # Update the visible row
                 item_id = str(row_idx)

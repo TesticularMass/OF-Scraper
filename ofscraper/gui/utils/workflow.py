@@ -31,7 +31,7 @@ def _raise_in_thread(thread_id: int, exc_type=KeyboardInterrupt) -> bool:
         if not thread_id:
             return False
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-            ctypes.c_long(thread_id), ctypes.py_object(exc_type)
+            ctypes.c_ulong(thread_id), ctypes.py_object(exc_type)
         )
         if res == 0:
             return False
@@ -574,7 +574,7 @@ def _build_media_rows(media, username):
                     "length": getattr(ele, "numeric_duration", "N/A"),
                     "responsetype": getattr(ele, "responsetype", ""),
                     "price": "Free" if price == 0 else "{:.2f}".format(price),
-                    "post_id": getattr(ele, "postid", ""),
+                    "post_id": getattr(ele, "post_id", ""),
                     "media_id": getattr(ele, "id", ""),
                     "text": text,
                 }
@@ -1362,7 +1362,6 @@ class GUIWorkflow:
             log.debug(traceback.format_exc())
             app_signals.log_message.emit("ERROR", f"Check mode failed: {e}")
             app_signals.error_occurred.emit("Check Mode Error", str(e))
-            app_signals.scraping_finished.emit()
 
     def _run_subscribe_mode(self):
         """Run the subscribe action for free expired accounts.
@@ -1396,8 +1395,6 @@ class GUIWorkflow:
             log.debug(traceback.format_exc())
             app_signals.log_message.emit("ERROR", f"Subscribe failed: {e}")
             app_signals.error_occurred.emit("Subscribe Error", str(e))
-        finally:
-            app_signals.scraping_finished.emit()
 
     def _on_downloads_queued(self, row_data_list):
         """Handle download requests from the check-mode table.
@@ -1704,7 +1701,7 @@ class GUIWorkflow:
             pass
         for mt in ("videos", "images", "audios"):
             try:
-                roots.add(pathlib.Path(common_paths.get_save_location(mediatype=mt)).resolve())
+                roots.add(pathlib.Path(common_paths.get_save_location()).resolve())
             except Exception:
                 pass
 

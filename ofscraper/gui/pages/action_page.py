@@ -3,7 +3,6 @@ import tkinter as tk
 from tkinter import ttk
 
 from ofscraper.gui.signals import app_signals
-from ofscraper.gui.styles import c
 
 log = logging.getLogger("shared")
 

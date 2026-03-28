@@ -14,57 +14,32 @@ from ofscraper.gui.signals import app_signals
 log = logging.getLogger("shared")
 
 
-class WorkerSignals:
-    """Callback container matching the old WorkerSignals(QObject) API.
-
-    Instead of pyqtSignals, each signal is a simple callable attribute
-    that can be set by the caller.
-    """
-
-    def __init__(self):
-        self._started = None
-        self._finished = None
-        self._error = None
-        self._progress = None
-
-    # ---- connect / emit helpers ----
-
-    @property
-    def started(self):
-        return _SignalSlot(self, "_started")
-
-    @property
-    def finished(self):
-        return _SignalSlot(self, "_finished")
-
-    @property
-    def error(self):
-        return _SignalSlot(self, "_error")
-
-    @property
-    def progress(self):
-        return _SignalSlot(self, "_progress")
-
-
 class _SignalSlot:
-    """Minimal proxy that supports .connect(cb) and .emit(*args)."""
+    """Minimal proxy that supports .connect(cb) and .emit(*args).
+
+    Callbacks are stored on the *owner* WorkerSignals instance (keyed by
+    ``attr_name``) so that every property access returns a proxy that
+    operates on the same shared list.
+    """
 
     def __init__(self, owner, attr_name):
         self._owner = owner
         self._attr = attr_name
-        self._callbacks = []
 
     def connect(self, cb):
-        self._callbacks.append(cb)
+        self._owner._callbacks[self._attr].append(cb)
 
     def emit(self, *args):
         from ofscraper.gui.signals import _tk_root
+        cbs = list(self._owner._callbacks[self._attr])
+
         def _dispatch():
-            for cb in self._callbacks:
+            for cb in cbs:
                 try:
                     cb(*args)
                 except Exception as e:
                     log.debug(f"[WorkerSignal] callback error: {e}")
+
         if _tk_root is not None and threading.current_thread() is not threading.main_thread():
             try:
                 _tk_root.after(0, _dispatch)
@@ -72,6 +47,39 @@ class _SignalSlot:
                 _dispatch()
         else:
             _dispatch()
+
+
+class WorkerSignals:
+    """Callback container matching the old WorkerSignals(QObject) API.
+
+    Each signal is backed by a list of callbacks stored in ``_callbacks``.
+    Property access returns a ``_SignalSlot`` proxy — every proxy for the
+    same signal name shares the same callback list.
+    """
+
+    def __init__(self):
+        self._callbacks = {
+            "started": [],
+            "finished": [],
+            "error": [],
+            "progress": [],
+        }
+
+    @property
+    def started(self):
+        return _SignalSlot(self, "started")
+
+    @property
+    def finished(self):
+        return _SignalSlot(self, "finished")
+
+    @property
+    def error(self):
+        return _SignalSlot(self, "error")
+
+    @property
+    def progress(self):
+        return _SignalSlot(self, "progress")
 
 
 class Worker:
