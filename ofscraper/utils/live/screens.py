@@ -1,5 +1,5 @@
 import contextlib
-from typing import Union
+from typing import List, Union
 
 import ofscraper.utils.console as console_
 import ofscraper.utils.of_env.of_env as of_env
@@ -13,7 +13,7 @@ from ofscraper.utils.live.groups import (
     metadata_group,
     userlist_group,
 )
-from ofscraper.utils.live.live import get_live, stop_live
+from ofscraper.utils.live.live import get_live, stop_live,start_live
 
 from ofscraper.utils.live.clear import clear_tasks_by_name
 from ofscraper.utils.live.updater import ActivityManager
@@ -24,32 +24,23 @@ def stop_live_screen(clear=False):
     """
     A context manager to safely stop the live display, show a prompt,
     and then resume the display.
-
-    Uses stop_live() to null the global (compatible with prompt_live()
-    which may recreate the Live during the yield).  In the finally block
-    we grab whatever Live is current and restore the saved renderable so
-    progress bars survive interactive model selection.
     """
     live = get_live()
     if not live.is_started:
         yield
         return
-    saved_renderable = live.renderable
     original_transient_state = live.transient
     live.transient = False
 
     try:
+        # Stop the live display. Because it's transient, it will be erased.
         stop_live()
         yield
     finally:
-        # prompt_live() may have created a new Live during yield.
-        # Get whatever Live is current now and restore state.
-        live = get_live()
+        # Restore the original state before restarting
         live.transient = original_transient_state
-        if not live.is_started:
-            live.start(refresh=True)
-        if saved_renderable is not None:
-            live.update(saved_renderable, refresh=True)
+        # Restart the live display with its original content
+        start_live(refresh=True)
         if clear:
             clear_tasks_by_name(clear)
 
@@ -151,7 +142,7 @@ class TemporaryTaskState:
     """A context manager to snapshot and restore the state of multiple tasks."""
 
     def __init__(
-        self, activity_manager: ActivityManager, *task_types: Union[str, list[str]]
+        self, activity_manager: ActivityManager, *task_types: Union[str, List[str]]
     ):
         """
         Initializes the state manager.
@@ -165,7 +156,7 @@ class TemporaryTaskState:
         """
         # This logic handles both calling styles
         if len(task_types) == 1 and isinstance(task_types[0], list):
-            self.task_types: list[str] = task_types[0]  # Unpack the list from the tuple
+            self.task_types: List[str] = task_types[0]  # Unpack the list from the tuple
         else:
             self.task_types: tuple[str, ...] = (
                 task_types if task_types else ("main",)
@@ -225,7 +216,7 @@ class TaskLock:
     """
 
     def __init__(
-        self, activity_manager: "ActivityManager", *task_types: Union[str, list[str]]
+        self, activity_manager: "ActivityManager", *task_types: Union[str, List[str]]
     ):
         """
         Initializes the task lock.

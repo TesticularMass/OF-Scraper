@@ -12,9 +12,10 @@ import ofscraper.utils.of_env.of_env as env
 
 async def skip_download_script(total, ele): # Made async
     log = logging.getLogger("shared")
-
     script_path = settings.get_settings().skip_download_script
+
     if not script_path:
+        log.debug("Download skip script is disabled via settings; skipping execution")
         return False
 
     if not os.path.exists(script_path):
