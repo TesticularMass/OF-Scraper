@@ -29,18 +29,22 @@ def stop_live_screen(clear=False):
     if not live.is_started:
         yield
         return
+
+    # Save state before stopping
+    old_render = live.renderable
     original_transient_state = live.transient
     live.transient = False
 
     try:
-        # Stop the live display. Because it's transient, it will be erased.
         stop_live()
         yield
     finally:
-        # Restore the original state before restarting
+        # Recreate + restart the live display with saved content
+        live = get_live(recreate=True)
         live.transient = original_transient_state
-        # Restart the live display with its original content
-        start_live(refresh=True)
+        live.start(refresh=True)
+        if old_render is not None:
+            live.update(old_render)
         if clear:
             clear_tasks_by_name(clear)
 
