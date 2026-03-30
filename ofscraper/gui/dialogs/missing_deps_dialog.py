@@ -33,6 +33,7 @@ class MissingDepsDialog(tk.Toplevel):
         if parent:
             self.transient(parent)
         self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
 
         self._setup_ui()
 
@@ -42,6 +43,8 @@ class MissingDepsDialog(tk.Toplevel):
             x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
             y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
             self.geometry(f"+{x}+{y}")
+
+        self.wait_window()
 
     def _setup_ui(self):
         main_frame = ttk.Frame(self)

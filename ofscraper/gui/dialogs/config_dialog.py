@@ -848,9 +848,9 @@ class ConfigPage(ttk.Frame):
             # Invalidate the in-memory auth cache so a changed dynamic-mode-default
             # takes effect immediately without requiring a GUI restart.
             try:
-                from ofscraper.utils.auth.request import invalidate_auth_cache
-
-                invalidate_auth_cache()
+                import ofscraper.utils.auth.request as auth_req
+                auth_req.curr_auth = None
+                auth_req.last_check = None
             except Exception:
                 pass
 

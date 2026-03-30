@@ -135,11 +135,11 @@ class MergePage(ttk.Frame):
         self.merge_btn.configure(state=tk.DISABLED)
         app_signals.status_message.emit("Merge in progress...")
 
-        # Run merge in background thread
-        worker = AsyncWorker(self._run_merge, source, dest)
-        worker.signals.finished.connect(self._on_merge_finished)
-        worker.signals.error.connect(self._on_merge_error)
-        worker.start()
+        # Run merge in background thread (store ref to prevent GC)
+        self._worker = AsyncWorker(self._run_merge, source, dest)
+        self._worker.signals.finished.connect(self._on_merge_finished)
+        self._worker.signals.error.connect(self._on_merge_error)
+        self._worker.start()
 
     async def _run_merge(self, source, dest):
         from ofscraper.db.merge import MergeDatabase

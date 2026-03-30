@@ -43,6 +43,7 @@ class ModelSelectorDialog(tk.Toplevel):
         if parent:
             self.transient(parent)
         self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
         self._setup_ui()
 
@@ -52,6 +53,8 @@ class ModelSelectorDialog(tk.Toplevel):
             x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
             y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
             self.geometry(f"+{x}+{y}")
+
+        self.wait_window()
 
     def _setup_ui(self):
         main_frame = ttk.Frame(self)
@@ -243,9 +246,14 @@ class ModelSelectorDialog(tk.Toplevel):
 
     def _populate_list(self, names):
         """Populate the treeview with model names."""
-        # Clear existing items
+        # Clear all items (including detached ones)
         for item in self.model_tree.get_children():
             self.model_tree.delete(item)
+        for iid in list(self._items.keys()):
+            try:
+                self.model_tree.delete(iid)
+            except Exception:
+                pass
         self._items.clear()
 
         for name in names:
