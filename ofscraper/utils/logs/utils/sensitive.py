@@ -28,8 +28,9 @@ def add_sensitive_pattern(pattern: Any, replacement: Any = "{hidden}"):
         # Use its .pattern attribute to get the original string
         key = pattern.pattern
     else:
-        # For anything else (numbers, strings), use str() as a safe fallback
-        key = str(pattern)
+        # For anything else (numbers, strings), escape for use as a literal
+        # regex pattern to avoid re.error on strings containing +, *, etc.
+        key = re.escape(str(pattern))
 
     _USER_ADDED_PATTERNS[key] = str(replacement)
 
