@@ -14,7 +14,7 @@ def subType(filterusername):
 
     elif settings.get_settings().renewal is False:
         filterusername = list(filter(lambda x: not x.renewed, filterusername))
-        log.debug(f"disabled renewal filter username counta: {len(filterusername)}")
+        log.debug(f"disabled renewal filter username count: {len(filterusername)}")
         trace_log_user(filterusername, "disabled renewal filter")
 
     log.debug(f"Sub status: {settings.get_settings().sub_status}")

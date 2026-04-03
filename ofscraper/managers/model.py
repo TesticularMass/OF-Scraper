@@ -387,18 +387,24 @@ class ModelManager:
             "current_price", "renewal_price", "regular_price", "promo_price", "last_seen",
             "free_trial", "promo", "all_promo", "sub_status", "renewal",
         ]
+        # Boolean flag filters: None = inactive, True/False = active
+        boolean_filters = {
+            "sub_status", "renewal", "promo", "all_promo", "last_seen", "free_trial",
+        }
 
         print("\n--- Active Filter Settings ---")
         found_active_filter = False
 
         for attr in filter_attributes:
             value = getattr(s, attr, None)
-            is_empty = not value  
-            if attr == "desc":
+            if attr in boolean_filters:
+                is_empty = value is None
+            elif attr == "desc":
                 is_empty = False
-            if attr in {"blacklist", "userlist"} and isinstance(value, list):
-                if not any(value):
-                    is_empty = True
+            elif attr in {"blacklist", "userlist"} and isinstance(value, list):
+                is_empty = not any(value)
+            else:
+                is_empty = not value
 
             if not is_empty:
                 display_name = attr.replace("_", " ").title()

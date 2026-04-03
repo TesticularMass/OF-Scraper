@@ -36,7 +36,7 @@ class Model:
 
     @property
     def sub_price(self):
-        return self._model.get("currentSubscribePrice", {})
+        return self._model.get("currentSubscribePrice")
 
     @property
     def subscribed_data(self):
@@ -178,9 +178,13 @@ class Model:
     @property
     def final_regular_price(self):
         if self.subscribed_data:
-            return self.subscribed_data.get("regularPrice")
-        elif self.model:
-            return self.model.get("subscribePrice")
+            val = self.subscribed_data.get("regularPrice")
+            if val is not None:
+                return val
+        if self.model:
+            val = self.model.get("subscribePrice")
+            if val is not None:
+                return val
         return 0
 
     @property

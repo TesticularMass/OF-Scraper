@@ -51,7 +51,7 @@ def pricePaidFreeFilterHelper(filterusername):
 
     log.debug(f"Regular Price filter: {settings.get_settings().regular_price}")
     if settings.get_settings().regular_price == "paid":
-        filterusername = list(filter(lambda x: x.final_regular_price, filterusername))
+        filterusername = list(filter(lambda x: x.final_regular_price > 0, filterusername))
         log.debug(f"Paid regular price filter username count: {len(filterusername)}")
         trace_log_user(filterusername, "paid regular price filter")
 

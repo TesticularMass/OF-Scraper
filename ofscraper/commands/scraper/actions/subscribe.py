@@ -25,9 +25,8 @@ log = logging.getLogger("shared")
 def _is_price_zero(value):
     """Safely check whether a price value is zero.
 
-    The model's price fields can be ``None``, a number, or even an
-    empty dict (the ``sub_price`` default).  This helper normalises
-    all of those to a reliable boolean.
+    The model's price fields can be ``None`` or a number.  This helper
+    normalises all of those to a reliable boolean.
     """
     if value is None:
         return False
