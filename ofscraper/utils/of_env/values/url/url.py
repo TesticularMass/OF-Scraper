@@ -45,17 +45,17 @@ def load_api_endpoints_config():
     )
 
     # subscriptionsActiveEP: Endpoint for active subscriptions.
-    # Default: "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=10&type=active&format=infinite"
+    # Default: "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=100&type=active&format=infinite"
     config["subscriptionsActiveEP"] = os.getenv(
         "OFSC_API_SUBSCRIPTIONS_ACTIVE_EP",
-        "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=10&type=active&format=infinite",
+        "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=100&type=active&format=infinite",
     )
 
     # subscriptionsExpiredEP: Endpoint for expired subscriptions.
-    # Default: "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=10&type=expired&format=infinite"
+    # Default: "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=100&type=expired&format=infinite"
     config["subscriptionsExpiredEP"] = os.getenv(
         "OFSC_API_SUBSCRIPTIONS_EXPIRED_EP",
-        "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=10&type=expired&format=infinite",
+        "https://onlyfans.com/api2/v2/subscriptions/subscribes?offset={}&limit=100&type=expired&format=infinite",
     )
 
     # subscribeCountEP: Endpoint for subscription count.

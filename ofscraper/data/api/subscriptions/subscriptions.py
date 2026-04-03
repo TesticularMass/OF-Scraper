@@ -161,6 +161,33 @@ async def process_task(generators):
     return output
 
 
+async def _scrape_subscriptions_page(c, url, label, max_retries=3):
+    """Fetch a single page of subscriptions with retry logic."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with c.requests_async(url=url) as r:
+                if r.status == 429:
+                    wait = min(2 ** attempt, 10)
+                    log.debug(f"{label}: rate-limited (429), retry {attempt}/{max_retries} after {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                if not (200 <= r.status < 300):
+                    log.debug(f"{label}: API error {r.status}, retry {attempt}/{max_retries}")
+                    await asyncio.sleep(1)
+                    continue
+                return await r.json_()
+        except asyncio.TimeoutError:
+            log.debug(f"{label}: timeout, retry {attempt}/{max_retries}")
+            await asyncio.sleep(1)
+        except Exception as E:
+            log.debug(f"{label}: error on attempt {attempt}/{max_retries}")
+            log.traceback_(E)
+            log.traceback_(traceback.format_exc())
+            await asyncio.sleep(1)
+    log.warning(f"{label}: all {max_retries} retries exhausted")
+    return None
+
+
 async def scrape_subscriptions_active(c, offset=0):
     """
     Async Generator Worker Loop for active subscriptions.
@@ -169,34 +196,23 @@ async def scrape_subscriptions_active(c, offset=0):
     current_offset = offset
     while True:
         url = of_env.getattr("subscriptionsActiveEP").format(current_offset)
-        try:
-            log.debug(f"usernames active offset {current_offset}")
-            async with c.requests_async(url=url) as r:
-                if not (200 <= r.status < 300):
-                    log.debug(f"Subscription API Error: {r.status}")
-                    break
+        log.debug(f"usernames active offset {current_offset}")
 
-                response = await r.json_()
-                subscriptions = response.get("list", [])
-
-                if subscriptions:
-                    log.debug(
-                        f"active subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
-                    )
-                    yield subscriptions
-
-                if response.get("hasMore") is not True or not subscriptions:
-                    break
-
-                current_offset += len(subscriptions)
-
-        except asyncio.TimeoutError:
-            log.debug(f"Task timed out {url}")
+        response = await _scrape_subscriptions_page(c, url, f"active offset {current_offset}")
+        if response is None:
             break
-        except Exception as E:
-            log.traceback_(E)
-            log.traceback_(traceback.format_exc())
+
+        subscriptions = response.get("list", [])
+        if subscriptions:
+            log.debug(
+                f"active subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
+            )
+            yield subscriptions
+
+        if response.get("hasMore") is not True or not subscriptions:
             break
+
+        current_offset += len(subscriptions)
 
 
 async def scrape_subscriptions_disabled(c, offset=0):
@@ -207,31 +223,20 @@ async def scrape_subscriptions_disabled(c, offset=0):
     current_offset = offset
     while True:
         url = of_env.getattr("subscriptionsExpiredEP").format(current_offset)
-        try:
-            log.debug(f"usernames offset expired {current_offset}")
-            async with c.requests_async(url=url) as r:
-                if not (200 <= r.status < 300):
-                    log.debug(f"Subscription API Error: {r.status}")
-                    break
+        log.debug(f"usernames offset expired {current_offset}")
 
-                response = await r.json_()
-                subscriptions = response.get("list", [])
-
-                if subscriptions:
-                    log.debug(
-                        f"expired subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
-                    )
-                    yield subscriptions
-
-                if response.get("hasMore") is not True or not subscriptions:
-                    break
-
-                current_offset += len(subscriptions)
-
-        except asyncio.TimeoutError:
-            log.debug(f"Task timed out {url}")
+        response = await _scrape_subscriptions_page(c, url, f"expired offset {current_offset}")
+        if response is None:
             break
-        except Exception as E:
-            log.traceback_(E)
-            log.traceback_(traceback.format_exc())
+
+        subscriptions = response.get("list", [])
+        if subscriptions:
+            log.debug(
+                f"expired subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
+            )
+            yield subscriptions
+
+        if response.get("hasMore") is not True or not subscriptions:
             break
+
+        current_offset += len(subscriptions)
