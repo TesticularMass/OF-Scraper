@@ -192,7 +192,14 @@ async def scrape_subscriptions_active(c, offset=0):
     """
     Async Generator Worker Loop for active subscriptions.
     Yields batches page-by-page.
+
+    IMPORTANT: The offset must advance by the page limit (100), NOT by
+    len(subscriptions).  The OF API uses absolute positioning — deleted/
+    deactivated accounts are skipped server-side but still occupy offset
+    slots.  Advancing by the (smaller) returned count causes overlapping
+    ranges and massive duplicates on large accounts.
     """
+    page_limit = of_env.getattr("SUBSCRIPTION_PAGE_LIMIT")
     current_offset = offset
     total_fetched = 0
     while True:
@@ -216,7 +223,7 @@ async def scrape_subscriptions_active(c, offset=0):
             log.debug(f"Active subscriptions: pagination complete at offset {current_offset} (hasMore={response.get('hasMore')}, batch_size={len(subscriptions)}, total={total_fetched})")
             break
 
-        current_offset += len(subscriptions)
+        current_offset += page_limit
 
 
 async def scrape_subscriptions_disabled(c, offset=0):
@@ -224,6 +231,7 @@ async def scrape_subscriptions_disabled(c, offset=0):
     Async Generator Worker Loop for expired subscriptions.
     Yields batches page-by-page.
     """
+    page_limit = of_env.getattr("SUBSCRIPTION_PAGE_LIMIT")
     current_offset = offset
     total_fetched = 0
     while True:
@@ -247,4 +255,4 @@ async def scrape_subscriptions_disabled(c, offset=0):
             log.debug(f"Expired subscriptions: pagination complete at offset {current_offset} (hasMore={response.get('hasMore')}, batch_size={len(subscriptions)}, total={total_fetched})")
             break
 
-        current_offset += len(subscriptions)
+        current_offset += page_limit

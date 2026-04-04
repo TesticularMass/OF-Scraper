@@ -111,6 +111,11 @@ def load_network_config():
     # Default: 5
     config["SUBSCRIPTION_SEMS"] = int(os.getenv("OFSC_SUBSCRIPTION_SEMS", "5"))
 
+    # SUBSCRIPTION_PAGE_LIMIT: Page size used by subscription list endpoints.
+    # Must match the 'limit' query param in subscriptionsActiveEP/subscriptionsExpiredEP.
+    # Default: 100
+    config["SUBSCRIPTION_PAGE_LIMIT"] = int(os.getenv("OFSC_SUBSCRIPTION_PAGE_LIMIT", "100"))
+
     # LIKE_MAX_SEMS: Maximum semaphores for like operations.
     # Default: 12
     config["LIKE_MAX_SEMS"] = int(os.getenv("OFSC_LIKE_MAX_SEMS", "12"))
