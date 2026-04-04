@@ -59,6 +59,8 @@ async def get_via_main_list(count):
 
 
 async def get_via_list(count):
+    log = logging.getLogger("shared")
+    expected_active, expected_expired = count
     out = []
     active_subscriptions = await subscriptions.get_subscriptions(count[0])
     expired_subscriptions = await subscriptions.get_subscriptions(
@@ -67,14 +69,45 @@ async def get_via_list(count):
     console.get_shared_console().print(
         "[yellow]Warning: Numbering on OF site can be iffy\nExample Including deactived accounts in expired\nSee: https://of-scraper.gitbook.io/of-scraper/faq#number-of-users-doesnt-match-account-number[/yellow]"
     )
+    log.info(
+        f"Subscription fetch results: "
+        f"active={len(active_subscriptions)}/{expected_active}, "
+        f"expired={len(expired_subscriptions)}/{expected_expired}"
+    )
 
     other_subscriptions = await lists.get_otherlist()
     out.extend(active_subscriptions)
     out.extend(expired_subscriptions)
     out.extend(other_subscriptions)
+    pre_blacklist = len(out)
     black_list = await lists.get_blacklist()
     out = list(filter(lambda x: x.get("id") not in black_list, out))
+    if pre_blacklist != len(out):
+        log.info(f"Blacklist removed {pre_blacklist - len(out)} subscriptions")
+
+    # Check for username collisions before Model creation
+    seen_names = {}
+    for item in out:
+        uname = item.get("username")
+        if uname in seen_names:
+            seen_names[uname] += 1
+        else:
+            seen_names[uname] = 1
+    dupes = {k: v for k, v in seen_names.items() if v > 1}
+    if dupes:
+        total_lost = sum(v - 1 for v in dupes.values())
+        log.warning(
+            f"Username collisions will lose {total_lost} subscriptions "
+            f"(duplicate usernames: {dupes})"
+        )
+
     models_objects = list(map(lambda x: models.Model(x), out))
+    log.info(
+        f"Total subscriptions fetched: {len(models_objects)} "
+        f"(site reports {expected_active + expected_expired}; "
+        f"difference of {expected_active + expected_expired - len(models_objects)} "
+        f"is likely deactivated accounts not returned by API)"
+    )
     return models_objects
 
 

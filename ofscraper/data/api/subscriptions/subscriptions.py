@@ -194,22 +194,26 @@ async def scrape_subscriptions_active(c, offset=0):
     Yields batches page-by-page.
     """
     current_offset = offset
+    total_fetched = 0
     while True:
         url = of_env.getattr("subscriptionsActiveEP").format(current_offset)
         log.debug(f"usernames active offset {current_offset}")
 
         response = await _scrape_subscriptions_page(c, url, f"active offset {current_offset}")
         if response is None:
+            log.warning(f"Active subscriptions: pagination stopped at offset {current_offset} (retries exhausted), fetched {total_fetched} so far")
             break
 
         subscriptions = response.get("list", [])
         if subscriptions:
+            total_fetched += len(subscriptions)
             log.debug(
-                f"active subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
+                f"active subscriptions offset {current_offset}: got {len(subscriptions)} users (total: {total_fetched})"
             )
             yield subscriptions
 
         if response.get("hasMore") is not True or not subscriptions:
+            log.debug(f"Active subscriptions: pagination complete at offset {current_offset} (hasMore={response.get('hasMore')}, batch_size={len(subscriptions)}, total={total_fetched})")
             break
 
         current_offset += len(subscriptions)
@@ -221,22 +225,26 @@ async def scrape_subscriptions_disabled(c, offset=0):
     Yields batches page-by-page.
     """
     current_offset = offset
+    total_fetched = 0
     while True:
         url = of_env.getattr("subscriptionsExpiredEP").format(current_offset)
         log.debug(f"usernames offset expired {current_offset}")
 
         response = await _scrape_subscriptions_page(c, url, f"expired offset {current_offset}")
         if response is None:
+            log.warning(f"Expired subscriptions: pagination stopped at offset {current_offset} (retries exhausted), fetched {total_fetched} so far")
             break
 
         subscriptions = response.get("list", [])
         if subscriptions:
+            total_fetched += len(subscriptions)
             log.debug(
-                f"expired subscriptions offset {current_offset}: usernames found -> {list(map(lambda x: x.get('username'), subscriptions))}"
+                f"expired subscriptions offset {current_offset}: got {len(subscriptions)} users (total: {total_fetched})"
             )
             yield subscriptions
 
         if response.get("hasMore") is not True or not subscriptions:
+            log.debug(f"Expired subscriptions: pagination complete at offset {current_offset} (hasMore={response.get('hasMore')}, batch_size={len(subscriptions)}, total={total_fetched})")
             break
 
         current_offset += len(subscriptions)
