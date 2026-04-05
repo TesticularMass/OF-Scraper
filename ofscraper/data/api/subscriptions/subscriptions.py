@@ -66,6 +66,25 @@ async def get_all_expired_subscriptions(subscribe_count):
         return await process_task([scrape_subscriptions_disabled(c)])
 
 
+async def _needs_multi_pass(subscribe_count):
+    """Check if the expected subscription count exceeds the API's ~5000 offset cap."""
+    return subscribe_count > 4500
+
+
+async def _set_server_sort(c, order="users.name", direction="asc", sort_type="all"):
+    """Use the sort endpoint to change the server-side ordering of the following list."""
+    url = of_env.getattr("sortSubscriptions")
+    try:
+        async with c.requests_async(
+            url=url,
+            method="post",
+            json={"order": order, "direction": direction, "type": sort_type},
+        ) as r:
+            log.debug(f"Server sort set to order={order} direction={direction} type={sort_type} (status={r.status})")
+    except Exception as E:
+        log.debug(f"Failed to set server sort: {E}")
+
+
 async def activeHelper(subscribe_count, c):
     # Blacklist/Reserved list logic check
     if any(
@@ -96,6 +115,30 @@ async def activeHelper(subscribe_count, c):
         ]
     ):
         return []
+
+    if await _needs_multi_pass(subscribe_count):
+        log.info(
+            f"Active count ({subscribe_count}) exceeds API offset cap. "
+            f"Using multi-pass sort strategy to fetch all subscriptions."
+        )
+        # Pass 1: ascending name sort (default)
+        await _set_server_sort(c, direction="asc", sort_type="active")
+        pass1 = await process_task([scrape_subscriptions_active(c)])
+        # Pass 2: descending name sort (gets the tail the first pass missed)
+        await _set_server_sort(c, direction="desc", sort_type="active")
+        pass2 = await process_task([scrape_subscriptions_active(c)])
+        # Restore default sort
+        await _set_server_sort(c, direction="asc", sort_type="active")
+        # Merge and deduplicate
+        seen = {u["id"] for u in pass1}
+        merged = list(pass1)
+        new_from_pass2 = [u for u in pass2 if u["id"] not in seen]
+        merged.extend(new_from_pass2)
+        log.info(
+            f"Active multi-pass results: pass1={len(pass1)}, pass2={len(pass2)}, "
+            f"new from pass2={len(new_from_pass2)}, total unique={len(merged)}"
+        )
+        return merged
 
     return await process_task([scrape_subscriptions_active(c)])
 
@@ -129,6 +172,30 @@ async def expiredHelper(subscribe_count, c):
         ]
     ):
         return []
+
+    if await _needs_multi_pass(subscribe_count):
+        log.info(
+            f"Expired count ({subscribe_count}) exceeds API offset cap. "
+            f"Using multi-pass sort strategy to fetch all subscriptions."
+        )
+        # Pass 1: ascending name sort
+        await _set_server_sort(c, direction="asc", sort_type="expired")
+        pass1 = await process_task([scrape_subscriptions_disabled(c)])
+        # Pass 2: descending name sort
+        await _set_server_sort(c, direction="desc", sort_type="expired")
+        pass2 = await process_task([scrape_subscriptions_disabled(c)])
+        # Restore default sort
+        await _set_server_sort(c, direction="asc", sort_type="expired")
+        # Merge and deduplicate
+        seen = {u["id"] for u in pass1}
+        merged = list(pass1)
+        new_from_pass2 = [u for u in pass2 if u["id"] not in seen]
+        merged.extend(new_from_pass2)
+        log.info(
+            f"Expired multi-pass results: pass1={len(pass1)}, pass2={len(pass2)}, "
+            f"new from pass2={len(new_from_pass2)}, total unique={len(merged)}"
+        )
+        return merged
 
     return await process_task([scrape_subscriptions_disabled(c)])
 
