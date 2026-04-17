@@ -304,20 +304,11 @@ class Post(base.base):
     def mass(self):
         return self._post.get("isFromQueue")
 
-    _logged_archived_remap = False
-
     @property
     def modified_responsetype(self):
         if self.archived:
             # Check if user has a custom Archived label, otherwise default to "Archived"
-            result = data.get_archived_responsetype() or "Archived"
-            if not Post._logged_archived_remap:
-                Post._logged_archived_remap = True
-                log.info(
-                    f"Archived posts will be saved under folder '{result}' "
-                    f"(config responsetype.archived = {data.responsetype().get('archived')!r})"
-                )
-            return result
+            return data.get_archived_responsetype() or "Archived"
         else:
             # 1. Normalize the key to lowercase for dictionary lookup
             response_key = self.responsetype.lower()
