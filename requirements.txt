@@ -11,10 +11,9 @@ aiosqlite~=0.22.1
 arrow~=1.4.0
 async-property~=0.2.2
 browser-cookie3==0.20.1
-bs4~=0.0.2
+beautifulsoup4~=4.14.3
 certifi>=2024.7.4,<2027
 cloup~=3.0.5
-dill~=0.4.1
 diskcache~=5.6.3
 faust-cchardet~=2.1.19
 humanfriendly~=10.0
@@ -24,7 +23,6 @@ idna>=3.10
 inquirerpy~=0.3.4
 limiter~=0.5.0
 lxml>=5.1.0
-more-itertools~=11.0.2
 mpegdash~=0.4.0
 pathvalidate~=3.3.1
 prompt-toolkit~=3.0.43
@@ -42,7 +40,7 @@ textual~=8.2.4
 tqdm~=4.67.3
 xxhash~=3.7.0
 pyyaml>=6.0.2
-dotenv>=0.9.9
+python-dotenv>=1.2.2
 
 # Windows-only
 win32-setctime~=1.2.0; sys_platform == 'win32'
