@@ -457,6 +457,7 @@ class sessionManager:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._session:
             await self._session.__aexit__(exc_type, exc_val, exc_tb)
+            self._session = None
 
     def __enter__(self):
         self._set_session(async_=False)
@@ -465,6 +466,7 @@ class sessionManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._session:
             self._session.__exit__(exc_type, exc_val, exc_tb)
+            self._session = None
         time.sleep(1)
 
     def _create_headers(self, headers, url, sign, forced):
@@ -625,6 +627,7 @@ class sessionManager:
         ):
             with _:
                 await self._sem.acquire()
+                r = None
                 try:
                     if await self._rate_limit_sleeper.async_do_sleep():
                         pass
@@ -669,13 +672,23 @@ class sessionManager:
                             )
                             raise SystemExit("OnlyFans Maintenance detected.")
                         r.raise_for_status()
-                    self._sem.release()
-                    yield r
-                    return
+                    try:
+                        yield r
+                        return
+                    finally:
+                        # Release the aiohttp ClientResponse back to the connection pool.
+                        # No-op if body fully consumed; forces release on partial reads
+                        # (e.g. caller returned early after a forced-skip check).
+                        if r is not None:
+                            try:
+                                await r.release()
+                            except Exception:
+                                pass
                 except Exception as E:
                     await self._async_handle_error(E, exceptions)
-                    self._sem.release()
                     raise E
+                finally:
+                    self._sem.release()
 
     @property
     def sleep(self):

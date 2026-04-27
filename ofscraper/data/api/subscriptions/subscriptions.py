@@ -138,6 +138,12 @@ async def activeHelper(subscribe_count, c):
             f"Active multi-pass results: pass1={len(pass1)}, pass2={len(pass2)}, "
             f"new from pass2={len(new_from_pass2)}, total unique={len(merged)}"
         )
+        if len(merged) < int(subscribe_count * 0.95):
+            log.warning(
+                f"Active multi-pass result appears INCOMPLETE: merged={len(merged)} "
+                f"vs site count {subscribe_count}. A pagination pass likely failed mid-run; "
+                f"some accounts may be missing from this fetch."
+            )
         return merged
 
     return await process_task([scrape_subscriptions_active(c)])
@@ -195,6 +201,12 @@ async def expiredHelper(subscribe_count, c):
             f"Expired multi-pass results: pass1={len(pass1)}, pass2={len(pass2)}, "
             f"new from pass2={len(new_from_pass2)}, total unique={len(merged)}"
         )
+        if len(merged) < int(subscribe_count * 0.95):
+            log.warning(
+                f"Expired multi-pass result appears INCOMPLETE: merged={len(merged)} "
+                f"vs site count {subscribe_count}. A pagination pass likely failed mid-run; "
+                f"some accounts may be missing from this fetch."
+            )
         return merged
 
     return await process_task([scrape_subscriptions_disabled(c)])

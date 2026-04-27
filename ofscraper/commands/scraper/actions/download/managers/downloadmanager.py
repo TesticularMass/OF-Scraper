@@ -62,7 +62,7 @@ class DownloadManager:
         return (
             None
             if not resume_size or not total
-            else {"Range": f"bytes={resume_size}-{total}"}
+            else {"Range": f"bytes={resume_size}-{total - 1}"}
         )
 
     def _get_resume_size(
