@@ -15,7 +15,10 @@ from ofscraper.utils.live.progress import (
 
 
 def clear():
-    console.get_shared_console().clear_live()
+    try:
+        console.get_shared_console().clear_live()
+    except IndexError:
+        pass
     console.get_shared_console().line(2)
 
 
