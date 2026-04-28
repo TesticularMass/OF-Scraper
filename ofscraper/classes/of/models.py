@@ -125,7 +125,7 @@ class Model:
     @property
     def active(self):
         # 1. Permanent Active States
-        if self.subscribed_data and self.subscribed_data["status"] == "Set to Expire":
+        if self.subscribed_data and self.subscribed_data.get("status") == "Set to Expire":
             return True
         elif self.renewed:
             return True

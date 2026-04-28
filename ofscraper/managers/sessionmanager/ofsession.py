@@ -180,9 +180,9 @@ class download_session(sessionManager):
         async with super().requests_async(*args, **kwargs) as r:
             yield r
 
-    async def _httpx_funct_async(self, *args, **kwargs):
+    async def _aio_funct(self, *args, **kwargs):
         """Wraps the parent method to add download speed limiting to chunk iteration."""
-        t = await super()._httpx_funct_async(*args, **kwargs)
+        t = await super()._aio_funct(*args, **kwargs)
 
         # Override chunk iterators to use the leaky bucket
         t.iter_chunked = self.chunk_with_limit(t.iter_chunked)
@@ -238,29 +238,6 @@ class metadata_session(download_session):
 
         async with super().requests_async(*args, **kwargs) as r:
             yield r
-
-    async def _httpx_funct_async(self, *args, **kwargs):
-        """Wraps the parent method to add download speed limiting to chunk iteration."""
-        t = await super()._httpx_funct_async(*args, **kwargs)
-
-        # Override chunk iterators to use the leaky bucket
-        t.iter_chunked = self.chunk_with_limit(t.iter_chunked)
-        t.iter_chunks = self.chunk_with_limit(t.iter_chunks)
-        return t
-
-    def chunk_with_limit(self, funct):
-        """Decorator to apply the leaky bucket to an async chunk generator."""
-
-        async def wrapper(*args, **kwargs):
-            async for chunk in funct(*args, **kwargs):
-                await self.get_token(len(chunk))
-                yield chunk
-
-        return wrapper
-
-    async def get_token(self, size: int):
-        """Acquires tokens from the leaky bucket corresponding to the chunk size."""
-        await self.leaky_bucket.acquire(size)
 
 
 class cdm_session(sessionManager):

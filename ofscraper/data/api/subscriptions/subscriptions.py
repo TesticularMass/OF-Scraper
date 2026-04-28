@@ -82,7 +82,10 @@ async def _set_server_sort(c, order="users.name", direction="asc", sort_type="al
         ) as r:
             log.debug(f"Server sort set to order={order} direction={direction} type={sort_type} (status={r.status})")
     except Exception as E:
-        log.debug(f"Failed to set server sort: {E}")
+        log.warning(
+            f"Failed to set server sort to direction={direction}: {E}. "
+            f"Multi-pass result for this run may not differ from a single pass."
+        )
 
 
 async def activeHelper(subscribe_count, c):
