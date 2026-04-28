@@ -43,6 +43,11 @@ def _apply_date_filter(
 
     def filter_func(x):
         model_value = getattr(x, model_attr)
+        if model_value is None:
+            # Skip models whose subscribe/expire date is missing rather than
+            # comparing against arrow.get(None), which silently coerces to
+            # arrow.utcnow() and would flip the filter result.
+            return False
         if requires_arrow_parse:
             # If the model's date is a string, parse it with Arrow and get the float timestamp
             value_to_compare = arrow.get(model_value).float_timestamp

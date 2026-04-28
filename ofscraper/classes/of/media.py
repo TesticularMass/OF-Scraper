@@ -149,7 +149,7 @@ class Media(base.base):
 
     @property
     def mediatype(self):
-        media_type = self._media["type"]
+        media_type = self._media.get("type") or "unknown"
         if media_type == "photo":
             return "Images"
         elif media_type == "gif":

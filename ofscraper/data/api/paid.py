@@ -133,12 +133,12 @@ async def scrape_paid(c, username, offset=0):
                 if not data.get("hasMore"):
                     break
 
-                # SAFETY: Prevent stuck offset loop
-                new_offset = current_offset + len(batch)
-                if new_offset <= current_offset:
-                    break
-
-                current_offset = new_offset
+                # OF API uses absolute offset positioning. Items hidden by
+                # the server (deleted / inaccessible) still occupy their slot
+                # but are not returned, so we must advance by the page LIMIT,
+                # not by len(batch). The purchased_contentEP URL hard-codes
+                # limit=100. Same trap applies to subscription pagination.
+                current_offset = current_offset + 100
 
         except Exception as E:
             log.info(f"Failed scrape paid offset {current_offset}")
@@ -269,11 +269,10 @@ async def scrape_all_paid(c, offset=0, required=None):
                 if required is not None and items_retrieved >= required:
                     break
 
-                # SAFETY: Move pointer forward
-                new_offset = current_offset + len(batch)
-                if new_offset <= current_offset:
-                    break
-                current_offset = new_offset
+                # OF API uses absolute offset positioning (see comment in
+                # scrape_paid). Hard-coded 100 matches purchased_contentALL
+                # URL's limit=100.
+                current_offset = current_offset + 100
 
         except Exception as E:
             log.info(f"Scrape all paid failed at offset {current_offset}")

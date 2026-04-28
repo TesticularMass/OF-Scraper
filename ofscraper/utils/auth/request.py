@@ -256,7 +256,7 @@ def add_cookies():
     cookies = {}
     cookies.update({"sess": auth["sess"]})
     cookies.update({"auth_id": auth["auth_id"]})
-    cookies.update({"auth_uid_": auth["auth_uid"] or auth["auth_id"]})
+    cookies.update({"auth_uid_": auth.get("auth_uid") or auth["auth_id"]})
     return cookies
 
 

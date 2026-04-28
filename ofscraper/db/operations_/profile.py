@@ -98,8 +98,9 @@ def get_profile_info(model_id=None, username=None, conn=None, **kwargs) -> list:
         try:
             cur.execute(userNameList, ([model_id]))
             return (list(map(lambda x: x[0], cur.fetchall())) or [None])[0]
-        except sqlite3.OperationalError:
-            None
+        except sqlite3.OperationalError as E:
+            log.warning(f"profile lookup OperationalError for {model_id}: {E}")
+            return None
         except Exception as E:
             raise E
 
@@ -159,8 +160,9 @@ def get_all_profiles(
         try:
             profiles = [dict(row) for row in (cur.execute(profilesALL).fetchall())]
             return profiles
-        except sqlite3.OperationalError:
-            None
+        except sqlite3.OperationalError as E:
+            log.warning(f"get_all_profiles OperationalError: {E}")
+            return None
         except Exception as E:
             raise E
 

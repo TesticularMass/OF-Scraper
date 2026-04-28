@@ -287,11 +287,14 @@ async def scrape_messages(
                 if not batch:
                     break
 
-                # Extract timestamps and IDs
+                # Extract timestamps and IDs. arrow.get(None) silently
+                # returns now(); guard with `or 0` so messages missing both
+                # createdAt and postedAt don't pollute pagination with the
+                # current wall-clock time.
                 batch_timestamps = [
                     float(
                         arrow.get(
-                            x.get("createdAt") or x.get("postedAt")
+                            x.get("createdAt") or x.get("postedAt") or 0
                         ).float_timestamp
                     )
                     for x in batch

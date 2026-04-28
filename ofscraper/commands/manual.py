@@ -140,6 +140,9 @@ async def process_urls(urls):
                 username = None
                 if model_id:
                     user_data = profile.scrape_profile(model_id)
+                    if not user_data:
+                        log.info(f"Could not resolve profile for model_id={model_id}; skipping URL")
+                        continue
                     model_id = user_data.get("id")
                     username = user_data.get("username")
 

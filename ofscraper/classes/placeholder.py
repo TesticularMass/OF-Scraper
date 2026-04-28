@@ -107,7 +107,7 @@ class databasePlaceholder(basePlaceholder):
     def databasePathHelper(self, model_id, model_username):
         self._variables.update({"username": model_username})
         self._variables.update({"model_username": model_username})
-        self._variables.update({"first_letter": model_username[0].capitalize()})
+        self._variables.update({"first_letter": (model_username[:1] or "").capitalize()})
         self._variables.update({"model_id": model_id})
         self.add_no_underline()
         globals().update(self._variables)
@@ -214,7 +214,7 @@ class Placeholders(basePlaceholder):
         self._variables.update({"model_id": model_id})
         self._variables.update({"post_id": ele.post_id})
         self._variables.update({"media_id": ele.id})
-        self._variables.update({"first_letter": username[0].capitalize()})
+        self._variables.update({"first_letter": (username[:1] or "").capitalize()})
         self._variables.update({"media_type": ele.mediatype.capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
         self._variables.update(
@@ -422,7 +422,7 @@ class Textholders(basePlaceholder):
         self._variables.update({"user_name": username})
         self._variables.update({"model_id": model_id})
         self._variables.update({"post_id": ele.id})
-        self._variables.update({"first_letter": username[0].capitalize()})
+        self._variables.update({"first_letter": (username[:1] or "").capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
         self._variables.update({"date": arrow.get(ele.date).format(data.get_date())})
         self._variables.update({"model_username": username})

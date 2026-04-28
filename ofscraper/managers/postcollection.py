@@ -114,7 +114,7 @@ class PostCollection:
         Gets the final, filtered list of media for DOWNLOAD mode.
         """
         filtersettings = settings.get_settings().mediatypes
-        log.debug(f"filtering Media to {','.join(filtersettings)}")
+        log.debug(f"filtering Media to {','.join(filtersettings or [])}")
 
         all_media = self._get_prepared_media_from_download_candidates()
 

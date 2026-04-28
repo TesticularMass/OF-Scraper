@@ -308,7 +308,7 @@ class Post(base.base):
     def modified_responsetype(self):
         if self.archived:
             # Check if user has a custom Archived label, otherwise default to "Archived"
-            return data.get_archived_responsetype() or "Archived"
+            return (data.get_archived_responsetype() or "Archived").capitalize()
         else:
             # 1. Normalize the key to lowercase for dictionary lookup
             response_key = self.responsetype.lower()
