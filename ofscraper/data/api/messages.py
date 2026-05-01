@@ -337,7 +337,7 @@ async def scrape_messages(
                         x for x in batch
                         if float(
                             arrow.get(
-                                x.get("createdAt") or x.get("postedAt")
+                                (x.get("createdAt") or x.get("postedAt")) or 0
                             ).float_timestamp
                         ) >= after
                     ]

@@ -411,7 +411,7 @@ async def get_oldest_archived_date(model_id=None, username=None, **kwargs):
     data = await media.get_archived_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"]))[0]
+    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
     return last_item["posted_at"] or 0
 
 
@@ -419,7 +419,7 @@ async def get_youngest_archived_date(model_id=None, username=None, **kwargs):
     data = await media.get_archived_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"]))[-1]
+    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
     return last_item["posted_at"] or 0
 
 
@@ -427,7 +427,7 @@ async def get_oldest_streams_date(model_id=None, username=None, **kwargs):
     data = await media.get_streams_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"]))[0]
+    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
     return last_item["posted_at"] or 0
 
 
@@ -435,7 +435,7 @@ async def get_youngest_streams_date(model_id=None, username=None, **kwargs):
     data = await media.get_streams_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"]))[-1]
+    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
     return last_item["posted_at"] or 0
 
 

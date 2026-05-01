@@ -218,7 +218,7 @@ class Placeholders(basePlaceholder):
         self._variables.update({"media_type": ele.mediatype.capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
         self._variables.update(
-            {"date": arrow.get(ele.postdate).format(data.get_date())}
+            {"date": arrow.get(ele.postdate or 0).format(data.get_date())}
         )
         self._variables.update({"model_username": username})
         self._variables.update({"response_type": ele.modified_responsetype})

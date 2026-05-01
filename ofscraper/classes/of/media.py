@@ -411,7 +411,7 @@ class Media(base.base):
         filename = re.sub(r"\.mpd$", "", filename_part)
 
         if self.responsetype == "Profile":
-            date_str = arrow.get(self.date).format("YYYY_MM_DD")
+            date_str = arrow.get(self.date or 0).format("YYYY_MM_DD")
             return f"{filename}_{date_str}"
         return filename
 
@@ -572,10 +572,10 @@ class Media(base.base):
 
     def get_text(self):
         if self.responsetype != "Profile":
-            date_str = arrow.get(self.date).format(data.get_date())
+            date_str = arrow.get(self.date or 0).format(data.get_date())
             text = self._post.file_sanitized_text or self.filename or date_str
         else:
-            date_str = arrow.get(self.date).format()
+            date_str = arrow.get(self.date or 0).format()
             text = f"{date_str} {self.text or self.filename}"
         return text
 

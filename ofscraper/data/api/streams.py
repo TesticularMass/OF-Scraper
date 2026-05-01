@@ -140,7 +140,7 @@ async def get_split_array(model_id, username, after):
     postsDataArray = sorted(oldstreams, key=lambda x: x.get("created_at"))
     filteredArray = list(
         filter(
-            lambda x: arrow.get(x.get("created_at")).float_timestamp >= after,
+            lambda x: arrow.get(x.get("created_at") or 0).float_timestamp >= after,
             postsDataArray,
         )
     )
