@@ -725,11 +725,11 @@ async def stories_check_retriver(forced=False):
     async with manager.Manager.session.aget_ofsession(
         sem_count=of_env.getattr("API_REQ_CHECK_MAX"),
     ) as c:
-        for user_name in settings.get_settings().check_usernames:
-            profile_data = profile.scrape_profile(user_name)
+        for input_name in settings.get_settings().check_usernames:
+            profile_data = profile.scrape_profile(input_name)
             user_name = profile_data.get("username") if profile_data else None
             if not user_name:
-                log.warning(f"Skipping check: profile fetch failed")
+                log.warning(f"Skipping {input_name}: profile fetch failed")
                 continue
             model_id = profile.get_id(user_name)
             user_dict[model_id] = user_dict.get(model_id, [])
