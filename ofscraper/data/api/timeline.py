@@ -321,7 +321,7 @@ async def scrape_timeline_posts(
                 if not batch:
                     break
 
-                batch_timestamps = [float(x["postedAtPrecise"]) for x in batch]
+                batch_timestamps = [float(x.get("postedAtPrecise", 0)) for x in batch]
                 max_ts = max(batch_timestamps)
                 batch_ids = {x["id"] for x in batch}
 

@@ -146,7 +146,10 @@ async def scrape_for_list(c, offset=0):
                 if not data.get("hasMore") or not out_list:
                     break
 
-                current_offset += len(out_list)
+                if "nextOffset" in data:
+                    current_offset = data["nextOffset"]
+                else:
+                    current_offset += len(out_list)
 
         except asyncio.TimeoutError:
             log.debug(f"Task timed out {url}")

@@ -138,7 +138,10 @@ async def scrape_pinned_posts(c, model_id, offset=0):
                 if not data.get("hasMore"):
                     break
 
-                current_offset += len(batch)
+                if "nextOffset" in data:
+                    current_offset = data["nextOffset"]
+                else:
+                    current_offset += len(batch)
 
         except Exception as E:
             log.traceback_(E)

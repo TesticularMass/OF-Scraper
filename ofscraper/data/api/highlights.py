@@ -248,7 +248,10 @@ async def scrape_highlight_list(c, user_id, offset=0):
                 yield data
                 if not resp_data.get("hasMore"):
                     break
-                current_offset += len(data)
+                if "nextOffset" in resp_data:
+                    current_offset = resp_data["nextOffset"]
+                else:
+                    current_offset += len(data)
         except Exception as E:
             log.traceback_(E)
             break
