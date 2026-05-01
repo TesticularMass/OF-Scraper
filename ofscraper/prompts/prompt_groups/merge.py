@@ -117,7 +117,7 @@ def model_id_prompt():
     answer = promptClasses.batchConverter(
         *[
             {
-                "type": "inpit",
+                "type": "input",
                 "name": "database",
                 "message": "Username/UD: ",
                 "option_instruction": """

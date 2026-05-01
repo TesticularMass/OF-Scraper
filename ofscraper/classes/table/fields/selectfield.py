@@ -41,7 +41,7 @@ class SelectField(Widget):
         )
 
     def compare(self, value):
-        return value in self.query_one(SelectionList).selected
+        return str(value) in self.query_one(SelectionList).selected
 
     def compose(self):
         with Horizontal():
