@@ -257,6 +257,8 @@ def get_profile_helper(value):
     model_id = author_info.get("id")
     if model_id:
         data = profile.scrape_profile(model_id)
+        if not data:
+            return None, None
         return data.get("username"), data.get("id")
     return None, None
 

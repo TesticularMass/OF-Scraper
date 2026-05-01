@@ -110,10 +110,7 @@ class databasePlaceholder(basePlaceholder):
         self._variables.update({"first_letter": (model_username[:1] or "").capitalize()})
         self._variables.update({"model_id": model_id})
         self.add_no_underline()
-        globals().update(self._variables)
-        log.trace(
-            f"modelid:{model_id}  database placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
-        )
+        log.trace(f"modelid:{model_id}  database placeholders {self._variables}")
         formatStr = data.get_metadata().format(**self._variables)
         data_path = pathlib.Path(formatStr, "user_data.db")
         data_path = pathlib.Path(os.path.normpath(data_path))
@@ -245,10 +242,7 @@ class Placeholders(basePlaceholder):
         model_id = ele.model_id
         root = pathlib.Path(root or common_paths.get_save_location())
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
-        log.trace(
-            f"modelid:{model_id}  mediadir placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
-        )
+        log.trace(f"modelid:{model_id}  mediadir placeholders {self._variables}")
         downloadDir = pathlib.Path(data.get_dirformat().format(**self._variables))
         final_path = pathlib.Path(
             os.path.normpath(f"{str(root)}/{str(pathlib.Path(downloadDir))}")
@@ -268,10 +262,7 @@ class Placeholders(basePlaceholder):
         model_id = ele.model_id
         self._variables.update({"ext": ext})
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
-        log.trace(
-            f"model_id:{model_id}  filename placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
-        )
+        log.trace(f"model_id:{model_id}  filename placeholders {self._variables}")
         out = None
         if ele.responsetype.capitalize() == "Profile":
             out = f"{await ele.final_filename}.{ext}"
@@ -451,10 +442,7 @@ class Textholders(basePlaceholder):
         model_id = ele.model_id
         root = pathlib.Path(root or common_paths.get_save_location())
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
-        log.trace(
-            f"modelid:{model_id}  mediadir placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
-        )
+        log.trace(f"modelid:{model_id}  mediadir placeholders {self._variables}")
 
         downloadDir = pathlib.Path(data.get_dirformat().format(**self._variables))
         final_path = pathlib.Path(
@@ -473,10 +461,7 @@ class Textholders(basePlaceholder):
         model_id = ele.model_id
         self._variables.update({"ext": ext})
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
-        log.trace(
-            f"model_id:{model_id}  filename placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
-        )
+        log.trace(f"model_id:{model_id}  filename placeholders {self._variables}")
         out = None
         if ele.responsetype.capitalize() == "Profile":
             text = ele.file_sanitized_text

@@ -581,7 +581,8 @@ async def message_check_retriver(forced=False):
             user_name = None
             if num_match:
                 model_id = num_match.group(1)
-                user_name = profile.scrape_profile(model_id)["username"]
+                profile_data = profile.scrape_profile(model_id)
+                user_name = profile_data.get("username") if profile_data else None
             elif name_match:
                 user_name = name_match.group(0)
                 model_id = profile.get_id(user_name)
@@ -664,7 +665,11 @@ async def purchase_check_retriver(forced=False):
         sem_count=of_env.getattr("API_REQ_CHECK_MAX"),
     ) as c:
         for name in settings.get_settings().check_usernames:
-            user_name = profile.scrape_profile(name)["username"]
+            profile_data = profile.scrape_profile(name)
+            user_name = profile_data.get("username") if profile_data else None
+            if not user_name:
+                log.warning(f"Skipping {name}: profile fetch failed")
+                continue
             model_id = name if name.isnumeric() else profile.get_id(user_name)
             user_dict[model_id] = user_dict.get(model_id, [])
 
@@ -721,7 +726,11 @@ async def stories_check_retriver(forced=False):
         sem_count=of_env.getattr("API_REQ_CHECK_MAX"),
     ) as c:
         for user_name in settings.get_settings().check_usernames:
-            user_name = profile.scrape_profile(user_name)["username"]
+            profile_data = profile.scrape_profile(user_name)
+            user_name = profile_data.get("username") if profile_data else None
+            if not user_name:
+                log.warning(f"Skipping check: profile fetch failed")
+                continue
             model_id = profile.get_id(user_name)
             user_dict[model_id] = user_dict.get(model_id, [])
             await operations.table_init_create(model_id=model_id, username=user_name)

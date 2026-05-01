@@ -27,8 +27,8 @@ def browser_cookie_helper(auth, browserSelect):
     temp = requests.utils.dict_from_cookiejar(
         getattr(browser_cookie3, browserSelect.lower())(domain_name="onlyfans")
     )
-    for key in ["sess", "auth_id", "auth_uid_"]:
-        auth[key] = auth[key] or temp.get(key, "")
+    for key in ["sess", "auth_id", "auth_uid"]:
+        auth[key] = auth.get(key) or temp.get(key, "")
     console.print(
         "You'll need to go to onlyfans.com and retrive/update header information\nGo to https://github.com/datawhores/OF-Scraper and find the section named 'Getting Your Auth Info'\nCookie information has been retived automatically\nSo You only need to retrive the x-bc header and the user-agent",
         style="yellow",
