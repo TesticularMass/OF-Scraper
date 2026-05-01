@@ -8,7 +8,6 @@ import ofscraper.utils.system.system as system
 from ofscraper.managers.model import ModelManager
 
 
-from ofscraper.commands.db import db
 import ofscraper.commands.metadata.metadata as metadata
 import ofscraper.commands.scraper.scraper as actions
 import ofscraper.commands.manual as manual
@@ -139,6 +138,7 @@ class mainManager:
         elif settings.get_settings().command == "manual":
             manual.manual_download()
         elif settings.get_settings().command == "db":
+            from ofscraper.commands.db import db
             db()
         else:
             actions.main()
