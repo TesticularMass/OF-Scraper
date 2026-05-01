@@ -12,7 +12,7 @@ class base:
     def __init__(self):
         None
 
-    def text_trunicate(self, text):
+    def text_truncate(self, text):
         if text is None:
             return "None"
         text = str(text)

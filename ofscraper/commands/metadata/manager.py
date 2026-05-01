@@ -51,7 +51,7 @@ class MetaDataManager:
         )
         placeholderObj = placeholderObj or await self._placeholderObjHelper(c, ele)
         await placeholderObj.init(create=False)
-        ele.add_filepath(placeholderObj.trunicated_filepath)
+        ele.add_filepath(placeholderObj.truncated_filepath)
         effected = None
         if ele.id:
             prevData = (
@@ -81,7 +81,7 @@ class MetaDataManager:
         elif settings.get_settings().metadata == "complete":
             return 1
         # for update
-        elif pathlib.Path(placeholderObj.trunicated_filepath).exists():
+        elif pathlib.Path(placeholderObj.truncated_filepath).exists():
             return 1
         elif pathlib.Path(prevData.get("filename") or "").is_file():
             return 1
@@ -93,10 +93,10 @@ class MetaDataManager:
 
     def _metadata_file_helper(self, placeholderObj, prevData):
         if settings.get_settings().metadata != "update":
-            return str(placeholderObj.trunicated_filename)
+            return str(placeholderObj.truncated_filename)
         # for update
-        elif pathlib.Path(placeholderObj.trunicated_filepath).exists():
-            return str(placeholderObj.trunicated_filename)
+        elif pathlib.Path(placeholderObj.truncated_filepath).exists():
+            return str(placeholderObj.truncated_filename)
         elif pathlib.Path(prevData.get("filename") or "").is_file():
             return prevData.get("filename")
         elif pathlib.Path(
@@ -105,14 +105,14 @@ class MetaDataManager:
             return str(pathlib.Path(
                 prevData.get("directory") or "", prevData.get("filename") or ""
             ))
-        return str(placeholderObj.trunicated_filename)
+        return str(placeholderObj.truncated_filename)
 
     def _metadata_dir_helper(self, placeholderObj, prevData):
         if settings.get_settings().metadata != "update":
-            return str(placeholderObj.trunicated_filedir)
+            return str(placeholderObj.truncated_filedir)
         # for update
-        elif pathlib.Path(placeholderObj.trunicated_filedir).exists():
-            return str(placeholderObj.trunicated_filedir)
+        elif pathlib.Path(placeholderObj.truncated_filedir).exists():
+            return str(placeholderObj.truncated_filedir)
         elif pathlib.Path(prevData.get("directory") or "").is_dir():
             return prevData.get("directory")
         elif pathlib.Path(
@@ -121,14 +121,14 @@ class MetaDataManager:
             return str(pathlib.Path(
                 prevData.get("directory") or "", prevData.get("filename") or ""
             ).parent)
-        return str(placeholderObj.trunicated_filedir)
+        return str(placeholderObj.truncated_filedir)
 
     def _metadata_hash_helper(self, placeholderObj, prevData, ele):
         if not settings.get_settings().hash:
             return prevData.get("hash")
-        elif pathlib.Path(placeholderObj.trunicated_filepath).is_file():
+        elif pathlib.Path(placeholderObj.truncated_filepath).is_file():
             return hash.get_hash(
-                pathlib.Path(placeholderObj.trunicated_filepath),
+                pathlib.Path(placeholderObj.truncated_filepath),
                 mediatype=ele.mediatype,
             )
         elif pathlib.Path(

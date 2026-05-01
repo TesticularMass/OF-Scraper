@@ -116,7 +116,7 @@ def merged_settings():
     merged.download_bars = args.downloadbars or config_data.get_show_downloadprogress()
     merged.discord_level = args.discord_level or config_data.get_discord()
     merged.log_level = args.log_level or of_env.getattr("DEFAULT_LOG_LEVEL")
-    merged.trunicate = False if args.original else config_data.get_truncation()
+    merged.truncate = False if args.original else config_data.get_truncation()
 
     # --- Ad Blocking & Filters ---
     neg = args.neg_filter or []

@@ -241,7 +241,7 @@ class Post(base.base):
 
     @property
     def id(self):
-        return self._post["id"]
+        return self._post.get("id")
 
     @property
     def date(self):
@@ -249,7 +249,7 @@ class Post(base.base):
 
     @property
     def formatted_date(self):
-        return arrow.get(self.date).format("YYYY-MM-DD hh:mm:ss")
+        return arrow.get(self.date or 0).format("YYYY-MM-DD hh:mm:ss")
 
     @property
     def value(self):
@@ -270,10 +270,11 @@ class Post(base.base):
 
     @property
     def fromuser(self):
-        if self._post.get("fromUser"):
-            return int(self._post["fromUser"]["id"])
-        else:
-            return self._model_id
+        from_user = self._post.get("fromUser") or {}
+        inner_id = from_user.get("id")
+        if inner_id is not None:
+            return int(inner_id)
+        return self._model_id
 
     @property
     def preview(self):

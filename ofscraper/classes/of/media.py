@@ -173,9 +173,14 @@ class Media(base.base):
 
     @property
     def numeric_duration(self):
+        import datetime
         if not self.duration:
             return "N/A"
-        return str((arrow.get(self.duration) - arrow.get(0)))
+        try:
+            seconds = int(float(self.duration))
+        except (TypeError, ValueError):
+            return "N/A"
+        return str(datetime.timedelta(seconds=seconds))
 
     @property
     def url(self):
@@ -207,7 +212,7 @@ class Media(base.base):
 
     @property
     def id(self):
-        return self._media["id"]
+        return self._media.get("id")
 
     @property
     def file_postid(self):
@@ -387,7 +392,7 @@ class Media(base.base):
     def file_text(self):
         text = self.get_text()
         text = self.file_cleanup(text)
-        text = self.text_trunicate(text)
+        text = self.text_truncate(text)
         if not text:
             return str(self.id)
         return text

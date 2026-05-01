@@ -36,7 +36,7 @@ class DownloadManager:
     async def _add_download_job_task(
         self, ele, total=None, placeholderObj=None, tempholderObj=None
     ):
-        pathstr = str(placeholderObj.trunicated_filepath)
+        pathstr = str(placeholderObj.truncated_filepath)
         task1 = progress_updater.download.add_job_task(
             f"{(pathstr[:of_env.getattr('PATH_STR_MAX')] + '....') if len(pathstr) > of_env.getattr('PATH_STR_MAX') else pathstr}\n",
             total=total,

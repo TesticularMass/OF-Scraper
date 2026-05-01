@@ -274,7 +274,7 @@ class MainDownloadManager(DownloadManager):
 
     async def _handle_result_main(self, result, ele, username, model_id):
         total, temp, placeholderObj = result
-        path_to_file = placeholderObj.trunicated_filepath
+        path_to_file = placeholderObj.truncated_filepath
 
         # 1. Check that the file size matches the API reported size
         await self._size_checker(temp, ele, total)
@@ -329,7 +329,7 @@ class MainDownloadManager(DownloadManager):
             )
 
         await set_profile_cache(ele, common_globals.thread)
-        ele.add_filepath(placeholderObj.trunicated_filepath)
+        ele.add_filepath(placeholderObj.truncated_filepath)
 
         # 6. Run Post-Download Scripts
         await self._after_download_script(path_to_file)

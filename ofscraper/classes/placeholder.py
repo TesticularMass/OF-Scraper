@@ -331,27 +331,27 @@ class Placeholders(basePlaceholder):
         return pathlib.Path(self._filepath).parent
 
     @property
-    def trunicated_filename(self):
-        return pathlib.Path(self.trunicated_filepath).name
+    def truncated_filename(self):
+        return pathlib.Path(self.truncated_filepath).name
 
     @property
-    def trunicated_filepath(self):
-        if settings.get_settings().trunicate:
+    def truncated_filepath(self):
+        if settings.get_settings().truncate:
             return pathlib.Path(paths.truncate(self._filepath))
         return self._filepath
 
     @property
-    def trunicated_filedir(self):
+    def truncated_filedir(self):
         return pathlib.Path(paths.truncate(self._filepath)).parent
 
     @property
     def size(self):
-        if not self.trunicated_filepath:
+        if not self.truncated_filepath:
             return
-        elif not self.trunicated_filepath.exists():
+        elif not self.truncated_filepath.exists():
             return
         else:
-            return self.trunicated_filepath.stat().st_size
+            return self.truncated_filepath.stat().st_size
 
 
 class Textholders(basePlaceholder):
@@ -424,7 +424,7 @@ class Textholders(basePlaceholder):
         self._variables.update({"post_id": ele.id})
         self._variables.update({"first_letter": (username[:1] or "").capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
-        self._variables.update({"date": arrow.get(ele.date).format(data.get_date())})
+        self._variables.update({"date": arrow.get(ele.date or 0).format(data.get_date())})
         self._variables.update({"model_username": username})
         self._variables.update({"media_type": "Text"})
         self._variables.update({"response_type": ele.modified_responsetype})
@@ -432,11 +432,11 @@ class Textholders(basePlaceholder):
         self._variables.update(
             {"modelObj": manager.Manager.current_model_manager.get_model(username)}
         )
-        self._variables.update({"text": ele.text_trunicate(ele.file_sanitized_text)})
+        self._variables.update({"text": ele.text_truncate(ele.file_sanitized_text)})
         self._variables.update({"config": config_file.open_config()})
         self._variables.update({"args": settings.get_args()})
 
-        sanitized_name = ele.text_trunicate(ele.file_sanitized_text)
+        sanitized_name = ele.text_truncate(ele.file_sanitized_text)
 
         self._variables.update({"quality": "source"})
         self._variables.update({"file_name": sanitized_name})
@@ -497,12 +497,12 @@ class Textholders(basePlaceholder):
         return pathlib.Path(self._filepath).name
 
     @property
-    def trunicated_filename(self):
-        return pathlib.Path(self.trunicated_filepath).name
+    def truncated_filename(self):
+        return pathlib.Path(self.truncated_filepath).name
 
     @property
-    def trunicated_filepath(self):
-        if settings.get_settings().trunicate:
+    def truncated_filepath(self):
+        if settings.get_settings().truncate:
             return pathlib.Path(paths.truncate(self._filepath))
         return self._filepath
 

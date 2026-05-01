@@ -20,19 +20,19 @@ class Model:
 
     @property
     def name(self):
-        return self._model["username"]
+        return self._model.get("username")
 
     @property
     def id(self):
-        return self._model["id"]
+        return self._model.get("id")
 
     @property
     def avatar(self):
-        return self._model["avatar"]
+        return self._model.get("avatar")
 
     @property
     def header(self):
-        return self._model["header"]
+        return self._model.get("header")
 
     @property
     def sub_price(self):
@@ -63,27 +63,27 @@ class Model:
                     self._model.get("promotions") or [],
                 )
             ),
-            key=lambda x: x["price"],
+            key=lambda x: x.get("price", 0),
         )
 
     @property
     def lowest_promo_claim(self):
         if len(self.all_claimable_promo) == 0:
             return None
-        return self.all_claimable_promo[0]["price"]
+        return self.all_claimable_promo[0].get("price", 0)
 
     @property
     def all_promo(self):
         return sorted(
             self._model.get("promotions") or [],
-            key=lambda x: x["price"],
+            key=lambda x: x.get("price", 0),
         )
 
     @property
     def lowest_promo_all(self):
         if len(self.all_promo) == 0:
             return None
-        return self.all_promo[0]["price"]
+        return self.all_promo[0].get("price", 0)
 
     @property
     def expired(self):
@@ -157,7 +157,7 @@ class Model:
 
     @property
     def final_current_price(self):
-        if self.sub_price is not None:
+        if isinstance(self.sub_price, (int, float)):
             return self.sub_price
         elif self.lowest_promo_claim is not None:
             return self.lowest_promo_claim

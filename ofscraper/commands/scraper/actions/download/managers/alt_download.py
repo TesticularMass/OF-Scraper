@@ -351,7 +351,7 @@ class AltDownloadManager(DownloadManager):
             raise Exception("Merged DRM media failed integrity check")
 
         common_globals.log.debug(
-            f"Moving intermediate path {temp_path} to {sharedPlaceholderObj.trunicated_filepath}"
+            f"Moving intermediate path {temp_path} to {sharedPlaceholderObj.truncated_filepath}"
         )
 
         # Thread executor for disk I/O move operation
@@ -360,7 +360,7 @@ class AltDownloadManager(DownloadManager):
             partial(
                 common_paths.moveHelper,
                 temp_path,
-                sharedPlaceholderObj.trunicated_filepath,
+                sharedPlaceholderObj.truncated_filepath,
                 ele,
             ),
         )
@@ -376,7 +376,7 @@ class AltDownloadManager(DownloadManager):
                 common_globals.thread,
                 partial(
                     common_paths.set_time,
-                    sharedPlaceholderObj.trunicated_filepath,
+                    sharedPlaceholderObj.truncated_filepath,
                     newDate,
                 ),
             )
@@ -384,16 +384,16 @@ class AltDownloadManager(DownloadManager):
         if ele.id:
             await mark_media_as_downloaded(
                 ele,
-                filepath=sharedPlaceholderObj.trunicated_filepath,
+                filepath=sharedPlaceholderObj.truncated_filepath,
                 model_id=model_id,
                 username=username,
                 downloaded=True,
                 hashdata=await common.get_hash(sharedPlaceholderObj),
                 size=sharedPlaceholderObj.size,
             )
-        ele.add_filepath(sharedPlaceholderObj.trunicated_filepath)
+        ele.add_filepath(sharedPlaceholderObj.truncated_filepath)
 
-        await self._after_download_script(sharedPlaceholderObj.trunicated_filepath)
+        await self._after_download_script(sharedPlaceholderObj.truncated_filepath)
 
         audio_total = audio["total"] if audio else 0
         video_total = video["total"] if video else 0

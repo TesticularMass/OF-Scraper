@@ -23,7 +23,7 @@ def get_hash(
     if settings.get_settings().hash is None:
         return
     if isinstance(file_data, placeholder.Placeholders):
-        file_data = file_data.trunicated_filepath
+        file_data = file_data.truncated_filepath
     if fileHashes.get(str(file_data)):
         hash = fileHashes.get(str(file_data))
     else:
