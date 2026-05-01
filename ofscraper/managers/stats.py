@@ -447,7 +447,7 @@ class StatsManager:
         """Private helper that contains the loop logic for metadata stats."""
         for media in media_list:
             if not media.metadata_attempted:
-                stat_obj.skipped_count += 1
+                stat_obj.unchanged_count += 1
             elif media.metadata_succeeded is False:
                 stat_obj.failed_count += 1
             elif media.metadata_succeeded is True: 

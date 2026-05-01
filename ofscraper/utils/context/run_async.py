@@ -6,26 +6,22 @@ import ofscraper.utils.context.exit as exit
 def run(coro):
     def inner(*args, **kwargs):
         try:
-            # Get the loop or create a new one
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         if not loop.is_running():
             try:
-                # Use run_until_complete for the top-level coro
                 return loop.run_until_complete(coro(*args, **kwargs))
             except KeyboardInterrupt as E:
-                # Keep the protection, but simplify the exit
                 with exit.DelayedKeyboardInterrupt():
-                    # Let the normal cleanup happen in 'finally'
                     pass
                 raise E
             finally:
-                # Soft cleanup: shut down generators without killing the loop instantly
-                if loop.is_running():
-                    loop.run_until_complete(loop.shutdown_asyncgens())
-        # If the loop is ALREADY running (nested call), just return the coro
+                # Always shut down async generators on completion to prevent leak.
+                # is_running() guard removed: by definition the loop is not running
+                # here (run_until_complete has returned).
+                loop.run_until_complete(loop.shutdown_asyncgens())
         return coro(*args, **kwargs)
 
     return inner

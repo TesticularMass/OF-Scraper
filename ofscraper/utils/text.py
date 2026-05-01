@@ -48,7 +48,7 @@ async def get_text_process(username, ele):
         )
 
         async with aiofiles.open(placeholderObj.filepath, "w") as p:
-            await p.writelines(wrapped_text)
+            await p.write("\n".join(wrapped_text))
 
         await after_download_script(placeholderObj.filepath)
 

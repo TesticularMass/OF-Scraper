@@ -7,9 +7,7 @@ def get_current_config_schema(config: dict = None) -> dict:
     if isinstance(config, dict) and config.get("config"):
         config = config["config"]
     new_config = {
-        (
-            "main_profile" if config is False else of_env.getattr("mainProfile")
-        ): data.get_main_profile(config=config),
+        "main_profile": data.get_main_profile(config=config),
         "metadata": data.get_metadata(config=config),
         "discord": data.get_discord(config=config),
         "file_options": {

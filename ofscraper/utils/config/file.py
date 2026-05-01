@@ -61,9 +61,19 @@ def write_config(updated_config):
 
 def auto_update_config(config: dict) -> dict:
     log.info("Auto updating config...")
-    new_config = schema.get_current_config_schema(config)
-    write_config(new_config)
-    return new_config
+    schema_defaults = schema.get_current_config_schema(config)
+    if isinstance(config, dict) and config.get("config"):
+        existing = config["config"]
+    elif isinstance(config, dict):
+        existing = config
+    else:
+        existing = {}
+    merged = dict(existing)
+    for key, default_value in schema_defaults.items():
+        if key not in merged:
+            merged[key] = default_value
+    write_config(merged)
+    return merged
 
 
 def json_loads(configText):
