@@ -1,6 +1,29 @@
 # Active Bugs — OF-Scraper
 
-Verified 2026-05-01. All entries confirmed by direct file read (4-agent parallel audit).
+> **STATUS (2026-05-02): SWEEP CLOSED.** All 45 originally-cataloged bugs (#1–#45) plus 8 found-during-sweep additions (#46–#53) and the post-sweep architectural cleanup (#54) are FIXED in 12 commits on `main` (`03cbc5bc..61d977ad`). The bug entries below are preserved as-written for historical reference of what was wrong; they are no longer accurate descriptions of `main`.
+>
+> See **Closure Log** at the bottom for the per-bug status table, residual caveats (#9, #16, #22), and 5 future-cleanup items (#47–#51) handled by a scheduled remote agent.
+>
+> Original verification: 2026-05-01, 4-agent parallel audit, every entry confirmed by direct file read.
+
+Per-bug status (quick scan):
+
+| Bugs | Status |
+|------|--------|
+| #1, #2, #3 (Critical) | ✅ closed |
+| #4–#22 (High) | ✅ closed (#9 partial — fallback path retained, see Closure Log) |
+| #23–#26 (Medium) | ✅ closed |
+| #27–#45 (audit additions) | ✅ closed |
+| #46 (mirror find, Batch 5) | ✅ closed |
+| #47, #48, #49, #50, #51 | ⏳ scheduled cleanup agent (fires 2026-05-15) |
+| #52 (HIGH circular import) | ✅ closed |
+| #53 (DownloadField cast) | ✅ closed |
+| #54 (architectural import cycles) | ✅ closed |
+
+Caveats explicitly preserved as deliberate trade-offs:
+- **#9** fallback path only — server-provided `nextOffset` mitigates most calls; cannot fix further without an authoritative API page-size constant.
+- **#16** sub-second precision dropped (OF API returns int seconds — no real impact).
+- **#22** shallow merge — preserves user top-level keys; won't auto-backfill new nested schema additions. Scheduled agent will deepen if needed.
 
 ---
 
