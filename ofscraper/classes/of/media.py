@@ -13,7 +13,6 @@ from bs4 import MarkupResemblesLocatorWarning
 from mpegdash.parser import MPEGDASHParser
 
 import ofscraper.classes.of.base as base
-import ofscraper.managers.manager as manager
 import ofscraper.utils.args.accessors.quality as quality
 import ofscraper.utils.config.data as data
 import ofscraper.utils.dates as dates
@@ -455,6 +454,11 @@ class Media(base.base):
 
     @async_cached_property
     async def parse_mpd(self):
+        # Function-local import: pulling manager at module top reaches
+        # commands.metadata via managers.manager and re-enters
+        # classes.of.media mid-init through several paths.
+        import ofscraper.managers.manager as manager
+
         if not self.mpd:
             return
         if self._cached_mpd:

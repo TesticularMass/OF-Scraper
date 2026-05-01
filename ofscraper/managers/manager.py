@@ -8,10 +8,6 @@ import ofscraper.utils.system.system as system
 from ofscraper.managers.model import ModelManager
 
 
-import ofscraper.commands.metadata.metadata as metadata
-import ofscraper.commands.scraper.scraper as actions
-import ofscraper.commands.manual as manual
-import ofscraper.commands.check as check
 import ofscraper.utils.settings as settings
 
 
@@ -126,21 +122,28 @@ class mainManager:
         return self._model_manager
 
     def pick(self):
+        # Function-local command imports break the import cycle:
+        # placeholder.py -> manager.py -> commands.* -> data.posts.post ->
+        # data.api.{archive,messages} -> db/operations_/media (mid-init).
         if settings.get_settings().command in [
             "post_check",
             "msg_check",
             "paid_check",
             "story_check",
         ]:
+            import ofscraper.commands.check as check
             check.checker()
         elif settings.get_settings().command == "metadata":
+            import ofscraper.commands.metadata.metadata as metadata
             metadata.process_selected_areas()
         elif settings.get_settings().command == "manual":
+            import ofscraper.commands.manual as manual
             manual.manual_download()
         elif settings.get_settings().command == "db":
             from ofscraper.commands.db import db
             db()
         else:
+            import ofscraper.commands.scraper.scraper as actions
             actions.main()
 
     def print_name(self):

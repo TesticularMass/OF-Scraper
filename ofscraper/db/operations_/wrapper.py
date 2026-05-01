@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import tenacity
 
-import ofscraper.classes.placeholder as placeholder
 import ofscraper.utils.context.exit as exit
 import ofscraper.utils.of_env.of_env as of_env
 
@@ -30,6 +29,11 @@ def operation_wrapper_async(func: abc.Callable):
             reraise=True,
         )
         def _db_work():
+            # Function-local import: top-level pulled placeholder which
+            # transitively re-imported db/operations_/media mid-init via
+            # managers.manager -> commands.metadata chain.
+            import ofscraper.classes.placeholder as placeholder
+
             conn = None
             try:
                 database_path = pathlib.Path(
@@ -83,6 +87,9 @@ def operation_wrapper(func: abc.Callable):
         reraise=True,
     )
     def inner(*args, **kwargs):
+        # Function-local import (see operation_wrapper_async for rationale).
+        import ofscraper.classes.placeholder as placeholder
+
         conn = None
         db_timeout = of_env.getattr("DATABASE_TIMEOUT")
         try:

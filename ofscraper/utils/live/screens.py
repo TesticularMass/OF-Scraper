@@ -54,44 +54,48 @@ def stop_live_screen(clear=False):
             clear_tasks_by_name(clear)
 
 
+# Layout values are factories (callables) so module-top init does NOT
+# eagerly call get_download_group(), which would walk the settings init
+# chain and trigger circular imports. setup_live() invokes the factory
+# only when the screen is actually requested.
 SCREENS = {
     "download": {
-        "layout": get_download_group(),
+        "layout": get_download_group,
         "clear": "download",
         "suppress": "SUPRESS_DOWNLOAD_DISPLAY",
     },
     "api": {
-        "layout": api_progress_group,
+        "layout": lambda: api_progress_group,
         "clear": "api",
         "suppress": "SUPRESS_API_DISPLAY",
     },
     "like": {
-        "layout": like_progress_group,
+        "layout": lambda: like_progress_group,
         "clear": "like",
         "suppress": "SUPRESS_LIKE_DISPLAY",
     },
     "user_list": {
-        "layout": userlist_group,
+        "layout": lambda: userlist_group,
         "clear": "userlist",
         "suppress": "SUPRESS_SUBSCRIPTION_DISPLAY",
     },
     "metadata": {
-        "layout": metadata_group,
+        "layout": lambda: metadata_group,
         "clear": "metadata",
         "suppress": "SUPRESS_DOWNLOAD_DISPLAY",
     },
     "main_activity": {
-        "layout": activity_desc_counter_group,
+        "layout": lambda: activity_desc_counter_group,
         "clear": "all",
     },
-    "manual": {"layout": activity_desc_group, "suppress": "SUPRESS_API_DISPLAY"},
+    "manual": {"layout": lambda: activity_desc_group, "suppress": "SUPRESS_API_DISPLAY"},
     "activity_desc": {
-        "layout": activity_desc_group,
+        "layout": lambda: activity_desc_group,
         "suppress": "SUPRESS_API_DISPLAY",
         # No "clear" key means tasks won't be cleared on exit
     },
     "activity_counter": {
-        "layout": activity_counter_group,
+        "layout": lambda: activity_counter_group,
         "suppress": "SUPRESS_API_DISPLAY",
     },
 }
@@ -111,7 +115,7 @@ def setup_live(screen_name: str, revert=True, clear=True):
     clear_instruction = config.get("clear") if clear else None
 
     return ProgressLayoutManager(
-        layout=config["layout"],
+        layout=config["layout"](),  # Invoke factory lazily
         clear_on_exit=clear_instruction,  # Pass the final instruction
         supress_key=config.get("suppress"),
         revert=revert,

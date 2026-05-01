@@ -8,11 +8,14 @@ import ofscraper.utils.settings as settings
 import ofscraper.utils.config.data as config_data
 from ofscraper.utils.system.subprocess import async_run # Changed to async_run
 import ofscraper.utils.of_env.of_env as env
-from ofscraper.classes.of.posts import Post
-from ofscraper.classes.of.media import Media
 
 
 async def naming_script(dir, file, ele): # Made async
+    # Function-local imports break a circular import chain through
+    # placeholder.py -> scripts.naming_script -> classes.of.posts.
+    from ofscraper.classes.of.posts import Post
+    from ofscraper.classes.of.media import Media
+
     log = logging.getLogger("shared")
     script_path = settings.get_settings().naming_script
 

@@ -2,7 +2,6 @@ import logging
 
 import ofscraper.data.posts.post as OF
 import ofscraper.commands.scraper.actions.download.download as download
-import ofscraper.commands.metadata.metadata as metadata
 
 import ofscraper.utils.live.updater as progress_updater
 import ofscraper.utils.live.screens as progress_utils
@@ -115,6 +114,9 @@ async def process_user(value, length):
     # lock activity from changing
     with progress_utils.TaskLock(progress_updater.activity, ["main", "overall"]):
         if settings.get_settings().command == "metadata":
+            # Function-local: metadata.py imports scrape_paid back, creating
+            # a cycle if either pulls the other at module top.
+            import ofscraper.commands.metadata.metadata as metadata
             await manager.Manager.current_model_manager.add_models(
                 username, activity="scrape_paid_metadata"
             )

@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 import logging
+from typing import TYPE_CHECKING
+
 import ofscraper.filters.media.filters as helpers
 import ofscraper.utils.settings as settings
-from ofscraper.classes.of.posts import Post
-from ofscraper.classes.of.media import Media
+
+if TYPE_CHECKING:
+    from ofscraper.classes.of.posts import Post
+    from ofscraper.classes.of.media import Media
 
 log = logging.getLogger("shared")
 
@@ -286,6 +292,12 @@ class PostCollection:
         collection, and returns the definitive Post object. This is the
         core internal logic.
         """
+        # Function-local imports break a circular import chain through
+        # classes.of.posts -> classes.of.media -> managers.manager ->
+        # commands.metadata -> data.posts.post -> managers.postcollection.
+        from ofscraper.classes.of.posts import Post
+        from ofscraper.classes.of.media import Media
+
         post_to_process, post_id = None, None
 
         # Resolve the item to its core Post data and ID
