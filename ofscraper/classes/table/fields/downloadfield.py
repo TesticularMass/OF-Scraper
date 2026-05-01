@@ -58,6 +58,10 @@ class DownloadField(SelectField):
         self.query_one(SelectionList).select(self._normal)
 
     def compare(self, value):
+        # Cast value to str so future bool-typed columns wired through
+        # DownloadField match the string Selection keys (mirrors the fix
+        # in SelectField.compare for #17).
+        value = str(value)
         if self._protected.value not in self.query_one(SelectionList).selected:
             return value in self.query_one(SelectionList).selected
         elif self._normal.value not in self.query_one(SelectionList).selected:
