@@ -7,7 +7,6 @@ import ofscraper.utils.config.schema as schema
 import ofscraper.utils.console as console_
 import ofscraper.utils.paths.common as common_paths
 
-console = console_.get_shared_console()
 log = logging.getLogger("shared")
 
 
@@ -22,7 +21,7 @@ def make_config(config=False):
 
     with open(p, "w") as f:
         f.write(json.dumps(config, indent=4))
-    console.print(f"config file created at {p}")
+    console_.get_shared_console().print(f"config file created at {p}")
 
 
 def make_config_original():
