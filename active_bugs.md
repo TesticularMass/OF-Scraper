@@ -15,7 +15,8 @@ Per-bug status (quick scan):
 | #23–#26 (Medium) | ✅ closed |
 | #27–#45 (audit additions) | ✅ closed |
 | #46 (mirror find, Batch 5) | ✅ closed |
-| #47, #48, #49, #50, #51 | ⏳ scheduled cleanup agent (fires 2026-05-15) |
+| #47, #48, #49, #50 | ✅ closed (2026-05-02 inline cleanup) |
+| #51 | ⏳ deferred — needs product judgment on env-var asymmetry |
 | #52 (HIGH circular import) | ✅ closed |
 | #53 (DownloadField cast) | ✅ closed |
 | #54 (architectural import cycles) | ✅ closed |
@@ -197,15 +198,15 @@ OF API uses absolute offset positioning. Server-skipped items (deleted accounts,
 
 - **#9 partial:** server `nextOffset` bypass mitigates most calls; bug only fires on fallback path. Cannot fix further without an authoritative API page-size constant.
 - **#16 numeric_duration:** semantics changed from `arrow.get(N) - arrow.get(0)` to `datetime.timedelta(seconds=int(...))`. Identical output for integer seconds; sub-second precision dropped (OF API returns int — no impact in practice).
-- **#22 auto_update_config:** shallow merge — preserves user top-level keys (the bug we fixed) but won't backfill new nested schema keys added in future. Acceptable per spec; flag if schema later adds nested defaults.
+- **#22 auto_update_config:** shallow merge — preserves user top-level keys (the bug we fixed) but won't backfill new nested schema keys added in future. Acceptable per spec; verified 2026-05-02 that `git log cfea4601..HEAD ofscraper/utils/config/schema.py` shows zero schema commits, so deep-merge upgrade is not needed at this time.
 
 ### Findings during sweep (logged as future cleanup, not blocking)
 
 - **#46 placeholder.py:427** — `arrow.get(ele.date)` missed by original audit. Caught during Batch 4 review, fixed in Batch 5. Mirror of #42.
-- **#47 timeline.py:147** — `sorted(..., key=lambda x: arrow.get(x["created_at"]))` no guard. Downstream filter at line 148 strips None entries, so sort is wasteful but correctness preserved. Cosmetic perf nit.
-- **#48 timeline/archive/streams `max_ts = 0` propagation** — `.get("postedAtPrecise", 0)` fix in #40 (and pre-existing same pattern in archive/streams) means a batch where ALL posts lack the field would compute `max_ts=0` → next URL cursor = epoch → potential silent loop. Rare; recommend filter-out approach: `[float(x["postedAtPrecise"]) for x in batch if "postedAtPrecise" in x]` + empty-batch guard.
-- **#49 `prompts/prompt_groups/config.py:52`** — different misspelling `trunication_default: toggle for trunicating filenames` in help-text docstring. Cosmetic; not caught by `trunicate` grep. One-line cleanup candidate.
-- **#50 `update_table_val` (selectfield.py:57-61)** — same bool/string mismatch class as #17 but currently safe path (DataTable stringifies before reaching it). Defensive `str(val)` would harden against future bool-typed columns.
+- **#47 timeline.py:147 (CLOSED 2026-05-02)** — sort key now `arrow.get(x["created_at"] or 0)`; wasteful utcnow() sort eliminated for None entries.
+- **#48 timeline/archive/streams `max_ts = 0` propagation (CLOSED 2026-05-02)** — three sites refactored: `[float(x["postedAtPrecise"]) for x in batch if "postedAtPrecise" in x]` + empty-batch `break` guard. Eliminates the epoch-cursor loop risk.
+- **#49 `prompts/prompt_groups/config.py:52` (CLOSED 2026-05-02)** — docstring `trunication_default: toggle for trunicating filenames` → `truncation_default: toggle for truncating filenames`. Verified `grep -rn 'trunicate\|trunication' ofscraper/` returns zero matches.
+- **#50 `update_table_val` (selectfield.py:57-61) (CLOSED 2026-05-02)** — added `val = str(val)` cast at top of method. Mirrors the cast added to `SelectField.compare` in Batch 1 (#17).
 - **#51 `data.get_main_profile` (config/data.py)** — still reads via `of_env.getattr("mainProfile")` while schema (post-#21) writes hardcoded `"main_profile"`. Symmetric only when env var unset; user setting `OFSC_MAIN_PROFILE_NAME=custom` would break. Pre-existing read logic, not introduced by sweep.
 - **#52 Circular import in `utils/settings.py` ↔ `utils/console.py` (HIGH — PARTIAL FIX 2026-05-02)** — `console.py:16` ran `quiet = low_output() is True` at module top, and `config/file.py:10` ran `console = console_.get_shared_console()` at module top. Both deferred: `console.py` `quiet` flag now computed inside `get_shared_console()`, `config/file.py` `console` binding removed in favour of `console_.get_shared_console().print(...)` at the one call site. Verified `from ofscraper.classes.table.fields import selectfield` now succeeds standalone, and `import ofscraper` + `python -m ofscraper --help` still work. **Other circular imports remain** in unrelated chains (e.g. `commands/check.py` → `archive.py` → `db/operations_/media.py` ↔ `commands/db.py`; and `classes/of/posts.py` → `prompts.prompt_validators` → `classes/placeholder.py` → `scripts/naming_script` → `classes/of/posts.py`). Tracked as **#54**.
 - **#54 Additional circular imports beyond #52 (CLOSED 2026-05-02)** — Multiple cycles in the codebase resolved by deferring eager module-top calls + import edges to function-local. Chain edges removed:

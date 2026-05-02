@@ -253,7 +253,13 @@ async def scrape_stream_posts(
                 if not batch:
                     break
 
-                batch_timestamps = [float(x.get("postedAtPrecise", 0)) for x in batch]
+                batch_timestamps = [
+                    float(x["postedAtPrecise"]) for x in batch if "postedAtPrecise" in x
+                ]
+                if not batch_timestamps:
+                    # All posts in batch missing postedAtPrecise; cursor would
+                    # collapse to 0 (epoch) and re-fetch endlessly. Stop here.
+                    break
                 max_ts = max(batch_timestamps)
                 batch_ids = {x["id"] for x in batch}
 

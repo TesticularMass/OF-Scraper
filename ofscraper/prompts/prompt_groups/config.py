@@ -49,7 +49,7 @@ def funct(prompt_):
     space_replacer: space replacement for filenames
     date: date format for placeholders
     text_type_default: toggle for word count type
-    trunication_default: toggle for trunicating filenames
+    truncation_default: toggle for truncating filenames
     -----------------------------------
     [Download Options]
     file_size_max: max size allowed for download

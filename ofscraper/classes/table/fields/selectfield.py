@@ -55,6 +55,9 @@ class SelectField(Widget):
             ele.select_all()
 
     def update_table_val(self, val):
+        # Cast to str so bool row values (True/False) match string Selection
+        # keys ("True"/"False"). Mirrors the cast in compare() (#17).
+        val = str(val)
         if val == "True":
             self.select_true()
         elif val == "False":
