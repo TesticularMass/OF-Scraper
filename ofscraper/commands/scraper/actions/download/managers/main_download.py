@@ -83,49 +83,49 @@ class MainDownloadManager(DownloadManager):
                         common_globals.attempt.set(common_globals.attempt.get(0) + 1)
                         if common_globals.attempt.get() > 1:
                             pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
-                    data = await self._get_data(ele)
-                    total = None
-                    placeholderObj = None
-                    status = False
-                    if data:
-                        total, placeholderObj, status = (
-                            await self._resume_data_handler_main(
-                                data, ele, tempholderObj
+                        data = await self._get_data(ele)
+                        total = None
+                        placeholderObj = None
+                        status = False
+                        if data:
+                            total, placeholderObj, status = (
+                                await self._resume_data_handler_main(
+                                    data, ele, tempholderObj
+                                )
                             )
-                        )
-                    else:
-                        await self._fresh_data_handler_main(ele, tempholderObj)
-                    if not status:
-                        try:
-                            return await self._main_download_sendreq(
-                                c,
-                                ele,
-                                tempholderObj,
-                                placeholderObj=placeholderObj,
-                                total=total,
+                        else:
+                            await self._fresh_data_handler_main(ele, tempholderObj)
+                        if not status:
+                            try:
+                                return await self._main_download_sendreq(
+                                    c,
+                                    ele,
+                                    tempholderObj,
+                                    placeholderObj=placeholderObj,
+                                    total=total,
+                                )
+                            except Exception as E:
+                                raise E
+                        else:
+                            return (
+                                total,
+                                tempholderObj.tempfilepath,
+                                placeholderObj,
                             )
-                        except Exception as E:
-                            raise E
-                    else:
-                        return (
-                            total,
-                            tempholderObj.tempfilepath,
-                            placeholderObj,
-                        )
 
-                except OSError as E:
-                    common_globals.log.debug(
-                        f"[{common_logs.get_medialog(ele)}] [attempt {common_globals.attempt.get()}/{get_download_retries()}] Number of Open Files -> { len(psutil.Process().open_files())}"
-                    )
-                    raise E
-                except Exception as E:
-                    common_globals.log.traceback_(
-                        f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
-                    )
-                    common_globals.log.traceback_(
-                        f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {E}"
-                    )
-                    raise E
+                    except OSError as E:
+                        common_globals.log.debug(
+                            f"[{common_logs.get_medialog(ele)}] [attempt {common_globals.attempt.get()}/{get_download_retries()}] Number of Open Files -> { len(psutil.Process().open_files())}"
+                        )
+                        raise E
+                    except Exception as E:
+                        common_globals.log.traceback_(
+                            f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
+                        )
+                        common_globals.log.traceback_(
+                            f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {E}"
+                        )
+                        raise E
         finally:
             pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
 
@@ -164,8 +164,6 @@ class MainDownloadManager(DownloadManager):
                 read_timeout=get_chunk_timeout(),
             ) as r:
                 content_length = int(r.headers.get("content-length", 0) or 0)
-                # For resumed (206) responses, content-length is remaining bytes,
-                # not full size. Reconstruct full total.
                 if resume_size > 0 and content_length > 0:
                     total = resume_size + content_length
                 else:

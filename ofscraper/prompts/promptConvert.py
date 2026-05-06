@@ -241,13 +241,13 @@ def getType(input_type):
         return input_prompt
     elif input_type == "multiline":
         return multiline_input_prompt
-    raise ValueError(f"Unknown input_type: {input_type}")
     elif input_type == "confirm":
         return confirm_prompt
     elif input_type == "filepath":
         return file_type
     elif input_type == "number":
         return number_type
+    raise ValueError(f"Unknown input_type: {input_type}")
 
 
 def batchConverterHelper(ele, kwargs):

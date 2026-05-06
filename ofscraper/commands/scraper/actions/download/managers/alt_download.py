@@ -114,41 +114,41 @@ class AltDownloadManager(DownloadManager):
                             pathlib.Path(placeholderObj.tempfilepath).unlink(
                                 missing_ok=True
                             )
-                    data = await self._get_data(ele, item)
-                    status = False
-                    if data:
-                        item, status = await self._resume_data_handler_alt(
-                            data, item, ele, placeholderObj
-                        )
-
-                    else:
-                        item, status = await self._fresh_data_handler_alt(
-                            item, ele, placeholderObj
-                        )
-                    if not status:
-                        try:
-                            item = await self._alt_download_sendreq(
-                                item, c, ele, placeholderObj
+                        data = await self._get_data(ele, item)
+                        status = False
+                        if data:
+                            item, status = await self._resume_data_handler_alt(
+                                data, item, ele, placeholderObj
                             )
-                        except Exception as E:
-                            raise E
-                    return item
-                except OSError as E:
-                    common_globals.log.debug(
-                        f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] Number of Open Files -> { len(psutil.Process().open_files())}"
-                    )
-                    common_globals.log.debug(
-                        f" {get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] Open Files -> {list(map(lambda x:(x.path,x.fd),psutil.Process().open_files()))}"
-                    )
-                    raise E
-                except Exception as E:
-                    common_globals.log.traceback_(
-                        f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
-                    )
-                    common_globals.log.traceback_(
-                        f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {E}"
-                    )
-                    raise E
+
+                        else:
+                            item, status = await self._fresh_data_handler_alt(
+                                item, ele, placeholderObj
+                            )
+                        if not status:
+                            try:
+                                item = await self._alt_download_sendreq(
+                                    item, c, ele, placeholderObj
+                                )
+                            except Exception as E:
+                                raise E
+                        return item
+                    except OSError as E:
+                        common_globals.log.debug(
+                            f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] Number of Open Files -> { len(psutil.Process().open_files())}"
+                        )
+                        common_globals.log.debug(
+                            f" {get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] Open Files -> {list(map(lambda x:(x.path,x.fd),psutil.Process().open_files()))}"
+                        )
+                        raise E
+                    except Exception as E:
+                        common_globals.log.traceback_(
+                            f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
+                        )
+                        common_globals.log.traceback_(
+                            f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {E}"
+                        )
+                        raise E
         finally:
             pathlib.Path(placeholderObj.tempfilepath).unlink(missing_ok=True)
 
@@ -255,12 +255,12 @@ class AltDownloadManager(DownloadManager):
         finally:
             try:
                 await fileobject.close()
-            except Exception:
-                pass
+            except Exception as E:
+                raise E
             try:
                 await self._remove_download_job_task(task1, ele)
-            except Exception:
-                pass
+            except Exception as E:
+                raise E
 
     async def _download_fileobject_writer_streamer(
         self, ele, total, res, placeholderObj
