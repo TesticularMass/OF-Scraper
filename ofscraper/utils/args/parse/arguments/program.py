@@ -38,9 +38,3 @@ env_file_option = click.option(
     multiple=True,
 )
 
-gui_option = click.option(
-    "--gui",
-    is_flag=True,
-    default=False,
-    help="Launch graphical user interface instead of terminal UI",
-)

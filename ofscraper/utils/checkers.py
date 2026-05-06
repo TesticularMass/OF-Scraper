@@ -17,10 +17,6 @@ def check_auth():
         status = init.getstatus()
         if status != "UP":
             log.info("Auth Failed")
-            # In GUI mode skip interactive prompts; the GUI auth dialog handles re-auth
-            if getattr(settings.get_args(), "gui", False):
-                log.debug("GUI mode: skipping interactive auth prompt on auth failure")
-                return
             make.make_auth(auth=auth_file.read_auth())
         else:
             break

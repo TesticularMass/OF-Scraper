@@ -39,10 +39,7 @@ def read_auth():
             if auth_schema.auth_key_missing(old_auth):
                 auth = write_auth(auth)
             if auth_schema.auth_key_null(auth):
-                # In GUI mode skip interactive prompts; the GUI auth dialog handles it
-                import ofscraper.utils.args.accessors.read as read_args
-                if not getattr(read_args.retriveArgs(), "gui", False):
-                    auth,_ = make.make_auth(auth)
+                auth,_ = make.make_auth(auth)
             
             # If all checks pass, break the loop and return the auth data
             break

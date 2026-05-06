@@ -44,7 +44,7 @@ class ModelManager:
 
     @property
     def all_subs_obj(self) -> List["Model"]:
-        """Alias for all_subs — used by the GUI to retrieve the model list."""
+        """Alias for all_subs."""
         return self.all_subs
 
     @property
@@ -54,14 +54,14 @@ class ModelManager:
 
     @all_subs_dict.setter
     def all_subs_dict(self, data) -> None:
-        """Allow the GUI to set fetched model data directly."""
+        """Allow setting fetched model data directly."""
         if isinstance(data, dict):
             self._all_subs_dict = data
         elif isinstance(data, list):
             self._all_subs_dict = {m.name: m for m in data if m}
 
     def all_subs_retriver(self) -> List["Model"]:
-        """Fetch all subscriptions from the API (used by the GUI model loader)."""
+        """Fetch all subscriptions from the API."""
         self._fetch_all_subs(force_refetch=True)
         return self.all_subs
 
@@ -450,10 +450,6 @@ class ModelManager:
             console.get_console().print(
                 "[bold red]No accounts found during last scan[/bold red]"
             )
-            # In GUI mode skip interactive prompts; raise so the GUI error handler catches it
-            import ofscraper.utils.args.accessors.read as read_args
-            if getattr(read_args.retriveArgs(), "gui", False):
-                raise Exception("No accounts found. Please check your auth information.")
             if not prompts.retry_user_scan():
                 break
 
