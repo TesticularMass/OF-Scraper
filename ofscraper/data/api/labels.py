@@ -248,7 +248,7 @@ async def scrape_labels(c, model_id, offset=0):
                 if "nextOffset" in data:
                     current_offset = data["nextOffset"]
                 else:
-                    current_offset += len(batch)
+                    current_offset += 50
         except Exception as E:
             log.traceback_(E)
             log.traceback_(traceback.format_exc())
@@ -305,7 +305,7 @@ async def scrape_posts_labels(c, label, model_id, offset=0):
                 if "nextOffset" in data:
                     current_offset = data["nextOffset"]
                 else:
-                    current_offset += len(batch)
+                    current_offset += 50
         except Exception as E:
             log.traceback_(E)
             log.traceback_(traceback.format_exc())

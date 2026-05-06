@@ -24,9 +24,15 @@ log = logging.getLogger("shared")
 
 
 def browser_cookie_helper(auth, browserSelect):
-    temp = requests.utils.dict_from_cookiejar(
-        getattr(browser_cookie3, browserSelect.lower())(domain_name="onlyfans")
-    )
+    try:
+        temp = requests.utils.dict_from_cookiejar(
+            getattr(browser_cookie3, browserSelect.lower())(domain_name="onlyfans")
+        )
+    except AttributeError:
+        console.print(
+            f"[yellow]Could not find browser '{browserSelect}' in browser_cookie3[/yellow]"
+        )
+        temp = {}
     for key in ["sess", "auth_id", "auth_uid"]:
         auth[key] = auth.get(key) or temp.get(key, "")
     console.print(

@@ -111,7 +111,7 @@ def _mac_truncateHelper(path):
     )
     ext = match.group(0) if match else ""
     file = re.sub(ext, "", path.name)
-    maxlength = of_env.getattr("MAC_MAX_PATH") - len(ext)
+    maxlength = of_env.getattr("MAC_MAX_PATH") - len(str(dir)) - 1 - len(ext)
     newFile = f"{file[:maxlength]}{ext}"
     final = pathlib.Path(dir, newFile)
     log.debug(f"path: {final} path size: {len(str(final))}")

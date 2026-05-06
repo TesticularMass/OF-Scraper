@@ -1135,13 +1135,15 @@ class WidevineMasterAutomator:
             self._emulator_log_file = None
 
     def run(self):
-        self.setup_keydive()
-        self.setup_android_sdk()
-        self.start_emulator()
-        self.wait_for_boot()
-        self.install_frida()
-        self.run_keydive()
-        self.cleanup()
+        try:
+            self.setup_keydive()
+            self.setup_android_sdk()
+            self.start_emulator()
+            self.wait_for_boot()
+            self.install_frida()
+            self.run_keydive()
+        finally:
+            self.cleanup()
 
 
 if __name__ == "__main__":

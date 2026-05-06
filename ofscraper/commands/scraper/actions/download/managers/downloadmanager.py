@@ -120,16 +120,12 @@ class DownloadManager:
 
     async def _size_checker(self, path, ele, total, name=None):
         name = name or ele.filename
-        if total == 0:
-            return True
         if not pathlib.Path(path).exists():
             s = f"{get_medialog(ele)} {path} was not created"
             raise Exception(s)
-        elif total - pathlib.Path(path).absolute().stat().st_size > 500:
-            s = f"{get_medialog(ele)} {name} size mixmatch target: {total} vs current file: {pathlib.Path(path).absolute().stat().st_size}"
-            raise Exception(s)
-        elif (total - pathlib.Path(path).absolute().stat().st_size) < 0:
-            s = f"{get_medialog(ele)} {path} size mixmatch target item too large: {total} vs current file: {pathlib.Path(path).absolute().stat().st_size}"
+        actual_size = pathlib.Path(path).absolute().stat().st_size
+        if abs(total - actual_size) > 500:
+            s = f"{get_medialog(ele)} {name} size mismatch target: {total} vs actual: {actual_size}"
             raise Exception(s)
 
     async def _force_download(self, ele, username, model_id):

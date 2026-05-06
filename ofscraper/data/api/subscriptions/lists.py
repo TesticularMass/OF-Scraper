@@ -149,7 +149,7 @@ async def scrape_for_list(c, offset=0):
                 if "nextOffset" in data:
                     current_offset = data["nextOffset"]
                 else:
-                    current_offset += len(out_list)
+                    current_offset += 100
 
         except asyncio.TimeoutError:
             log.debug(f"Task timed out {url}")
@@ -261,7 +261,7 @@ async def scrape_list_members(c, item, offset=0):
                     current_offset = data["nextOffset"]
                 else:
                     # Fallback if nextOffset isn't present but hasMore is true
-                    current_offset += len(users)
+                    current_offset += 100
 
         except asyncio.TimeoutError:
             log.debug(f"Task timed out {url}")

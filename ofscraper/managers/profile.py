@@ -31,7 +31,7 @@ class ProfileManager:
         if permanent:
             log.info(f"Permanently switching default profile to '{new_profile_name}'...")
             # 1. Update the persistent config file
-            config_.update_config(of_env.getattr("mainProfile"), new_profile_name)
+            config_.update_config("main_profile", new_profile_name)
             args.profile = None
         else:
             log.info(f"Temporarily switching active profile to '{new_profile_name}' for this session...")
@@ -117,7 +117,7 @@ class ProfileManager:
     @property
     def config_profile(self) -> str:
         """
-        Returns the current config profile by always checking get_current_config_proifle.
+        Returns the current config profile by always checking get_current_config_profile.
         """
         return data.get_current_config_profile()
     

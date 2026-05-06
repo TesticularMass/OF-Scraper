@@ -22,6 +22,8 @@ log = logging.getLogger("shared")
 def get_individual_timeline_post(id, session=None):
     with session or manager.Manager.session.get_ofsession() as c:
         with c.requests(of_env.getattr("INDIVIDUAL_TIMELINE").format(id)) as r:
+            if not (200 <= r.status < 300):
+                return {"error": True, "status": r.status}
             log.trace(f"post raw individual {r.json()}")
             return r.json()
 

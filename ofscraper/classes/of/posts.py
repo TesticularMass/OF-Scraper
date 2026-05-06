@@ -257,7 +257,10 @@ class Post(base.base):
 
     @property
     def price(self):
-        return float(self.post.get("price") or 0)
+        try:
+            return float(self.post.get("price") or 0)
+        except (ValueError, TypeError):
+            return 0.0
 
     @property
     def paid(self):
@@ -283,7 +286,7 @@ class Post(base.base):
     @property
     def media(self) -> list[Media.Media]:
         """Returns a list of all viewable media objects for this post."""
-        if int(self.fromuser) != int(self.model_id):
+        if not self.fromuser or not self.model_id or int(self.fromuser) != int(self.model_id):
             return []
         media_items = map(
             lambda x: Media.Media(x[1], x[0], self), enumerate(self.post_media)
@@ -319,7 +322,7 @@ class Post(base.base):
                 response_key = "timeline"
 
             # 3. Lookup in the lowercase config dictionary
-            response = data.responsetype().get(response_key)
+            response = (data.responsetype() or {}).get(response_key)
             # 4. Fallback: if no custom mapping exists, use the original type capitalized
             if response in (None, ""):
                 return self.responsetype.capitalize()

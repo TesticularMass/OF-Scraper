@@ -48,7 +48,10 @@ def create_custom_ssl_context(
         auth = auth_requests.auth_file.read_auth()
         user_seed = str(auth.get("auth_id") or auth.get("username") or "default_seed")
     except Exception:
-        user_seed = f"fallback_seed_{getpass.getuser()}"
+        try:
+            user_seed = f"fallback_seed_{getpass.getuser()}"
+        except Exception:
+            user_seed = "fallback_seed_unknown"
 
     # Initialize cache entry for this identity if it doesn't exist
     if user_seed not in _CONFIG_CACHE:

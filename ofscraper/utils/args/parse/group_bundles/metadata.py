@@ -137,9 +137,9 @@ It also uses a new filename if one is available
     def wrapper(ctx, *args, **kwargs):
         if ctx.params["anon"]:
             if not ctx.params["usernames"]:
-                raise UsageError("'--usernames is required")
+                raise UsageError("--usernames is required when --anon is set")
             elif len(list(filter(lambda x: x != "ALL", ctx.params["usernames"]))) == 0:
-                raise UsageError("'--usernames value 'ALL' ignored is required")
+                raise UsageError("--usernames requires at least one non-'ALL' value when --anon is set")
             else:
                 ctx.params["individual"] = True
                 ctx.params["list"] = False

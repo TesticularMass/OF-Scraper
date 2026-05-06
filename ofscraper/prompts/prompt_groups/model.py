@@ -42,7 +42,8 @@ def model_selector(models: Union[dict, list], existing_models) -> bool:
     )
     selectedSet = set(map(lambda x: x.name, existing_models))
     for model in choices:
-        name = re.search("^[0-9]+: ([^ ]+)", model.name).group(1)
+        m = re.search("^[0-9]+: ([^ ]+)", model.name)
+        name = m.group(1) if m else model.name
         if name in selectedSet:
             model.enabled = True
 
@@ -300,7 +301,8 @@ def modify_promo_prompt(args):
 
     answer.update(free_trial)
     args.free_trial = answer["free-trial"]
-    args.update(promo)
+    for k, v in promo.items():
+        setattr(args, k, v)
 
     return args
 
@@ -338,7 +340,6 @@ def modify_prices_prompt(args):
         altd=prompt_helpers.price_info,
         more_instruction=prompt_strings.PRICE_DETAILS,
     )
-    args[price_type["price"]]
 
     answer = promptClasses.batchConverter(
         *[
@@ -368,7 +369,7 @@ def modify_sort_prompt(args):
                 "type": "list",
                 "name": "type",
                 "message": "Sort Accounts by..",
-                "default": args.desc is False,
+                "default": args.sort or "name",
                 "choices": [
                     Choice("name", "By Name"),
                     Choice("subscribed", "Subscribed Date"),

@@ -25,6 +25,12 @@ def closeThreadExecutor():
             common_globals.thread = None
     except ImportError:
         pass
+    try:
+        from ofscraper.db.operations_.wrapper import _DB_POOL
+
+        _DB_POOL.shutdown(wait=True)
+    except Exception:
+        pass
 
 
 def closeCache():

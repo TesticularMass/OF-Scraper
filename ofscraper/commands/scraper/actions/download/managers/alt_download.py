@@ -104,15 +104,16 @@ class AltDownloadManager(DownloadManager):
         _attempt = self._alt_attempt_get(item)
         _attempt.set(0)
 
-        async for _ in download_retry():
-            with _:
-                try:
-                    _attempt = self._alt_attempt_get(item)
-                    _attempt.set(_attempt.get(0) + 1)
-                    if _attempt.get() > 1:
-                        pathlib.Path(placeholderObj.tempfilepath).unlink(
-                            missing_ok=True
-                        )
+        try:
+            async for _ in download_retry():
+                with _:
+                    try:
+                        _attempt = self._alt_attempt_get(item)
+                        _attempt.set(_attempt.get(0) + 1)
+                        if _attempt.get() > 1:
+                            pathlib.Path(placeholderObj.tempfilepath).unlink(
+                                missing_ok=True
+                            )
                     data = await self._get_data(ele, item)
                     status = False
                     if data:
@@ -148,6 +149,8 @@ class AltDownloadManager(DownloadManager):
                         f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {E}"
                     )
                     raise E
+        finally:
+            pathlib.Path(placeholderObj.tempfilepath).unlink(missing_ok=True)
 
     async def _alt_download_sendreq(self, item, c, ele, placeholderObj):
         try:
@@ -172,13 +175,17 @@ class AltDownloadManager(DownloadManager):
 
             resume_size = self._get_resume_size(placeholderObj)
             headers = self._get_resume_header(resume_size, item["total"])
+            orig_total = item["total"]
             # reset total
             total = None
             common_globals.log.debug(f"{get_medialog(ele)} resume header {headers}")
             params = get_alt_params(ele)
             base_url = re.sub(r"[0-9a-z]*\.mpd$", "", ele.mpd, flags=re.IGNORECASE)
             url = f"{base_url}{item['origname']}"
-            headers = {"Cookie": f"{ele.hls_header}{auth_requests.get_cookies_str()}"}
+            headers = {
+                "Cookie": f"{ele.hls_header}{auth_requests.get_cookies_str()}",
+                **headers,
+            }
             common_globals.log.debug(
                 f"{get_medialog(ele)} [attempt {self._alt_attempt_get(item).get()}/{get_download_retries()}] Downloading media with url  {ele.mpd}"
             )
@@ -190,7 +197,11 @@ class AltDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as l:
-                item["total"] = int(l.headers.get("content-length"))
+                content_length = int(l.headers.get("content-length") or 0)
+                if resume_size > 0 and content_length > 0:
+                    item["total"] = resume_size + content_length
+                else:
+                    item["total"] = content_length or orig_total or 0
                 total = item["total"]
 
                 data = {
@@ -244,12 +255,12 @@ class AltDownloadManager(DownloadManager):
         finally:
             try:
                 await fileobject.close()
-            except Exception as E:
-                raise E
+            except Exception:
+                pass
             try:
                 await self._remove_download_job_task(task1, ele)
-            except Exception as E:
-                raise E
+            except Exception:
+                pass
 
     async def _download_fileobject_writer_streamer(
         self, ele, total, res, placeholderObj
@@ -445,6 +456,7 @@ class AltDownloadManager(DownloadManager):
             return common_globals.attempt
         if item["type"] == "audio":
             return common_globals.attempt2
+        raise ValueError(f"Unsupported item type: {item['type']}")
 
     async def _get_data(self, ele, item):
         data = await asyncio.get_running_loop().run_in_executor(
@@ -483,12 +495,14 @@ class AltDownloadManager(DownloadManager):
                 await self._size_checker(m["path"], ele, m["total"])
 
     async def _media_item_keys_alt(self, c, audio, video, ele):
+        decrypted = set()
         async for _ in download_retry():
             with _:
                 try:
                     for item in [audio, video]:
-                        if item is not None:
+                        if item is not None and item["path"] not in decrypted:
                             item = await keyhelpers.un_encrypt(item, c, ele)
+                            decrypted.add(item["path"])
                 except Exception as E:
                     common_globals.log.traceback_(E)
                     common_globals.log.traceback_(traceback.format_exc())

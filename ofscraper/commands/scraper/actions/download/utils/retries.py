@@ -14,7 +14,7 @@ class download_retry(AsyncRetrying):
         )
         retry = retry or retry_if_exception(
             lambda e: str(e) != of_env.getattr("SPACE_DOWNLOAD_MESSAGE")
-            and not isinstance(e, KeyboardInterrupt)
+            and not isinstance(e, (KeyboardInterrupt, SystemExit, MemoryError))
         )
         
         def _log_retry(retry_state):

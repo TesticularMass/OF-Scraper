@@ -74,7 +74,6 @@ class SessionSleep:
         self._last_request_time = arrow.get(
             0
         )  # <-- NEW: Tracks when the API was last hit
-        self._alock = asyncio.Lock()
         self._lock = threading.Lock()
         self._init_sleep = (
             sleep if sleep is not None else of_env.getattr("SESSION_SLEEP_INIT")
@@ -120,36 +119,39 @@ class SessionSleep:
             )
 
     async def async_do_sleep(self):
-        async with self._alock:
+        # Read state under lock, then release before actual sleep
+        with self._lock:
             self._maybe_decay_sleep()
+            sleep_val = self._sleep
+            min_sleep = self._min_sleep
 
-            # 1. Backoff mode (We hit an error, take a long nap)
-            if self._sleep and self._sleep > self._min_sleep:
+        # Backoff mode
+        if sleep_val and sleep_val > min_sleep:
+            logging.getLogger("shared").debug(
+                f"SessionSleep: Backoff [{sleep_val:.2f}s] due to {self.error_name} errors"
+            )
+            await asyncio.sleep(sleep_val)
+            self._last_request_time = arrow.now()
+            return True
+
+        # Pacing mode
+        elif min_sleep and min_sleep > 0:
+            time_since_last = (
+                arrow.now() - self._last_request_time
+            ).total_seconds()
+            wait_time = min_sleep - time_since_last
+
+            if wait_time > 0:
                 logging.getLogger("shared").debug(
-                    f"SessionSleep: Backoff [{self._sleep:.2f}s] due to {self.error_name} errors"
+                    f"SessionSleep: Pacing [{wait_time:.2f}s] due to {self.error_name} limit"
                 )
-                await asyncio.sleep(self._sleep)
-                self._last_request_time = arrow.now()
-                return True
-
-            # 2. Pacing mode (Ensure we don't hit the API too fast)
-            elif self._min_sleep and self._min_sleep > 0:
-                time_since_last = (
-                    arrow.now() - self._last_request_time
-                ).total_seconds()
-                wait_time = self._min_sleep - time_since_last
-
-                if wait_time > 0:
-                    logging.getLogger("shared").debug(
-                        f"SessionSleep: Pacing [{wait_time:.2f}s] due to {self.error_name} limit"
-                    )
-                    await asyncio.sleep(wait_time)
-
-                self._last_request_time = arrow.now()
-                return True
+                await asyncio.sleep(wait_time)
 
             self._last_request_time = arrow.now()
-            return False
+            return True
+
+        self._last_request_time = arrow.now()
+        return False
 
     def do_sleep(self):
         with self._lock:
@@ -183,32 +185,34 @@ class SessionSleep:
 
     def toomany_req(self):
         log = logging.getLogger("shared")
-        if not self._sleep:
-            self._sleep = self._init_sleep if self._init_sleep > 0 else 1
-            log.debug(
-                f"SessionSleep: Backoff triggered => setting sleep to starting value: [{self._sleep:.2f} seconds] due to {self.error_name} error"
-            )
-        elif (
-            arrow.now().float_timestamp - self._last_date.float_timestamp < self._difmin
-        ):
-            log.debug(
-                f"SessionSleep: Backoff => not changing sleep [{self._sleep:.2f} seconds], last {self.error_name} error was less than {self._difmin}s ago"
-            )
-            return
-        else:
-            new_sleep = self._sleep * self._increase_factor
-            self._sleep = min(new_sleep, self._max_sleep)
-            log.debug(
-                f"SessionSleep: Backoff => increasing sleep by factor x{self._increase_factor} to: [{self._sleep:.2f} seconds] due to {self.error_name} error"
-            )
-        self._last_date = arrow.now()
+        with self._lock:
+            if not self._sleep:
+                self._sleep = self._init_sleep if self._init_sleep > 0 else 1
+                log.debug(
+                    f"SessionSleep: Backoff triggered => setting sleep to starting value: [{self._sleep:.2f} seconds] due to {self.error_name} error"
+                )
+            elif (
+                arrow.now().float_timestamp - self._last_date.float_timestamp < self._difmin
+            ):
+                log.debug(
+                    f"SessionSleep: Backoff => not changing sleep [{self._sleep:.2f} seconds], last {self.error_name} error was less than {self._difmin}s ago"
+                )
+                return
+            else:
+                new_sleep = self._sleep * self._increase_factor
+                self._sleep = min(new_sleep, self._max_sleep)
+                log.debug(
+                    f"SessionSleep: Backoff => increasing sleep by factor x{self._increase_factor} to: [{self._sleep:.2f} seconds] due to {self.error_name} error"
+                )
+            self._last_date = arrow.now()
 
     def reset_sleep(self):
-        self._sleep = self._min_sleep
-        self._last_date = arrow.now()
+        with self._lock:
+            self._sleep = self._min_sleep
+            self._last_date = arrow.now()
 
     async def async_toomany_req(self):
-        async with self._alock:
+        with self._lock:
             self.toomany_req()
 
     @property

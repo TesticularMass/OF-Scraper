@@ -66,7 +66,7 @@ class TimeField(Container):
             minutes = (val % 3600) // 60
             seconds = val % 60
 
-        elif val != "N/A" and val != "N\\A":
+        elif val and val != "N/A" and val != "N\\A":
             valArray = val.split(":")
             hours, minutes, seconds = valArray
         else:
@@ -82,7 +82,7 @@ class TimeField(Container):
             minutes = (val % 3600) // 60
             seconds = val % 60
 
-        elif val != "N/A" and val != "N\\A":
+        elif val and val != "N/A" and val != "N\\A":
             valArray = val.split(":")
             hours, minutes, seconds = valArray
         else:
@@ -95,25 +95,28 @@ class TimeField(Container):
             ele.value = ""
 
     def compare(self, value):
-        max_val = arrow.get(
-            "{hour}:{minute}:{second}".format(
-                hour=self.query_one("#max_hour").value or 0,
-                minute=self.query_one("#max_minute").value or 0,
-                second=self.query_one("#max_second").value or 0,
-            ),
-            ["h:m:s"],
-        )
-        min_val = arrow.get(
-            "{hour}:{minute}:{second}".format(
-                hour=self.query_one("#min_hour").value or 0,
-                minute=self.query_one("#min_minute").value or 0,
-                second=self.query_one("#min_second").value or 0,
-            ),
-            ["h:m:s"],
-        )
-        compare_value = arrow.get(
-            "0:0:0" if value in {"N\\A", "N/A"} else value, ["h:m:s"]
-        )
+        try:
+            max_val = arrow.get(
+                "{hour}:{minute}:{second}".format(
+                    hour=self.query_one("#max_hour").value or 0,
+                    minute=self.query_one("#max_minute").value or 0,
+                    second=self.query_one("#max_second").value or 0,
+                ),
+                ["h:m:s"],
+            )
+            min_val = arrow.get(
+                "{hour}:{minute}:{second}".format(
+                    hour=self.query_one("#min_hour").value or 0,
+                    minute=self.query_one("#min_minute").value or 0,
+                    second=self.query_one("#min_second").value or 0,
+                ),
+                ["h:m:s"],
+            )
+            compare_value = arrow.get(
+                "0:0:0" if value in {"N\\A", "N/A"} else value, ["h:m:s"]
+            )
+        except (arrow.parser.ParserError, ValueError, TypeError):
+            return True
 
         if min_val == max_val and min_val == arrow.get("0:0:0", ["h:m:s"]):
             return True

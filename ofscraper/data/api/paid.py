@@ -165,14 +165,14 @@ async def create_tasks_scrape_paid(c):
     Creates parallel workers for scraping all paid content.
     Returns a list of coroutines (not tasks yet) to be scheduled.
     """
-    min_posts = 80
+    page_limit = 100
     tasks = []
     allpaid = cache.get("purchased_all", default=[])
 
-    if len(allpaid) > min_posts:
-        splitArrays = [i for i in range(0, len(allpaid), min_posts)]
+    if len(allpaid) > page_limit:
+        splitArrays = [i for i in range(0, len(allpaid), page_limit)]
         for i in range(0, len(splitArrays) - 1):
-            tasks.append(scrape_all_paid(c, required=min_posts, offset=splitArrays[i]))
+            tasks.append(scrape_all_paid(c, required=page_limit, offset=splitArrays[i]))
         tasks.append(scrape_all_paid(c, offset=splitArrays[-1], required=None))
     else:
         tasks.append(scrape_all_paid(c))
@@ -181,6 +181,7 @@ async def create_tasks_scrape_paid(c):
 
 async def process_tasks_all_paid(generators):
     output = []
+    seen_ids = set()
     page_count = 0
     page_task = progress_utils.api.add_overall_task(
         f"[Scrape Paid] Pages Progress: {page_count}", visible=True
@@ -211,8 +212,11 @@ async def process_tasks_all_paid(generators):
             page_task, description=f"[Scrape Paid] Pages Progress: {page_count}"
         )
         if batch:
-            output.extend(batch)
-            trace_progress_log(f"{API} all users tasks", batch)
+            new_items = [x for x in batch if x.get("id") not in seen_ids]
+            for x in new_items:
+                seen_ids.add(x.get("id"))
+            output.extend(new_items)
+            trace_progress_log(f"{API} all users tasks", new_items)
 
     progress_utils.api.remove_overall_task(page_task)
     trace_log_raw(f"{API} all users final", output, final_count=True)
@@ -240,14 +244,15 @@ async def scrape_all_paid(c, offset=0, required=None):
             )
             async with c.requests_async(url) as r:
                 if not (200 <= r.status < 300):
-                    log.debug(
+                    raise Exception(
                         f"Global Paid API Error at offset {current_offset}: {r.status}"
                     )
-                    break
 
                 data = await r.json_()
                 if not isinstance(data, dict):
-                    break
+                    raise Exception(
+                        f"Unexpected API response format at offset {current_offset}"
+                    )
 
                 trace_progress_log(f"{API} all users requests", data)
 
@@ -275,10 +280,11 @@ async def scrape_all_paid(c, offset=0, required=None):
                 current_offset = current_offset + 100
 
         except Exception as E:
-            log.info(f"Scrape all paid failed at offset {current_offset}")
+            log.info(f"Scrape all paid failed at offset {current_offset}: {E}")
             log.traceback_(E)
             log.traceback_(traceback.format_exc())
-            break
+            await asyncio.sleep(5)
+            continue
         finally:
             if task:
                 progress_utils.api.remove_job_task(task)
@@ -296,5 +302,5 @@ def create_all_paid_dict(paid_content):
 def get_individual_paid_post(username, model_id, postid):
     data = get_paid_posts(username, model_id)
     postid = int(postid)
-    posts = list(filter(lambda x: int(x.get("id")) == postid, data))
+    posts = list(filter(lambda x: x.get("id") is not None and int(x.get("id")) == postid, data))
     return posts[0] if posts else None

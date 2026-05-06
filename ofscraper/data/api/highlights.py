@@ -251,7 +251,7 @@ async def scrape_highlight_list(c, user_id, offset=0):
                 if "nextOffset" in resp_data:
                     current_offset = resp_data["nextOffset"]
                 else:
-                    current_offset += len(data)
+                    current_offset += 50
         except Exception as E:
             log.traceback_(E)
             break

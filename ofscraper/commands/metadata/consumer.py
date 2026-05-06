@@ -41,34 +41,35 @@ async def consumer(aws, task1, medialist, lock):
                 media_type = await MetaDataManager().metadata(*data)
             except Exception as e:
                 common_globals.log.info(
-                    f"{get_medialog(ele)} Download Failed because\n{e}"
+                    f"{get_medialog(ele)} Metadata operation failed:\n{e}"
                 )
                 common_globals.log.traceback_(traceback.format_exc())
                 media_type = "skipped"
             try:
-                media_type = media_type.lower()
-                if media_type == "images":
-                    common_globals.photo_count += 1
-                    ele.mark_metadata_changed()
-                elif media_type == "videos":
-                    common_globals.video_count += 1
-                    ele.mark_metadata_changed()
-                elif media_type == "audios":
-                    common_globals.audio_count += 1
-                    ele.mark_metadata_changed()
-                elif media_type == "skipped":
-                    common_globals.skipped += 1
-                    ele.mark_metadata_failed()
-                elif media_type == "forced_skipped":
-                    common_globals.forced_skipped += 1
-                    ele.mark_metadata_unchanged()
-                sum_count = (
-                    common_globals.photo_count
-                    + common_globals.video_count
-                    + common_globals.audio_count
-                    + common_globals.skipped
-                    + common_globals.forced_skipped
-                )
+                async with common_globals.count_lock:
+                    media_type = media_type.lower()
+                    if media_type == "images":
+                        common_globals.photo_count += 1
+                        ele.mark_metadata_changed()
+                    elif media_type == "videos":
+                        common_globals.video_count += 1
+                        ele.mark_metadata_changed()
+                    elif media_type == "audios":
+                        common_globals.audio_count += 1
+                        ele.mark_metadata_changed()
+                    elif media_type == "skipped":
+                        common_globals.skipped += 1
+                        ele.mark_metadata_failed()
+                    elif media_type == "forced_skipped":
+                        common_globals.forced_skipped += 1
+                        ele.mark_metadata_unchanged()
+                    sum_count = (
+                        common_globals.photo_count
+                        + common_globals.video_count
+                        + common_globals.audio_count
+                        + common_globals.skipped
+                        + common_globals.forced_skipped
+                    )
                 log_download_progress(media_type)
 
                 progress_updater.metadata.update_overall_task(
@@ -88,6 +89,6 @@ async def consumer(aws, task1, medialist, lock):
                 await asyncio.sleep(1)
             except Exception as e:
                 common_globals.log.info(
-                    f"{get_medialog(ele)} Download Failed because\n{e}"
+                    f"{get_medialog(ele)} Metadata operation failed:\n{e}"
                 )
                 common_globals.log.traceback_(traceback.format_exc())

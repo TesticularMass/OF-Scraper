@@ -104,7 +104,13 @@ async def process_dicts(username, model_id, medialist, posts):
                     asyncio.create_task(consumer(aws, task1, medialist, lock))
                     for _ in range(concurrency_limit)
                 ]
-                await asyncio.gather(*consumers)
+                try:
+                    await asyncio.gather(*consumers)
+                except Exception:
+                    for task in consumers:
+                        if not task.done():
+                            task.cancel()
+                    raise
         except Exception as E:
             with exit.DelayedKeyboardInterrupt():
                 raise E

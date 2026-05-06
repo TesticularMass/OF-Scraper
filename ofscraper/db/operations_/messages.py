@@ -190,7 +190,7 @@ def get_messages_post_info(model_id=None, username=None, conn=None, **kwargs) ->
         conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
+            dict(ele, created_at=arrow.get(ele.get("created_at") or "2000").float_timestamp)
             for ele in data
         ]
 
@@ -249,16 +249,16 @@ async def get_oldest_message_date(model_id=None, username=None, **kwargs):
     data = await media.get_messages_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
-    return last_item["posted_at"] or 0
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[0]
+    return last_item.get("posted_at") or 0
 
 
 async def get_newest_message_date(model_id=None, username=None, **kwargs):
     data = await media.get_messages_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
-    return last_item["posted_at"] or 0
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[-1]
+    return last_item.get("posted_at") or 0
 
 
 @wrapper.operation_wrapper_async

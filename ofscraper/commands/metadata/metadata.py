@@ -176,9 +176,9 @@ class MetadataCommandManager(CommandManager):
         # Filter to find items in the DB that were not in the current scrape
         filtered_media = list(
             filter(
-                lambda x: str(x["media_id"]) not in curr_media_set
+                lambda x: str(x.get("media_id")) not in curr_media_set
                 and arrow.get(x.get("posted_at") or 0).is_between(
-                    arrow.get(args.after or 0), args.before
+                    arrow.get(args.after or 0), args.before or arrow.now()
                 )
                 and x.get("downloaded") != 1
                 and x.get("unlocked") != 0,
@@ -203,15 +203,12 @@ def metadata():
         with progress_utils.setup_live("activity_desc", revert=True):
             if settings.get_settings().scrape_paid:
                 metaCommandManager.metadata_paid_all()
-            if not metaCommandManager.run_metadata:
-                pass
-
-            elif not settings.get_settings().users_first:
+            if metaCommandManager.run_metadata:
                 userdata, session = prepare()
-                metaCommandManager.process_users_metadata_normal(userdata, session)
-            else:
-                userdata, session = prepare()
-                metaCommandManager.metadata_user_first(userdata, session)
+                if not settings.get_settings().users_first:
+                    metaCommandManager.process_users_metadata_normal(userdata, session)
+                else:
+                    metaCommandManager.metadata_user_first(userdata, session)
         final_action()
 
 
@@ -246,7 +243,13 @@ async def process_dicts(username, model_id, medialist):
                     asyncio.create_task(consumer(aws, task1, medialist, lock))
                     for _ in range(concurrency_limit)
                 ]
-                await asyncio.gather(*consumers)
+                try:
+                    await asyncio.gather(*consumers)
+                except Exception:
+                    for task in consumers:
+                        if not task.done():
+                            task.cancel()
+                    raise
         except Exception as E:
             with exit.DelayedKeyboardInterrupt():
                 raise E

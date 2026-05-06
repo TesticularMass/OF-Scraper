@@ -91,6 +91,6 @@ def exit_wrapper(func):
                 with DelayedKeyboardInterrupt():
                     raise E
             except KeyboardInterrupt:
-                raise KeyboardInterrupt
+                raise KeyboardInterrupt from E
 
     return inner

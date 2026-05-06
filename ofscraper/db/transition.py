@@ -66,7 +66,8 @@ async def modify_tables(model_id=None, username=None, db_path=None, **kwargs):
             model_id=model_id, username=username, db_path=db_path
         )
     except Exception as E:
-        restore_backup_transition(backup, model_id, username, db_path=db_path)
+        if backup is not None:
+            restore_backup_transition(backup, model_id, username, db_path=db_path)
         raise E
 
 

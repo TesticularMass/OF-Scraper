@@ -20,7 +20,11 @@ log = logging.getLogger("shared")
 
 
 def get_auth_dict(authStr=None):
-    auth = json.loads(authStr or get_auth_string())
+    try:
+        auth = json.loads(authStr or get_auth_string())
+    except json.JSONDecodeError as e:
+        log.warning(f"Auth file contains invalid JSON ({e}); returning empty auth")
+        return get_empty()
     if "auth" in auth:
         return auth.get("auth")
     return auth

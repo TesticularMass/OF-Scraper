@@ -20,6 +20,13 @@ import ofscraper.utils.config.utils.wrapper as wrapper
 import ofscraper.utils.const as const
 
 
+def _first_set(*vals):
+    for v in vals:
+        if v is not None:
+            return v
+    return None
+
+
 @wrapper.config_reader
 def get_main_profile(config=None):
     if config is False:
@@ -33,16 +40,14 @@ def get_filesize_max(config=None):
     if config is False:
         return of_env.getattr("FILE_SIZE_MAX_DEFAULT")
     try:
-        size = (
-            config.get("file_size_max")
-            or config.get("download_options", {}).get("file_size_max")
-            or config.get("download_options", {}).get("file_size_limit")
-            or config.get("content_filter_options", {}).get("file_size_max")
+        size = _first_set(
+            config.get("file_size_max"),
+            config.get("download_options", {}).get("file_size_max"),
+            config.get("download_options", {}).get("file_size_limit"),
+            config.get("content_filter_options", {}).get("file_size_max"),
+            of_env.getattr("FILE_SIZE_MAX_DEFAULT"),
         )
-        final_size = (
-            size if size is not None else of_env.getattr("FILE_SIZE_MAX_DEFAULT")
-        )
-        return parse_size(str(final_size))
+        return parse_size(str(size))
     except (ValueError, TypeError):
         return 0
 
@@ -52,15 +57,13 @@ def get_filesize_min(config=None):
     if config is False:
         return of_env.getattr("FILE_SIZE_MIN_DEFAULT")
     try:
-        size = (
-            config.get("file_size_min")
-            or config.get("download_options", {}).get("file_size_min")
-            or config.get("content_filter_options", {}).get("file_size_min")
+        size = _first_set(
+            config.get("file_size_min"),
+            config.get("download_options", {}).get("file_size_min"),
+            config.get("content_filter_options", {}).get("file_size_min"),
+            of_env.getattr("FILE_SIZE_MIN_DEFAULT"),
         )
-        final_size = (
-            size if size is not None else of_env.getattr("FILE_SIZE_MIN_DEFAULT")
-        )
-        return parse_size(str(final_size))
+        return parse_size(str(size))
     except (ValueError, TypeError):
         return 0
 
@@ -94,13 +97,12 @@ def get_system_freesize(config=None):
     if config is False:
         return of_env.getattr("SYSTEM_FREEMIN_DEFAULT")
     try:
-        size = config.get("system_free_min") or config.get("download_options", {}).get(
-            "system_free_min"
+        size = _first_set(
+            config.get("system_free_min"),
+            config.get("download_options", {}).get("system_free_min"),
+            of_env.getattr("SYSTEM_FREEMIN_DEFAULT"),
         )
-        final_size = (
-            size if size is not None else of_env.getattr("SYSTEM_FREEMIN_DEFAULT")
-        )
-        return parse_size(str(final_size))
+        return parse_size(str(size))
     except (ValueError, TypeError):
         return 0
 
@@ -176,32 +178,45 @@ def get_incremental_downloads(config=None):
     return val if val is not None else of_env.getattr("INCREMENTAL_DOWNLOADS_DEFAULT")
 
 
+def _normalize_list(val):
+    if val is None:
+        return val
+    if isinstance(val, str):
+        return [x.strip() for x in val.split(",") if x.strip()]
+    if isinstance(val, list):
+        return val
+    return [val] if val else []
+
+
 @wrapper.config_reader
 def get_default_userlist(config=None):
     if config is False:
-        return of_env.getattr("DEFAULT_USER_LIST") or []
-    val = config.get("default_user_list") or config.get("advanced_options", {}).get(
-        "default_user_list"
+        return _normalize_list(of_env.getattr("DEFAULT_USER_LIST"))
+    val = _first_set(
+        config.get("default_user_list"),
+        config.get("advanced_options", {}).get("default_user_list"),
     )
-    return val or of_env.getattr("DEFAULT_USER_LIST") or []
+    return _normalize_list(val) if val is not None else _normalize_list(of_env.getattr("DEFAULT_USER_LIST"))
 
 
 @wrapper.config_reader
 def get_default_blacklist(config=None):
     if config is False:
-        return of_env.getattr("DEFAULT_BLACK_LIST") or []
-    val = config.get("default_black_list") or config.get("advanced_options", {}).get(
-        "default_black_list"
+        return _normalize_list(of_env.getattr("DEFAULT_BLACK_LIST"))
+    val = _first_set(
+        config.get("default_black_list"),
+        config.get("advanced_options", {}).get("default_black_list"),
     )
-    return val or of_env.getattr("DEFAULT_BLACK_LIST") or []
+    return _normalize_list(val) if val is not None else _normalize_list(of_env.getattr("DEFAULT_BLACK_LIST"))
 
 
 @wrapper.config_reader
 def get_logs_expire(config=None):
-    if not config:
+    if config is False:
         return 0
-    val = config.get("logs_expire_time") or config.get("advanced_options", {}).get(
-        "logs_expire_time"
+    val = _first_set(
+        config.get("logs_expire_time"),
+        config.get("advanced_options", {}).get("logs_expire_time"),
     )
     return int(val) if val is not None else 0
 
@@ -344,10 +359,10 @@ def get_discord(config=None):
 def get_filter(config=None):
     if config is False:
         return of_env.getattr("FILTER_DEFAULT")
-    filter_val = (
-        config.get("filter")
-        or config.get("download_options", {}).get("filter")
-        or config.get("content_filter_options", {}).get("filter")
+    filter_val = _first_set(
+        config.get("filter"),
+        config.get("download_options", {}).get("filter"),
+        config.get("content_filter_options", {}).get("filter"),
     )
     final_filter = (
         filter_val if filter_val is not None else of_env.getattr("FILTER_DEFAULT")
@@ -543,11 +558,12 @@ def get_download_semaphores(config=None):
     if config is False:
         return of_env.getattr("DOWNLOAD_SEM_DEFAULT")
     try:
-        sem = config.get("download_sems") or config.get("performance_options", {}).get(
-            "download_sems"
+        sem = _first_set(
+            config.get("download_sems"),
+            config.get("performance_options", {}).get("download_sems"),
+            of_env.getattr("DOWNLOAD_SEM_DEFAULT"),
         )
-        final_sem = sem if sem is not None else of_env.getattr("DOWNLOAD_SEM_DEFAULT")
-        return int(final_sem)
+        return int(sem)
     except (ValueError, TypeError):
         return int(of_env.getattr("DOWNLOAD_SEM_DEFAULT"))
 
@@ -643,13 +659,12 @@ def get_max_post_count(config=None):
     if config is False:
         return of_env.getattr("MAX_COUNT_DEFAULT")
     try:
-        count = config.get("max_post_count") or config.get("download_options", {}).get(
-            "max_post_count"
+        count = _first_set(
+            config.get("max_post_count"),
+            config.get("download_options", {}).get("max_post_count"),
+            of_env.getattr("MAX_COUNT_DEFAULT"),
         )
-        final_count = (
-            count if count is not None else of_env.getattr("MAX_COUNT_DEFAULT")
-        )
-        return int(final_count)
+        return int(count)
     except (ValueError, TypeError):
         return of_env.getattr("MAX_COUNT_DEFAULT")
 
@@ -658,10 +673,11 @@ def get_max_post_count(config=None):
 def get_hash(config=None):
     if config is False:
         return of_env.getattr("HASHED_DEFAULT")
-    val = config.get("remove_hash_match") or config.get("advanced_options", {}).get(
-        "remove_hash_match"
+    return _first_set(
+        config.get("remove_hash_match"),
+        config.get("advanced_options", {}).get("remove_hash_match"),
+        of_env.getattr("HASHED_DEFAULT"),
     )
-    return val if val is not None else of_env.getattr("HASHED_DEFAULT")
 
 
 @wrapper.config_reader

@@ -161,28 +161,28 @@ class DBManager:
             medias = [
                 media
                 for media in medias
-                if arrow.get(media["posted_at"] or 0)
+                if arrow.get(media.get("posted_at") or 0)
                 <= settings.get_settings().posted_before
             ]
         if settings.get_settings().posted_after:
             medias = [
                 media
                 for media in medias
-                if arrow.get(media["posted_at"] or 0)
+                if arrow.get(media.get("posted_at") or 0)
                 >= settings.get_settings().posted_after
             ]
         if settings.get_settings().created_after:
             medias = [
                 media
                 for media in medias
-                if arrow.get(media["created_at"] or 0)
+                if arrow.get(media.get("created_at") or 0)
                 >= settings.get_settings().created_after
             ]
         if settings.get_settings().created_before:
             medias = [
                 media
                 for media in medias
-                if arrow.get(media["created_at"] or 0)
+                if arrow.get(media.get("created_at") or 0)
                 <= settings.get_settings().created_before
             ]
         # media type
@@ -195,13 +195,13 @@ class DBManager:
             medias = [
                 media
                 for media in medias
-                if media["media_type"] in settings.get_settings().mediatypes
+                if media.get("media_type") in settings.get_settings().mediatypes
             ]
         # id filters
         if args.post_id:
-            medias = [media for media in medias if media["post_id"] in args.post_id]
+            medias = [media for media in medias if media.get("post_id") in args.post_id]
         if args.media_id:
-            medias = [media for media in medias if media["media_id"] in args.media_id]
+            medias = [media for media in medias if media.get("media_id") in args.media_id]
         self.media = medias
 
     def get_max_post(self):
@@ -255,10 +255,10 @@ class DBManager:
         # modify dictionary
         for i, dictionary in enumerate(dictionaries):
             dictionary = OrderedDict(dictionary)
-            dictionary["posted_at"] = arrow.get(dictionary["posted_at"]).format(
+            dictionary["posted_at"] = arrow.get(dictionary.get("posted_at") or 0).format(
                 of_env.getattr("API_DATE_FORMAT")
             )
-            dictionary["created_at"] = arrow.get(dictionary["created_at"]).format(
+            dictionary["created_at"] = arrow.get(dictionary.get("created_at") or 0).format(
                 of_env.getattr("API_DATE_FORMAT")
             )
             size = dictionary.pop("size", None)
@@ -318,7 +318,7 @@ class DBManager:
         dictionaries = self.media
         self.log.info(f"deduping media for {self.username}_{self.model_id}")
         for dictionary in dictionaries:
-            media_id = dictionary["media_id"]
+            media_id = dictionary.get("media_id")
             if media_id not in seen_media_ids:
                 seen_media_ids.add(media_id)
                 deduped_dictionaries.append(dictionary)

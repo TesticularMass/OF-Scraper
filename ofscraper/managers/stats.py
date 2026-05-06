@@ -428,7 +428,7 @@ class StatsManager:
                 stat_obj.posts_liked += 1
             elif not post.favorited and post.like_success:
                 stat_obj.posts_unliked += 1
-            elif not post.like_success:
+            elif post.like_success is False:
                 stat_obj.posts_failed += 1
 
     def _update_text_stats_helper(self, stat_obj: TextStats, post_list: list[Post]):
@@ -450,14 +450,18 @@ class StatsManager:
                 stat_obj.unchanged_count += 1
             elif media.metadata_succeeded is False:
                 stat_obj.failed_count += 1
-            elif media.metadata_succeeded is True: 
-                mtype = media.mediatype.lower()
+            elif media.metadata_succeeded is True:
+                mtype = (media.mediatype or "").lower()
                 if mtype == "videos":
                     stat_obj.changed_video += 1
                 elif mtype == "audios":
                     stat_obj.changed_audio += 1
                 elif mtype == "images":
                     stat_obj.changed_photo += 1
+                else:
+                    logging.getLogger("shared").debug(
+                        f"Unknown media type '{media.mediatype}' in metadata stats"
+                    )
             elif media.metadata_succeeded is None:  # Unchanged
                 stat_obj.unchanged_count += 1
 

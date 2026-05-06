@@ -53,7 +53,6 @@ class StateManager:
         self._queues: dict[Enum, dict[str, list[str]]] = {
             activity: {"queued": [], "processed": set()} for activity in all_activities
         }
-        pass
 
     def set_queue(self, activity: EActivity, usernames: list[str]):
         """

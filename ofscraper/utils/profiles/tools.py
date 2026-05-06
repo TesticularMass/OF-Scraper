@@ -45,4 +45,5 @@ def print_default_profile():
 
 def profile_name_fixer(input):
     input = str(input)
+    input = re.sub(r'[/\\]|\.\.', '', input)
     return f"{re.sub('_profile','', input)}_profile" if input else None

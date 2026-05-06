@@ -13,7 +13,7 @@ from ofscraper.commands.scraper.actions.utils.log import get_medialog
 try:
     from win32_setctime import setctime  # pylint: disable=import-error
 except ModuleNotFoundError:
-    pass
+    setctime = None
 
 
 def moveHelper(temp, path_to_file, ele, log_=None):
@@ -62,7 +62,7 @@ def addLocalDir(path):
 
 
 def set_time(path, timestamp):
-    if platform.system() == "Windows":
+    if platform.system() == "Windows" and setctime is not None:
         setctime(path, timestamp)
     os.utime(path, (timestamp, timestamp))
 

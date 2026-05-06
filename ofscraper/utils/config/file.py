@@ -19,7 +19,7 @@ def make_config(config=False):
     if not p.parent.is_dir():
         p.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(p, "w") as f:
+    with open(p, "w", encoding="utf-8") as f:
         f.write(json.dumps(config, indent=4))
     console_.get_shared_console().print(f"config file created at {p}")
 
@@ -41,7 +41,9 @@ def open_config():
 
 def config_string():
     p = pathlib.Path(common_paths.get_config_path())
-    with open(p, "r") as f:
+    if not p.exists():
+        raise FileNotFoundError(f"Config file not found at {p}")
+    with open(p, "r", encoding="utf-8") as f:
         configText = f.read()
     return configText
 
@@ -54,7 +56,7 @@ def write_config(updated_config):
     p = common_paths.get_config_path()
     if not p.parent.is_dir():
         p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w") as f:
+    with open(p, "w", encoding="utf-8") as f:
         f.write(json.dumps(updated_config, indent=4))
 
 
@@ -71,6 +73,10 @@ def auto_update_config(config: dict) -> dict:
     for key, default_value in schema_defaults.items():
         if key not in merged:
             merged[key] = default_value
+        elif isinstance(default_value, dict) and isinstance(merged.get(key), dict):
+            for sub_key, sub_default in default_value.items():
+                if sub_key not in merged[key]:
+                    merged[key][sub_key] = sub_default
     write_config(merged)
     return merged
 
@@ -79,6 +85,11 @@ def json_loads(configText):
     try:
         config = json.loads(configText)
     except json.JSONDecodeError:
-        configText = re.sub("\\\\+", "/", configText)
-        config = json.loads(configText)
+        # Only fix Windows path backslashes, not JSON escape sequences
+        configText = re.sub(r'(?<=[A-Za-z]):\\', ':/', configText)
+        configText = re.sub(r'\\\\', '/', configText)
+        try:
+            config = json.loads(configText)
+        except json.JSONDecodeError:
+            config = {}
     return config

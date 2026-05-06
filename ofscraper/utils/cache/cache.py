@@ -45,7 +45,7 @@ def set(*args, auto_close=False, **kwargs):
 
 
 def close(*args, **kwargs):
-    global lock
+    global lock, cache
     lock.acquire()
     try:
         if settings.get_settings().cached_disabled:
@@ -54,6 +54,7 @@ def close(*args, **kwargs):
         if cache is None:
             cache = Cache(common_paths.getcachepath(), disk=data.get_cache_mode())
         cache.close(*args, **kwargs)
+        cache = None
     except Exception as E:
         raise E
     finally:

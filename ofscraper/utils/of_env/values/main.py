@@ -278,7 +278,7 @@ def load_main_config():
                 "message": "Messages",
                 "timeline": "Posts",
                 "archived": "Archived",
-                "paid": "Messages",
+                "paid": "Purchased",
                 "stories": "Stories",
                 "highlights": "Stories",
                 "profile": "Profile",

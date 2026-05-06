@@ -32,6 +32,8 @@ async def get_hash(file_data):
 
 
 def get_unknown_content_type(ele):
+    if not ele.mediatype:
+        return None
     return (
         "mp4"
         if ele.mediatype.lower() == "videos"

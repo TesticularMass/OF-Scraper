@@ -125,17 +125,22 @@ async def async_run(
 
     try:
         # 1. Start feeding stdin in the background
+        feed_task = None
         if input is not None:
-            asyncio.create_task(_feed_stdin(process.stdin, input))
-        
+            feed_task = asyncio.create_task(_feed_stdin(process.stdin, input))
+
         # 2. Read stdout and stderr concurrently
         out_task = asyncio.create_task(_read_stream(process.stdout))
         err_task = asyncio.create_task(_read_stream(process.stderr))
-        
+
         # 3. Wait for the process to exit, bounded by timeout
         await asyncio.wait_for(process.wait(), timeout=timeout)
-        
-        # 4. Gather the exact output
+
+        # 4. Ensure stdin feed completes
+        if feed_task is not None:
+            await feed_task
+
+        # 5. Gather the exact output
         stdout = await out_task
         stderr = await err_task
 

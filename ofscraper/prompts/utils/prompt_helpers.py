@@ -18,6 +18,14 @@ import ofscraper.managers.manager as manager
 console = Console()
 
 
+def _safe_name_extract(name_str):
+    """Extract username from 'N: username' format, returning the original string on mismatch."""
+    if not name_str:
+        return name_str
+    m = re.search("^[0-9]+: ([^ ]+)", name_str)
+    return m.group(1) if m else name_str
+
+
 def model_details(prompt_):
     selected = prompt_.content_control.selection["value"]
     console.print(
@@ -125,12 +133,12 @@ def model_funct(prompt):
         with stdout.nostdout():
             selectedSet = set(
                 map(
-                    lambda x: re.search("^[0-9]+: ([^ ]+)", x["name"]).group(1),
+                    lambda x: _safe_name_extract(x["name"]),
                     prompt.selected_choices or [],
                 )
             )
             for model in choices:
-                name = re.search("^[0-9]+: ([^ ]+)", model.name).group(1)
+                name = _safe_name_extract(model.name)
                 if name in selectedSet:
                     model.enabled = True
             prompt.content_control._raw_choices = choices
@@ -168,7 +176,7 @@ def _select_helper(prompt, toggle=True):
         choices = _get_choices()
         selectedSet = set(
             map(
-                lambda x: re.search("^[0-9]+: ([^ ]+)", x["name"]).group(1),
+                lambda x: _safe_name_extract(x["name"]),
                 prompt.selected_choices or [],
             )
         )
@@ -183,12 +191,12 @@ def _select_helper(prompt, toggle=True):
         )
         if toggle:
             for count, model in enumerate(choices):
-                name = re.search("^[0-9]+: ([^ ]+)", model.name).group(1)
+                name = _safe_name_extract(model.name)
                 if name in selectedSet or count + 1 in changes:
                     model.enabled = True
         elif not toggle:
             for count, model in enumerate(choices):
-                name = re.search("^[0-9]+: ([^ ]+)", model.name).group(1)
+                name = _safe_name_extract(model.name)
                 if name in selectedSet and count + 1 not in changes:
                     model.enabled = True
 

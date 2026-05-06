@@ -26,7 +26,7 @@ class PriceField(Horizontal):
 
 
     def update_table_val(self, val):
-        if val.lower() == "free":
+        if (val or "").lower() == "free":
             val = "0"
         for ele in self.query(IntegerInput):
             ele.value = val
@@ -38,14 +38,19 @@ class PriceField(Horizontal):
         val_lower = str(value).lower()
         if val_lower == "free":
             value = "0"
-        maxvalue=float(self.query_one(f"#{self.filter_name}_max").value or 0)
-        minvalue=float(self.query_one(f"#{self.filter_name}_min").value or 0)
-        if not maxvalue and not minvalue:
-            return True
-        if not maxvalue:
-            return float(value) >= minvalue
-        if not minvalue:
-            return float(value) <= maxvalue
-        return float(value) >= minvalue and float(value) <= maxvalue
+        elif val_lower == "paid":
+            return False
+        try:
+            maxvalue=float(self.query_one(f"#{self.filter_name}_max").value or 0)
+            minvalue=float(self.query_one(f"#{self.filter_name}_min").value or 0)
+            if not maxvalue and not minvalue:
+                return True
+            if not maxvalue:
+                return float(value) >= minvalue
+            if not minvalue:
+                return float(value) <= maxvalue
+            return float(value) >= minvalue and float(value) <= maxvalue
+        except (ValueError, TypeError):
+            return False
 
     

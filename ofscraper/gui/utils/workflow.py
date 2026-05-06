@@ -506,7 +506,7 @@ def _build_media_rows(media, username):
     rows = []
     try:
         sorted_media = sorted(
-            media, key=lambda x: arrow.get(x.date), reverse=True
+            media, key=lambda x: arrow.get(x.date or 0), reverse=True
         )
     except Exception:
         sorted_media = list(media)
@@ -1146,7 +1146,10 @@ class GUIWorkflow:
 
     def _set_check_args(self, args, write_args, _settings):
         """Set CLI args for a check-mode operation."""
-        check_mode = (self._selected_actions & self._CHECK_MODES).pop()
+        intersection = self._selected_actions & self._CHECK_MODES
+        if not intersection:
+            raise ValueError("No check mode selected")
+        check_mode = intersection.pop()
         args.command = check_mode
         usernames = [m.name for m in self._selected_models]
         if check_mode in ("post_check", "msg_check"):
@@ -1348,7 +1351,10 @@ class GUIWorkflow:
         """
         import ofscraper.commands.check as check_mod
 
-        check_mode = (self._selected_actions & self._CHECK_MODES).pop()
+        intersection = self._selected_actions & self._CHECK_MODES
+        if not intersection:
+            raise ValueError("No check mode selected")
+        check_mode = intersection.pop()
         app_signals.status_message.emit(f"Running {check_mode}...")
         app_signals.log_message.emit("INFO", f"Starting check mode: {check_mode}")
         try:

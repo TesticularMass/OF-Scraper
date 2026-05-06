@@ -146,10 +146,14 @@ class download_session(sessionManager):
         **kwargs: Any,
     ) -> None:
         # --- Apply specialized defaults for download sessions ---
-        retries = kwargs.pop("retries", None) or get_download_req_retries()
-        wait_min = kwargs.pop("wait_min", None) or of_env.getattr("OF_MIN_WAIT_API")
-        wait_max = kwargs.pop("wait_max", None) or of_env.getattr("OF_MAX_WAIT_API")
-        read_timeout = kwargs.pop("read_timeout", None) or get_chunk_timeout()
+        retries = kwargs.pop("retries", None)
+        retries = retries if retries is not None else get_download_req_retries()
+        wait_min = kwargs.pop("wait_min", None)
+        wait_min = wait_min if wait_min is not None else of_env.getattr("OF_MIN_WAIT_API")
+        wait_max = kwargs.pop("wait_max", None)
+        wait_max = wait_max if wait_max is not None else of_env.getattr("OF_MAX_WAIT_API")
+        read_timeout = kwargs.pop("read_timeout", None)
+        read_timeout = read_timeout if read_timeout is not None else get_chunk_timeout()
         log = kwargs.pop("log", None) or common_globals.log
         self.leaky_bucket = LeakyBucket(settings.get_settings().download_limit, 1)
 
@@ -175,7 +179,7 @@ class download_session(sessionManager):
             if of_env.getattr("API_FORCE_KEY"):
                 actions.append(FORCED_NEW)
             kwargs["actions"] = actions
-        kwargs["exceptions"] = [TOO_MANY, AUTH]
+        kwargs.setdefault("exceptions", [TOO_MANY, AUTH])
 
         async with super().requests_async(*args, **kwargs) as r:
             yield r
@@ -234,7 +238,7 @@ class metadata_session(download_session):
             if of_env.getattr("API_FORCE_KEY"):
                 actions.append(FORCED_NEW)
             kwargs["actions"] = actions
-        kwargs["exceptions"] = [TOO_MANY, AUTH]
+        kwargs.setdefault("exceptions", [TOO_MANY, AUTH])
 
         async with super().requests_async(*args, **kwargs) as r:
             yield r

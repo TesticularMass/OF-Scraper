@@ -18,13 +18,13 @@ log = logging.getLogger("shared")
 
 
 def sort_by_date(media):
-    return sorted(media, key=lambda x: x.date)
+    return sorted(media, key=lambda x: x.date or "")
 
 
 # dupe filters that prioritize viewable
 def dupefiltermedia(media):
     output = defaultdict(lambda: None)
-    media = sorted(media, key=lambda item: (item.post.date, item.id, item.count))
+    media = sorted(media, key=lambda item: (item.post.date or "", item.id, item.count))
     if of_env.getattr("ALLOW_DUPE_MEDIA"):
         for item in media:
             if not output[(item.id, item.post_id)]:
@@ -68,7 +68,7 @@ def mediatype_type_filter(media):
         filtersettings = list(filter(lambda x: x != "", filtersettings))
         if len(filtersettings) == 0:
             return media
-        media = list(filter(lambda x: x.mediatype.lower() in filtersettings, media))
+        media = list(filter(lambda x: x.mediatype and x.mediatype.lower() in filtersettings, media))
     else:
         log.info("The settings you picked for the filter are not valid\nNot Filtering")
         log.debug(f"[bold]Combined Media Count Filtered:[/bold] {len(media)}")
@@ -96,9 +96,10 @@ def posts_date_filter_media(media):
 
 
 def download_type_filter(media):
-    if settings.get_settings().download_type == "protected":
+    download_type = str(settings.get_settings().download_type).lower()
+    if download_type == "protected":
         return list(filter(lambda x: x.protected, media))
-    elif settings.get_settings().download_type == "normal":
+    elif download_type == "normal":
         return list(filter(lambda x: not x.protected, media))
     else:
         return media
@@ -111,7 +112,7 @@ def media_length_filter(media):
     if max_length:
         filteredMedia = list(
             filter(
-                lambda x: x.mediatype.capitalize() != "Videos"
+                lambda x: not (x.mediatype and x.mediatype.lower() == "videos")
                 or x.duration is None
                 or x.duration <= max_length,
                 filteredMedia,
@@ -120,7 +121,7 @@ def media_length_filter(media):
     if min_length:
         filteredMedia = list(
             filter(
-                lambda x: x.mediatype.capitalize() != "Videos"
+                lambda x: not (x.mediatype and x.mediatype.lower() == "videos")
                 or x.duration is None
                 or x.duration >= min_length,
                 filteredMedia,
@@ -157,7 +158,7 @@ def previous_download_filter(medialist, username=None, model_id=None):
 
     # sort to key order same
     medialist = sorted(
-        medialist, key=lambda item: (item.post.date, item.id, item.count)
+        medialist, key=lambda item: (item.post.date or "", item.id, item.count)
     )
 
     # Early Exit if forcing all
@@ -243,6 +244,7 @@ def likable_post_filter(post):
     return list(
         filter(
             lambda x: x.opened
+            and x.responsetype
             and x.responsetype.capitalize()
             in {"Timeline", "Archived", "Pinned", "Streams"},
             post,

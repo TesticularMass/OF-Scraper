@@ -12,7 +12,7 @@ config_location_option = click.option(
     "-cg",
     "--config",
     help="Change location of config folder/file",
-    # type=click.Path(exists=False, dir_okay=True, readable=True),
+    type=click.Path(exists=False, dir_okay=True, readable=True),
     default=None,
 )
 
@@ -27,7 +27,7 @@ Profiles are always within the config.json file parent directory
 """,
     default=None,
     callback=lambda ctx, param, value: (
-        f"{re.sub('_profile','', value)}_profile" if value else None
+        f"{re.sub('_profile','', re.sub(r'[/\\\\]|\\.\\.', '', value))}_profile" if value else None
     ),
 )
 env_file_option = click.option(

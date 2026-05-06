@@ -137,8 +137,6 @@ def get_default_instructions(funct):
 
     elif funct.__name__ == "checkbox":
         return prompt_strings.FUZZY_INSTRUCTION
-    elif funct.__name__ == "checkbox":
-        return prompt_strings.FUZZY_INSTRUCTION
 
 
 @wrapper
@@ -239,11 +237,11 @@ def getType(input_type):
         return getChecklistSelection
     elif input_type == "fuzzy":
         return getFuzzySelection
-
     elif input_type == "input":
         return input_prompt
     elif input_type == "multiline":
         return multiline_input_prompt
+    raise ValueError(f"Unknown input_type: {input_type}")
     elif input_type == "confirm":
         return confirm_prompt
     elif input_type == "filepath":

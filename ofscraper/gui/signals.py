@@ -170,7 +170,11 @@ class AppSignals:
     def __getattr__(self, name: str):
         if name.startswith("_"):
             raise AttributeError(name)
-        # Return a proxy that exposes .connect(), .disconnect(), .emit()
+        if name not in _SIGNAL_NAMES:
+            import logging as _logging
+            _logging.getLogger("shared").debug(
+                f"AppSignals: accessing unknown signal '{name}'"
+            )
         return _SignalProxy(self, name)
 
 

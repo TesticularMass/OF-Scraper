@@ -73,7 +73,7 @@ def get_config_path():
     elif configPath.suffix == "":
         return configPath / of_env.getattr("configFile")
 
-    elif str(configPath.parent) == ".":
+    elif not configPath.is_absolute():
         return ofscraperHome / configPath
     return configPath
 

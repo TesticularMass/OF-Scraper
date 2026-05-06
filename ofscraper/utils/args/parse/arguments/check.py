@@ -46,9 +46,9 @@ file_option = click.option(
 
 
 file_username_option = click.option(
-    "-f",
-    "--file",
-    help="Scan posts via a file with line-separated URL(s)",
+    "-fu",
+    "--file-username",
+    help="Scan usernames via a file with line-separated username(s)",
     default=None,
     type=click.File(),
     multiple=True,

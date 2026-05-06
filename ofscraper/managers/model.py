@@ -58,7 +58,7 @@ class ModelManager:
         if isinstance(data, dict):
             self._all_subs_dict = data
         elif isinstance(data, list):
-            self._all_subs_dict = {m.name: m for m in data if m}
+            self._all_subs_dict = {m.name: m for m in data if m and hasattr(m, "name")}
 
     def all_subs_retriver(self) -> List["Model"]:
         """Fetch all subscriptions from the API (used by the GUI model loader)."""
@@ -184,11 +184,13 @@ class ModelManager:
                 original_usernames = args.usernames or []
                 args.usernames = list(new_usernames_to_fetch)
                 settings.update_args(args)
-                fetched_models = await retriver.get_models()
-                if fetched_models:
-                    self._update_all_subs(fetched_models)
-                args.usernames = original_usernames
-                settings.update_args(args)
+                try:
+                    fetched_models = await retriver.get_models()
+                    if fetched_models:
+                        self._update_all_subs(fetched_models)
+                finally:
+                    args.usernames = original_usernames
+                    settings.update_args(args)
                 
             if placeholder_usernames:
                 log.info(
@@ -504,6 +506,8 @@ class ModelManager:
     def get_num_selected_models_activity(
         self, activity: Union[EActivity, str] = None
     ) -> int:
+        if activity is None:
+            return 0
         activity = self._get_activity(activity)
         return len(self.get_selected_models_activity(activity))
 
@@ -559,12 +563,14 @@ class ModelManager:
         if not activities:
             return []
         activities_to_process = []
-        input_list = activities if isinstance(activities, Iterable) else [activities]
+        input_list = activities if (isinstance(activities, Iterable) and not isinstance(activities, str)) else [activities]
         for item in input_list:
             if isinstance(item, str):
                 activities_to_process.append(string_to_activity(item))
             elif isinstance(item, (EActivity.ScrapeActivity, EActivity.PaidActivity)):
                 activities_to_process.append(item)
+            else:
+                log.warning(f"Dropping unrecognized activity item: {type(item)}")
         return activities_to_process
 
     def _get_activity(self, activity):
@@ -572,6 +578,7 @@ class ModelManager:
             return string_to_activity(activity)
         elif isinstance(activity, (EActivity.ScrapeActivity, EActivity.PaidActivity)):
             return activity
+        raise ValueError(f"Invalid activity type: {type(activity)}")
 
     def _get_models_from_usernames(self, usernames: List[str]) -> List["Model"]:
         """Private helper to fetch Model objects from a list of usernames, preserving order."""

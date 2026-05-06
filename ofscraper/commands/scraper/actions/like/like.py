@@ -141,10 +141,10 @@ def _toggle_like_requests(c, post: Post, model_id):
     else:
         log.debug(f"ID: {id} restored to liked")
         time.sleep(sleep_duration)
-        _like_request(c, id, model_id)
-        post.mark_post_liked()
+        favorited2, _ = _like_request(c, id, model_id)
+        post.mark_post_liked(success=favorited2 is not None)
         if _GUI_LIKE_TRACKER is not None:
-            _GUI_LIKE_TRACKER[id] = "Liked"
+            _GUI_LIKE_TRACKER[id] = "Liked" if favorited2 is not None else "Failed"
         return 2
 
 
@@ -167,10 +167,10 @@ def _toggle_unlike_requests(c, post: Post, model_id):
     else:
         log.debug(f"ID: {id} restored to unlike")
         time.sleep(sleep_duration)
-        _like_request(c, id, model_id)
-        post.mark_post_unliked()
+        favorited2, _ = _like_request(c, id, model_id)
+        post.mark_post_unliked(success=favorited2 is not None)
         if _GUI_LIKE_TRACKER is not None:
-            _GUI_LIKE_TRACKER[id] = "Unliked"
+            _GUI_LIKE_TRACKER[id] = "Unliked" if favorited2 is not None else "Failed"
         return 2
 
 
@@ -182,6 +182,7 @@ def _like_request(c, id, model_id):
         retries=of_env.getattr("LIKE_MAX_RETRIES"),
     ) as r:
         try:
-            return r.json_()["isFavorite"], r.json_()["id"]
+            data = r.json_()
+            return data["isFavorite"], data["id"]
         except Exception:
             return None, None

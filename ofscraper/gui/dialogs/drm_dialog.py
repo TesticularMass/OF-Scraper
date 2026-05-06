@@ -78,13 +78,15 @@ class _ScriptRunner:
                 env=env,
                 cwd=os.path.dirname(self.script_path),
             )
-            for line in proc.stdout:
-                stripped = line.rstrip()
-                try:
-                    self._root.after(0, self._on_line, stripped)
-                except Exception:
-                    pass
-            proc.wait()
+            try:
+                for line in proc.stdout:
+                    stripped = line.rstrip()
+                    try:
+                        self._root.after(0, self._on_line, stripped)
+                    except Exception:
+                        pass
+            finally:
+                proc.wait()
             try:
                 self._root.after(0, self._on_finished, proc.returncode)
             except Exception:

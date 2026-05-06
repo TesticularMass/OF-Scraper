@@ -73,7 +73,8 @@ class DiscordHandler(logging.Handler):
         self._thread.join()
         # Handle async tasks shutdown if any were created
         if of_env.getattr("DISCORD_ASYNC") and self._tasks:
-            self.loop.run_until_complete(asyncio.gather(*self._tasks))
+            if not self.loop.is_running():
+                self.loop.run_until_complete(asyncio.gather(*self._tasks))
             self.loop.close()
         super().close()
 

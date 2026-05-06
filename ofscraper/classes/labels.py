@@ -12,7 +12,10 @@ class Label:
                 label.get("posts") or [],
             )
         )
-        self._model_id = int(model_id)
+        try:
+            self._model_id = int(model_id)
+        except (ValueError, TypeError):
+            self._model_id = model_id
         self._username = username
 
     @property

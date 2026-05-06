@@ -94,7 +94,7 @@ class PostCollection:
         """
         Adds a single item (Post, Media, or dict) and returns the resulting Post object.
         """
-        if isinstance(item, Iterable):
+        if isinstance(item, Iterable) and not isinstance(item, dict):
             raise Exception("item must not be an iterable")
         return self._process_and_add_post(item, actions or [], overwrite=overwrite)
 
@@ -303,6 +303,9 @@ class PostCollection:
         # Resolve the item to its core Post data and ID
         if isinstance(item, Media):
             post_to_process = item.post
+            if post_to_process is None:
+                log.info(f"Skipping Media item with no post reference")
+                return None
         elif isinstance(item, (Post, dict)):
             post_to_process = item
         else:

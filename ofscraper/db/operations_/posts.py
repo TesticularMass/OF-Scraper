@@ -193,7 +193,7 @@ def get_timeline_posts_info(model_id=None, username=None, conn=None, **kwargs) -
         cur.execute(timelinePostInfo, [model_id])
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
+            dict(ele, created_at=arrow.get(ele.get("created_at") or "2000").float_timestamp)
             for ele in data
         ]
 
@@ -208,7 +208,10 @@ def create_post_table(model_id=None, username=None, conn=None, db_path=None, **k
 @wrapper.operation_wrapper_async
 def get_all_post_ids(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allPOSTCheck)
+        if model_id:
+            cur.execute("SELECT post_id FROM posts WHERE model_id=(?)", [model_id])
+        else:
+            cur.execute(allPOSTCheck)
         return [dict(row)["post_id"] for row in cur.fetchall()]
 
 
@@ -352,7 +355,7 @@ def get_archived_post_info(model_id=None, username=None, conn=None, **kwargs) ->
         conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
+            dict(ele, created_at=arrow.get(ele.get("created_at") or "2000").float_timestamp)
             for ele in data
         ]
 
@@ -364,7 +367,7 @@ def get_streams_post_info(model_id=None, username=None, conn=None, **kwargs) -> 
         conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
+            dict(ele, created_at=arrow.get(ele.get("created_at") or "2000").float_timestamp)
             for ele in data
         ]
 
@@ -411,7 +414,7 @@ async def get_oldest_archived_date(model_id=None, username=None, **kwargs):
     data = await media.get_archived_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[0]
     return last_item["posted_at"] or 0
 
 
@@ -419,7 +422,7 @@ async def get_youngest_archived_date(model_id=None, username=None, **kwargs):
     data = await media.get_archived_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[-1]
     return last_item["posted_at"] or 0
 
 
@@ -427,7 +430,7 @@ async def get_oldest_streams_date(model_id=None, username=None, **kwargs):
     data = await media.get_streams_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[0]
     return last_item["posted_at"] or 0
 
 
@@ -435,7 +438,7 @@ async def get_youngest_streams_date(model_id=None, username=None, **kwargs):
     data = await media.get_streams_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[-1]
     return last_item["posted_at"] or 0
 
 
@@ -443,7 +446,7 @@ async def get_oldest_timeline_date(model_id=None, username=None, **kwargs):
     data = await media.get_timeline_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[0]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[0]
     return last_item["posted_at"] or 0
 
 
@@ -451,7 +454,7 @@ async def get_youngest_timeline_date(model_id=None, username=None, **kwargs):
     data = await media.get_timeline_media(model_id=model_id, username=username)
     if not data:
         return 0
-    last_item = sorted(data, key=lambda x: arrow.get(x["posted_at"] or 0))[-1]
+    last_item = sorted(data, key=lambda x: arrow.get(x.get("posted_at") or "2000"))[-1]
     return last_item["posted_at"] or 0
 
 

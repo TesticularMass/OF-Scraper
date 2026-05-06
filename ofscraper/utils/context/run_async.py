@@ -37,16 +37,16 @@ def run_forever(coro):
             try:
                 asyncio.set_event_loop(loop)
                 tasks = loop.run_until_complete(coro(*args, **kwargs))
-                loop.run_forever()
                 return tasks
             except RuntimeError:
                 return coro(*args, **kwargs)
             except KeyboardInterrupt as E:
                 with exit.DelayedKeyboardInterrupt():
                     try:
-                        tasks.cancel()
-                        loop.run_forever()
-                        tasks.exception()
+                        if tasks is not None:
+                            tasks.cancel()
+                            loop.run_forever()
+                            tasks.exception()
                     except Exception:
                         None
                 raise E

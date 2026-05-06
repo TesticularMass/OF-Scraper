@@ -51,8 +51,8 @@ def parse_args():
             prog_name="OF-Scraper",
             args=sys.argv[1:],
         )
-        if result == 0:
-            sys.exit()
+        if result is None:
+            return None
         args, command = result
         args["command"] = command
         d = AutoDotDict(args)

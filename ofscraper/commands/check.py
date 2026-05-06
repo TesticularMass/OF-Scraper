@@ -119,15 +119,18 @@ def _get_data_from_row(row: dict):
     Takes a row dictionary and returns fresh, deep copies of the
     corresponding data objects to prevent state issues between loops.
     """
-    username = row["username"]
-    media_id = int(row["media_id"])
+    username = row.get("username")
+    media_id_raw = row.get("media_id")
+    if not username or media_id_raw is None:
+        raise Exception(f"Missing username or media_id in row: {row}")
+    media_id = int(media_id_raw)
 
     manager.Manager.current_model_manager.add_models(username, activity="download")
     model_obj = manager.Manager.current_model_manager.get_model(username)
     if not model_obj:
         raise Exception(f"Could not find model for username: {username}")
 
-    m_id = str(model_obj.id) 
+    m_id = str(model_obj.id) if model_obj.id is not None else username
     
     # Find the original, cached media object using the string key
     cached_media = check_user_dict[m_id]["collection"].find_media_item(media_id)
@@ -218,8 +221,8 @@ def _process_user_batch(
                         log.info(
                             f"Successfully retrieved fresh URL for {media.filename}"
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.debug(f"Retry data refresh failed for {media.filename}: {e}")
                 else:
                     log.info(f"Download failed for {media.filename}.")
                     app.app.update_cell_state(key, "[failed]", "bold red")
@@ -806,7 +809,10 @@ def start_table(ROWS_):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     ROWS = ROWS_
-    app.app(table_data=ROWS)
+    try:
+        app.app(table_data=ROWS)
+    finally:
+        loop.close()
 
 
 def texthelper(text):
@@ -863,10 +869,10 @@ async def row_gather(username, model_id):
     log.info(f"Generating UI Table with {len(media)} items... This may take a moment.")
     
     try:
-        sorted_media = sorted(media, key=lambda x: x.date, reverse=True)
+        sorted_media = sorted(media, key=lambda x: x.date or "", reverse=True)
     except Exception:
         # Fallback just in case the dates are poorly formatted
-        sorted_media = sorted(media, key=lambda x: arrow.get(x.date), reverse=True)
+        sorted_media = sorted(media, key=lambda x: arrow.get(x.date or 0).float_timestamp, reverse=True)
 
     for count, ele in enumerate(sorted_media):
         is_unlocked = unlocked_helper(ele)

@@ -23,6 +23,7 @@ log = logging.getLogger("shared")
 class basePlaceholder:
     def __init__(self) -> None:
         self._ele = None
+        self._variables = {}
 
     def create_variables_base(self):
         my_id, my_username = me.parse_user()
@@ -327,6 +328,8 @@ class Placeholders(basePlaceholder):
 
     @property
     def truncated_filepath(self):
+        if self._filepath is None:
+            return None
         if settings.get_settings().truncate:
             return pathlib.Path(paths.truncate(self._filepath))
         return self._filepath
@@ -487,6 +490,8 @@ class Textholders(basePlaceholder):
 
     @property
     def truncated_filepath(self):
+        if self._filepath is None:
+            return None
         if settings.get_settings().truncate:
             return pathlib.Path(paths.truncate(self._filepath))
         return self._filepath

@@ -85,14 +85,20 @@ class DateField(Container):
         except (arrow.parser.ParserError, ValueError, TypeError):
             return True
         value = parsed
-        min_val = (
-            arrow.get(self.query_one("#minDate").value)
-            if self.query_one("#minDate").value
-            else arrow.get(0)
-        )
-        max_val = (
-            arrow.get(self.query_one("#maxDate").value)
-            if self.query_one("#maxDate").value
-            else arrow.now()
-        )
+        try:
+            min_val = (
+                arrow.get(self.query_one("#minDate").value)
+                if self.query_one("#minDate").value
+                else arrow.get(0)
+            )
+        except (arrow.parser.ParserError, ValueError, TypeError):
+            min_val = arrow.get(0)
+        try:
+            max_val = (
+                arrow.get(self.query_one("#maxDate").value)
+                if self.query_one("#maxDate").value
+                else arrow.now()
+            )
+        except (arrow.parser.ParserError, ValueError, TypeError):
+            max_val = arrow.now()
         return arrow.get(value).is_between(min_val, max_val, bounds="[]")

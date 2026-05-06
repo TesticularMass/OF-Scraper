@@ -145,6 +145,9 @@ async def process_urls(urls):
                         continue
                     model_id = user_data.get("id")
                     username = user_data.get("username")
+                    if not model_id:
+                        log.info(f"Could not resolve model_id from profile data; skipping URL")
+                        continue
 
                 # Fetch data using the mapped function
                 fetch_func = API_MAP.get(api_type)

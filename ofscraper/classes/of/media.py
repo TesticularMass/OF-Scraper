@@ -49,6 +49,9 @@ class Media(base.base):
             return NotImplemented
         return self.id == other.id
 
+    def __hash__(self):
+        return hash(self.id)
+
     def mark_download_succeeded(self):
         """Sets the flags to represent a successful download."""
         self.download_attempted = True
@@ -139,7 +142,7 @@ class Media(base.base):
     def files_source(self):
         return {
             key: (inner_dict or {}).get("url")
-            for key, inner_dict in self._media.get("files", {}).items()
+            for key, inner_dict in (self._media.get("files") or {}).items()
         }
 
     @property
@@ -287,7 +290,7 @@ class Media(base.base):
         if self.protected is False:
             return None
         return (
-            self._media.get("files", {}).get("drm", {}).get("manifest", {}).get("dash")
+            (self._media.get("files") or {}).get("drm", {}).get("manifest", {}).get("dash")
         )
 
     @property
@@ -297,7 +300,7 @@ class Media(base.base):
         if self.protected is False:
             return None
         return (
-            self._media.get("files", {}).get("drm", {}).get("manifest", {}).get("hls")
+            (self._media.get("files") or {}).get("drm", {}).get("manifest", {}).get("hls")
         )
 
     @property
@@ -305,7 +308,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("dash", {})
@@ -317,7 +320,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("hls", {})
@@ -329,7 +332,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("dash", {})
@@ -341,7 +344,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("hls", {})
@@ -353,7 +356,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("dash", {})
@@ -365,7 +368,7 @@ class Media(base.base):
         if self.url:
             return None
         return (
-            self._media.get("files", {})
+            (self._media.get("files") or {})
             .get("drm", {})
             .get("signature", {})
             .get("hls", {})
@@ -386,6 +389,7 @@ class Media(base.base):
     def mpdout(self):
         if not self.mpd:
             return None
+        return self.mpd
 
     @property
     def file_text(self):
@@ -409,8 +413,11 @@ class Media(base.base):
         if not base_url:
             return None
 
+        parts = base_url.split("/")[-1].split("?")[0].split(".")
+        if len(parts) < 2:
+            return parts[0]
         filename_part = (
-            base_url.split(".")[-2].split("/")[-1].strip("/,.;!_-@#$%^&*()+\\ ")
+            parts[-2].strip("/,.;!_-@#$%^&*()+\\ ")
         )
         filename = re.sub(r"\.mpd$", "", filename_part)
 
@@ -547,7 +554,7 @@ class Media(base.base):
 
     @property
     def username(self):
-        return self._post.username.lower()
+        return self._post.username.lower() if self._post.username else None
 
     @property
     def model_id(self):
@@ -664,6 +671,7 @@ class Media(base.base):
         for prot in adapt_set.content_protections:
             if prot.value is None:
                 kId = prot.pssh[0].pssh
+                sensitive.add_sensitive_pattern(kId, "pssh_code")
                 break
 
         origname = f"{selected_repr.base_urls[0].base_url_value}"

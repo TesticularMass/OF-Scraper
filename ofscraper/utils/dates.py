@@ -47,6 +47,8 @@ def convert_date_to_timestamp(date: str):
 
 
 def convert_local_time(date: str):
+    if not date:
+        return arrow.get(0, tzinfo="UTC").to("local").float_timestamp
     return arrow.get(date, tzinfo="UTC").to("local").float_timestamp
 
 

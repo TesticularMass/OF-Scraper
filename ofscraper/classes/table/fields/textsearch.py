@@ -42,4 +42,7 @@ class TextSearch(Horizontal):
     def compare(self,value):
         if self.query_one(f"#{self.filter_name}_search").value=="":
             return True
-        return self.query_one(f"#{self.filter_name}_search").value.lower() ==value.lower() if self.query_one("#exact_match").value else re.search(self.query_one(f"#{self.filter_name}_search").value, value, flags=re.IGNORECASE) is not None
+        try:
+            return self.query_one(f"#{self.filter_name}_search").value.lower() ==value.lower() if self.query_one("#exact_match").value else re.search(self.query_one(f"#{self.filter_name}_search").value, value, flags=re.IGNORECASE) is not None
+        except re.error:
+            return True

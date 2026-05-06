@@ -84,7 +84,7 @@ WHERE media_id=(?) and model_id=(?) and post_id=(?);"""
 mediaUpdateDownload = """Update 'medias'
 SET
 directory=?,filename=?,size=?,downloaded=?,hash=?
-WHERE media_id=(?) and model_id=(?);"""
+WHERE media_id=(?) and model_id=(?) and post_id=(?);"""
 
 
 mediaDupeHashesMedia = """
@@ -132,13 +132,13 @@ mediaDownloadForce = """
 Update 'medias'
 SET
 unlocked=0
-WHERE media_id=(?) and model_id=(?);
+WHERE media_id=(?) and model_id=(?) and post_id=(?);
 """
 mediaDownloadSelect = """
-SELECT  
+SELECT
 directory,filename,size,
 downloaded,hash
-FROM medias where media_id=(?) and model_id=(?)
+FROM medias where media_id=(?) and model_id=(?) and post_id=(?)
 """
 allIDCheck = """
 SELECT media_id FROM medias
@@ -324,14 +324,20 @@ def add_column_media_duration(model_id=None, username=None, conn=None, **kwargs)
 @wrapper.operation_wrapper_async
 def get_media_ids(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allIDCheck)
+        if model_id:
+            cur.execute("SELECT media_id FROM medias WHERE model_id=(?)", [model_id])
+        else:
+            cur.execute(allIDCheck)
         return [dict(row)["media_id"] for row in cur.fetchall()]
 
 
 @wrapper.operation_wrapper
-def get_media_ids_downloaded(conn=None, **kwargs) -> list:
+def get_media_ids_downloaded(model_id=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allDLIDCheck)
+        if model_id:
+            cur.execute(allDLModelIDCheck, [model_id])
+        else:
+            cur.execute(allDLIDCheck)
         return set([dict(row)["media_id"] for row in cur.fetchall()])
 
 
@@ -346,7 +352,10 @@ def get_media_ids_downloaded_model(model_id=None, conn=None, **kwargs) -> list:
 @wrapper.operation_wrapper
 def get_media_post_ids(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allPostIDCheck)
+        if model_id:
+            cur.execute("SELECT media_id, post_id FROM medias WHERE model_id=(?)", [model_id])
+        else:
+            cur.execute(allPostIDCheck)
         return [(dict(row)["media_id"], dict(row)["post_id"]) for row in cur.fetchall()]
 
 
@@ -654,7 +663,7 @@ def get_timeline_media(model_id=None, username=None, conn=None, **kwargs) -> lis
         cur.execute(getTimelineMedia, [model_id])
         data = [dict(row) for row in cur.fetchall()]
         return [
-            dict(ele, posted_at=arrow.get(ele["posted_at"] or ele["created_at"] or 0).float_timestamp)
+            dict(ele, posted_at=arrow.get(ele.get("posted_at") or ele.get("created_at") or "2000").float_timestamp)
             for ele in data
         ]
 
@@ -705,7 +714,7 @@ def update_media_table_download_helper(
         downloaded,
         hashdata,
     ]
-    insertData.extend([media.id, model_id])
+    insertData.extend([media.id, model_id, media.post_id])
     curr.execute(mediaUpdateDownload, insertData)
     conn.commit()
 
@@ -714,7 +723,7 @@ def update_media_table_download_helper(
 @wrapper.operation_wrapper_async
 def prev_download_media_data(media, model_id=None, username=None, conn=None, **kwargs):
     with contextlib.closing(conn.cursor()) as curr:
-        prevData = curr.execute(mediaDownloadSelect, (media.id, model_id)).fetchone()
+        prevData = curr.execute(mediaDownloadSelect, (media.id, model_id, media.post_id)).fetchone()
         prevData = dict(prevData) if prevData else None
         return prevData
 
@@ -727,6 +736,7 @@ def batch_set_media_downloaded(medias, model_id=None, conn=None, **kwargs):
                 lambda media: [
                     media["media_id"],
                     model_id,
+                    media["post_id"],
                 ],
                 medias,
             )

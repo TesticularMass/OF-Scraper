@@ -137,7 +137,7 @@ async def get_split_array(model_id, username, after):
         len(oldstreams) // of_env.getattr("REASONABLE_MAX_PAGE"),
         of_env.getattr("MIN_PAGE_POST_COUNT"),
     )
-    postsDataArray = sorted(oldstreams, key=lambda x: x.get("created_at"))
+    postsDataArray = sorted(oldstreams, key=lambda x: arrow.get(x.get("created_at") or 0))
     filteredArray = list(
         filter(
             lambda x: arrow.get(x.get("created_at") or 0).float_timestamp >= after,
@@ -155,7 +155,7 @@ async def get_split_array(model_id, username, after):
 def get_tasks(splitArrays, c, model_id, username, after):
     tasks = []
 
-    if len(splitArrays) == 0:
+    if len(splitArrays) == 0 or not splitArrays[0]:
         tasks.append(
             scrape_stream_posts(
                 c, model_id, username, timestamp=after, is_last_chunk=True, offset=True
@@ -164,7 +164,7 @@ def get_tasks(splitArrays, c, model_id, username, after):
         return tasks
 
     first_known_post = splitArrays[0][0]
-    first_known_timestamp = float(first_known_post.get("created_at"))
+    first_known_timestamp = float(first_known_post.get("created_at") or 0)
 
     if float(after) < first_known_timestamp:
         log.debug(
@@ -187,6 +187,8 @@ def get_tasks(splitArrays, c, model_id, username, after):
         )
 
     for i, chunk in enumerate(splitArrays):
+        if not chunk:
+            continue
         is_first_chunk = i == 0
         is_final_chunk = i == len(splitArrays) - 1
 
@@ -261,7 +263,7 @@ async def scrape_stream_posts(
                     # collapse to 0 (epoch) and re-fetch endlessly. Stop here.
                     break
                 max_ts = max(batch_timestamps)
-                batch_ids = {x["id"] for x in batch}
+                batch_ids = {x["id"] for x in batch if "id" in x}
 
                 expected_missing = [
                     p for p in expected_missing if p["post_id"] not in batch_ids
@@ -337,7 +339,7 @@ async def get_after(model_id, username):
 
     if len(filtered_items) == 0:
         youngest = await get_youngest_streams_date(model_id=model_id, username=username)
-        return arrow.get(youngest or "2000").float_timestamp
+        return arrow.get(youngest or 0).float_timestamp
 
     unique_missing = {}
     for item in filtered_items:
@@ -350,7 +352,7 @@ async def get_after(model_id, username):
     missing_items = sorted(
         list(unique_missing.values()), key=lambda x: arrow.get(x.get("posted_at") or 0)
     )
-    return arrow.get(missing_items[0]["posted_at"] or "2000").float_timestamp
+    return arrow.get(missing_items[0].get("posted_at", 0) or 0).float_timestamp if missing_items else arrow.get("2000").float_timestamp
 
 def time_log(username, after):
     log.info(

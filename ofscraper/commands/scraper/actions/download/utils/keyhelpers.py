@@ -45,7 +45,7 @@ async def un_encrypt(item, c, ele, input_=None):
         )
         if past_key:
             key = past_key
-            log.debug(f"{get_medialog(ele)} got key rom cache: {key}")
+            log.debug(f"{get_medialog(ele)} got key from cache: {key}")
         elif keymode == "manual":
             key = await key_helper_manual(c, item["pssh"], ele.license, ele.id)
         elif keymode == "cdrm":
@@ -93,19 +93,23 @@ async def un_encrypt(item, c, ele, input_=None):
             log.debug(f"{get_medialog(ele)} ffmpeg  decrypt success {newpath}")
             pathlib.Path(item["path"]).unlink(missing_ok=True)
             item["path"] = newpath
-            await asyncio.get_running_loop().run_in_executor(
-                common_globals.thread,
-                partial(
-                    cache.set, ele.license, key, expire=of_env.getattr("KEY_EXPIRY")
-                ),
-            )
+            if of_env.getattr("USE_WIV_CACHE_KEY"):
+                await asyncio.get_running_loop().run_in_executor(
+                    common_globals.thread,
+                    partial(
+                        cache.set, ele.license, key, expire=of_env.getattr("KEY_EXPIRY")
+                    ),
+                )
             return item
     except Exception as E:
         raise E
 
 
 def get_ffmpeg_key(key):
-    return key.split(":")[1]
+    parts = key.split(":")
+    if len(parts) < 2:
+        raise ValueError(f"Invalid key format, expected 'kid:hex': {key[:20]}...")
+    return parts[1]
 
 
 async def key_helper_cdrm(c, pssh, licence_url, id):
@@ -169,23 +173,28 @@ async def key_helper_manual(c, pssh, licence_url, id):
         # open cdm session
         session_id = cdm.open()
 
-        keys = None
-        challenge = cdm.get_license_challenge(session_id, pssh_obj)
-        async with manager.Manager.session.get_cdm_session_manual() as c:
-            async with c.requests_async(
-                url=licence_url,
-                method="post",
-                data=challenge,
-                retries=get_cmd_download_req_retries(),
-                wait_min=of_env.getattr("OF_MIN_WAIT_API"),
-                wait_max=of_env.getattr("OF_MAX_WAIT_API"),
-                total_timeout=of_env.getattr("CDM_TIMEOUT"),
-            ) as r:
-                data = await r.read_()
-                cdm.parse_license(session_id, (data))
-                keys = cdm.get_keys(session_id)
-                cdm.close(session_id)
-            keyobject = list(filter(lambda x: x.type == "CONTENT", keys))[0]
+        try:
+            keys = None
+            challenge = cdm.get_license_challenge(session_id, pssh_obj)
+            async with manager.Manager.session.get_cdm_session_manual() as c:
+                async with c.requests_async(
+                    url=licence_url,
+                    method="post",
+                    data=challenge,
+                    retries=get_cmd_download_req_retries(),
+                    wait_min=of_env.getattr("OF_MIN_WAIT_API"),
+                    wait_max=of_env.getattr("OF_MAX_WAIT_API"),
+                    total_timeout=of_env.getattr("CDM_TIMEOUT"),
+                ) as r:
+                    data = await r.read_()
+                    cdm.parse_license(session_id, (data))
+                    keys = cdm.get_keys(session_id)
+                content_keys = list(filter(lambda x: x.type == "CONTENT", keys))
+                if not content_keys:
+                    raise Exception("No CONTENT key found in license")
+                keyobject = content_keys[0]
+        finally:
+            cdm.close(session_id)
 
         key = "{}:{}".format(keyobject.kid.hex, keyobject.key.hex())
         return key

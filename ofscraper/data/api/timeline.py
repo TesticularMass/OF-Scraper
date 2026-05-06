@@ -144,8 +144,8 @@ async def get_split_array(model_id, username, after):
         len(oldtimeline) // of_env.getattr("REASONABLE_MAX_PAGE"),
         of_env.getattr("MIN_PAGE_POST_COUNT"),
     )
-    postsDataArray = sorted(oldtimeline, key=lambda x: arrow.get(x["created_at"] or 0))
-    filteredArray = list(filter(lambda x: bool(x["created_at"]), postsDataArray))
+    postsDataArray = sorted(oldtimeline, key=lambda x: arrow.get(x.get("created_at") or "2000"))
+    filteredArray = list(filter(lambda x: bool(x.get("created_at")), postsDataArray))
     filteredArray = list(
         filter(
             lambda x: arrow.get(x["created_at"]).float_timestamp >= after, filteredArray
@@ -163,7 +163,7 @@ def get_tasks(splitArrays, c, model_id, username, after):
     tasks = []
 
     # Scenario 1: Empty DB, or just hunting for brand new posts today
-    if len(splitArrays) == 0:
+    if len(splitArrays) == 0 or not splitArrays[0]:
         tasks.append(
             scrape_timeline_posts(
                 c, model_id, username, timestamp=after, is_last_chunk=True, offset=True
@@ -172,7 +172,7 @@ def get_tasks(splitArrays, c, model_id, username, after):
         return tasks
 
     first_known_post = splitArrays[0][0]
-    first_known_timestamp = float(first_known_post.get("created_at"))
+    first_known_timestamp = float(first_known_post.get("created_at") or 0)
 
     if float(after) < first_known_timestamp:
         log.debug(
@@ -196,6 +196,8 @@ def get_tasks(splitArrays, c, model_id, username, after):
 
     # Scenarios 2 & 3: Iterate through the known chunks dynamically
     for i, chunk in enumerate(splitArrays):
+        if not chunk:
+            continue
         is_first_chunk = i == 0
         is_final_chunk = i == len(splitArrays) - 1
 
@@ -273,7 +275,7 @@ async def get_after(model_id, username):
     missing_items = sorted(
         list(unique_missing.values()), key=lambda x: arrow.get(x.get("posted_at") or 0)
     )
-    return arrow.get(missing_items[0]["posted_at"] or "2000").float_timestamp
+    return arrow.get(missing_items[0].get("posted_at", "2000") or "2000").float_timestamp if missing_items else arrow.get("2000").float_timestamp
 
 async def scrape_timeline_posts(
     c,
@@ -329,7 +331,7 @@ async def scrape_timeline_posts(
                     # collapse to 0 (epoch) and re-fetch endlessly. Stop here.
                     break
                 max_ts = max(batch_timestamps)
-                batch_ids = {x["id"] for x in batch}
+                batch_ids = {x["id"] for x in batch if "id" in x}
 
                 # 1. Clear out ANY posts we successfully found in this batch
                 expected_missing = [

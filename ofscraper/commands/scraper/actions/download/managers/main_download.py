@@ -76,12 +76,13 @@ class MainDownloadManager(DownloadManager):
 
         common_globals.attempt.set(0)
 
-        async for _ in download_retry():
-            with _:
-                try:
-                    common_globals.attempt.set(common_globals.attempt.get(0) + 1)
-                    if common_globals.attempt.get() > 1:
-                        pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
+        try:
+            async for _ in download_retry():
+                with _:
+                    try:
+                        common_globals.attempt.set(common_globals.attempt.get(0) + 1)
+                        if common_globals.attempt.get() > 1:
+                            pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
                     data = await self._get_data(ele)
                     total = None
                     placeholderObj = None
@@ -125,6 +126,8 @@ class MainDownloadManager(DownloadManager):
                         f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {E}"
                     )
                     raise E
+        finally:
+            pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
 
     async def _main_download_sendreq(
         self, c, ele, tempholderObj, placeholderObj=None, total=None
@@ -147,6 +150,7 @@ class MainDownloadManager(DownloadManager):
         try:
             resume_size = self._get_resume_size(tempholderObj)
             headers = self._get_resume_header(resume_size, total)
+            orig_total = total
             total = None
             common_globals.log.debug(
                 f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] Downloading media with url {ele.url}"
@@ -159,7 +163,13 @@ class MainDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as r:
-                total = int(r.headers["content-length"])
+                content_length = int(r.headers.get("content-length", 0) or 0)
+                # For resumed (206) responses, content-length is remaining bytes,
+                # not full size. Reconstruct full total.
+                if resume_size > 0 and content_length > 0:
+                    total = resume_size + content_length
+                else:
+                    total = content_length or orig_total or 0
                 data = {
                     "content-total": total,
                     "content-type": r.headers.get("content-type"),
@@ -172,8 +182,8 @@ class MainDownloadManager(DownloadManager):
                     f"{common_logs.get_medialog(ele)} total from request {format_size(data.get('content-total')) if data.get('content-total') else 'unknown'}"
                 )
                 await self._set_data(ele, data)
-                content_type = (r.headers.get("content-type") or "application/octet-stream").split("/")[-1]
-                content_type = content_type or common.get_unknown_content_type(ele)
+                content_type_raw = r.headers.get("content-type")
+                content_type = (content_type_raw or common.get_unknown_content_type(ele) or "octet-stream").split("/")[-1]
                 if not placeholderObj:
                     placeholderObj = await placeholder.Placeholders(
                         ele, content_type
@@ -285,7 +295,8 @@ class MainDownloadManager(DownloadManager):
 
         # 2. Video Integrity Check (Optional for Standard Downloads)
         if (
-            ele.mediatype.lower() in {"videos", "audios"}
+            ele.mediatype
+            and ele.mediatype.lower() in {"videos", "audios"}
             and settings.get_settings().verify_all_integrity
         ):
             expected_duration = ele.duration
@@ -370,7 +381,8 @@ class MainDownloadManager(DownloadManager):
             f"{common_logs.get_medialog(ele)} Total size from cache {format_size(data.get('content-total')) if data.get('content-total') else 'unknown'}"
         )
 
-        content_type = (data.get("content-type") or "application/octet-stream").split("/")[-1]
+        content_type_raw = data.get("content-type")
+        content_type = (content_type_raw or common.get_unknown_content_type(ele) or "octet-stream").split("/")[-1]
         total = int(data.get("content-total")) if data.get("content-total") else None
         resume_size = self._get_resume_size(tempholderObj)
         resume_size = self._resume_cleaner(
@@ -392,7 +404,5 @@ class MainDownloadManager(DownloadManager):
                 f"{common_logs.get_medialog(ele)} total==resume_size skipping download"
             )
             common_logs.path_to_file_logger(placeholderObj, ele, common_globals.log)
-            if common_globals.attempt.get() == 0:
-                pass
             check = True
         return total, placeholderObj, check

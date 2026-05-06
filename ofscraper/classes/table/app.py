@@ -201,7 +201,7 @@ class InputApp(App):
 
             self.query_one("#label_opt_sidebar").update(f"Options Menu:  [bold cyan]Ctrl+S[/bold cyan] [bold]({'Open' if opt_open else 'Closed'})[/bold]")
             self.query_one("#label_dl_sidebar").update(f"Download Menu: [bold cyan]Ctrl+D[/bold cyan] [bold]({'Open' if dl_open else 'Closed'})[/bold]")
-        except:
+        except Exception:
             pass
 
     def set_active_tab(self, active_btn_id: str):
@@ -282,7 +282,8 @@ class InputApp(App):
     # ==========================================
     def action_select_current_page(self) -> None:
         if self.query_one(ContentSwitcher).current != "table_page": return
-        num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
+        raw_val = self.query_one("#main_per_page_input").value
+        num_page = int(raw_val) if str(raw_val).isnumeric() else AMOUNT_PER_PAGE
         start = (self.main_page - 1) * num_page
         self._add_items_to_cart(self._filtered_rows[start : start + num_page])
 
@@ -303,7 +304,8 @@ class InputApp(App):
 
     def action_select_unique_current_page(self) -> None:
         if self.query_one(ContentSwitcher).current != "table_page": return
-        num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
+        raw_val = self.query_one("#main_per_page_input").value
+        num_page = int(raw_val) if str(raw_val).isnumeric() else AMOUNT_PER_PAGE
         start = (self.main_page - 1) * num_page
         self._run_unique_selection(self._filtered_rows[start : start + num_page])
 
@@ -333,7 +335,8 @@ class InputApp(App):
 
     def action_select_page_undownloaded(self) -> None:
         if self.query_one(ContentSwitcher).current != "table_page": return
-        num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
+        raw_val = self.query_one("#main_per_page_input").value
+        num_page = int(raw_val) if str(raw_val).isnumeric() else AMOUNT_PER_PAGE
         start = (self.main_page - 1) * num_page
 
         for row in self._filtered_rows[start : start + num_page]:
@@ -362,17 +365,19 @@ class InputApp(App):
     def action_clear_current_page(self) -> None:
         active_tab = self.query_one(ContentSwitcher).current
         if active_tab == "table_page":
-            num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
+            raw_val = self.query_one("#main_per_page_input").value
+            num_page = int(raw_val) if str(raw_val).isnumeric() else AMOUNT_PER_PAGE
             start = (self.main_page - 1) * num_page
             for row in self._filtered_rows[start : start + num_page]:
                 if row["download_cart"] == "[added]":
                     row["download_cart"] = "[]"
             self.set_page()
             self.update_cart_info()
-            
+
         elif active_tab == "cart_page":
             cart_rows = [row for row in self.table_data if row.get("download_cart") == "[added]"]
-            num_page = int(self.query_one("#cart_per_page_input").value or AMOUNT_PER_PAGE)
+            raw_val = self.query_one("#cart_per_page_input").value
+            num_page = int(raw_val) if str(raw_val).isnumeric() else AMOUNT_PER_PAGE
             start = (self.cart_page - 1) * num_page
             for row in cart_rows[start : start + num_page]:
                 row["download_cart"] = "[]"
@@ -467,13 +472,24 @@ class InputApp(App):
                 elif key == "post_media_count":
                     sort_val = int(raw_val or 0)
                 elif key == "price":
-                    sort_val = 0 if str(raw_val).lower() == "free" else float(raw_val or 0)
+                    if str(raw_val).lower() == "free":
+                        sort_val = 0
+                    elif str(raw_val).lower() == "paid":
+                        sort_val = float("inf")
+                    else:
+                        try:
+                            sort_val = float(raw_val or 0)
+                        except (ValueError, TypeError):
+                            sort_val = float("inf")
                 elif key == "length":
                     sort_val = arrow.get(raw_val or "0:0:0", ["h:m:s"]).timestamp()
                 elif key == "post_date":
-                    sort_val = arrow.get(raw_val).timestamp()
+                    sort_val = arrow.get(raw_val or 0).timestamp()
                 elif key in {"post_id", "media_id"}:
-                    sort_val = int(raw_val or 0)
+                    try:
+                        sort_val = int(raw_val or 0)
+                    except (ValueError, TypeError):
+                        sort_val = 0
                 elif key == "other_posts_with_media":
                     sort_val = len(raw_val or [])
                 else:

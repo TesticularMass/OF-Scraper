@@ -63,27 +63,27 @@ class Model:
                     self._model.get("promotions") or [],
                 )
             ),
-            key=lambda x: x.get("price", 0),
+            key=lambda x: x.get("price") or 0,
         )
 
     @property
     def lowest_promo_claim(self):
         if len(self.all_claimable_promo) == 0:
             return None
-        return self.all_claimable_promo[0].get("price", 0)
+        return self.all_claimable_promo[0].get("price") or 0
 
     @property
     def all_promo(self):
         return sorted(
             self._model.get("promotions") or [],
-            key=lambda x: x.get("price", 0),
+            key=lambda x: x.get("price") or 0,
         )
 
     @property
     def lowest_promo_all(self):
         if len(self.all_promo) == 0:
             return None
-        return self.all_promo[0].get("price", 0)
+        return self.all_promo[0].get("price") or 0
 
     @property
     def expired(self):
@@ -131,7 +131,7 @@ class Model:
             return True
         # 2. Timestamp check with Grace Period
         # We pull the grace window (default 2 days) from the environment
-        grace_days = of_env.getattr("EXPIRED_GRACE_DEFAULT")
+        grace_days = of_env.getattr("EXPIRED_GRACE_DEFAULT") or 2
         grace_seconds = grace_days * 86400
         if self.final_expired > 0:
             # If the current time is less than (expiration + grace period).

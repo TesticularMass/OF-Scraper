@@ -30,3 +30,4 @@ def get_after_pre_checks(model_id, api):
                 break
             log.debug(f"{api}: doing full scan for action like/unlike")
             return 0
+    return None

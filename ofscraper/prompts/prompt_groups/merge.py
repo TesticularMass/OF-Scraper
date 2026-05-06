@@ -88,7 +88,7 @@ def confirm_prompt_db(folder, new_db) -> bool:
 
 def confirm_db_continue(completed, skipped) -> bool:
     name = "continue"
-    promptClasses.batchConverter(
+    answer = promptClasses.batchConverter(
         *[
             {
                 "type": "list",
@@ -96,7 +96,7 @@ def confirm_db_continue(completed, skipped) -> bool:
                 "message": "Do another merge: ",
                 "call": lambda: console.get_console().print(
                     inspect.cleandoc(
-                        f""" 
+                        f"""
                 Merged: {len(completed)} db files
                 Skipped: {len(skipped)} db files
                 """
@@ -111,6 +111,7 @@ def confirm_db_continue(completed, skipped) -> bool:
             }
         ]
     )
+    return answer[name]
 
 
 def model_id_prompt():

@@ -243,10 +243,10 @@ def daemon_process():
             try:
                 job_func = jobqueue.get()
                 job_func()
+                jobqueue.task_done()
             except Exception as E:
                 log.traceback_(E)
                 log.traceback_(traceback.format_exc())
-            finally:
                 jobqueue.task_done()
     except KeyboardInterrupt as E:
         try:

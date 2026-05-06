@@ -147,6 +147,15 @@ async def process_tasks(generators):
     return responseArray
 
 
+def _to_float_ts(val):
+    if not val:
+        return 0.0
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return float(arrow.get(val).float_timestamp)
+
+
 async def get_split_array(model_id, username, after):
     oldmessages = await get_old_messages(model_id, username)
     if len(oldmessages) == 0:
@@ -157,7 +166,7 @@ async def get_split_array(model_id, username, after):
     # Sort descending (Newest first)
     postsDataArray = sorted(
         oldmessages,
-        key=lambda x: arrow.get(x.get("created_at") or 0).float_timestamp,
+        key=lambda x: _to_float_ts(x.get("created_at")),
         reverse=True,
     )
 
@@ -167,7 +176,7 @@ async def get_split_array(model_id, username, after):
         (
             m.get("post_id")
             for m in reversed(postsDataArray)
-            if float(m.get("created_at") or 0) >= before
+            if _to_float_ts(m.get("created_at")) >= before
         ),
         None,
     )
@@ -220,7 +229,7 @@ def get_tasks(splitArrays, anchor_id, c, model_id, username, after):
         start_timestamp = (
             arrow.now().float_timestamp
             if is_first_chunk
-            else float(splitArrays[i - 1][-1].get("created_at"))
+            else float(splitArrays[i - 1][-1].get("created_at") or 0)
         )
 
         tasks.append(
@@ -287,20 +296,13 @@ async def scrape_messages(
                 if not batch:
                     break
 
-                # Extract timestamps and IDs. arrow.get(None) silently
-                # returns now(); guard with `or 0` so messages missing both
-                # createdAt and postedAt don't pollute pagination with the
-                # current wall-clock time.
-                batch_timestamps = [
-                    float(
-                        arrow.get(
-                            x.get("createdAt") or x.get("postedAt") or 0
-                        ).float_timestamp
-                    )
-                    for x in batch
-                ]
-                min_ts = min(batch_timestamps)  # The oldest message in this batch
-                batch_ids = {x["id"] for x in batch}
+                batch_timestamps = []
+                for x in batch:
+                    ts_str = x.get("createdAt") or x.get("postedAt")
+                    if ts_str:
+                        batch_timestamps.append(float(arrow.get(ts_str).float_timestamp))
+                min_ts = min(batch_timestamps) if batch_timestamps else None
+                batch_ids = {x["id"] for x in batch if "id" in x}
 
                 # Clear found IDs
                 expected_missing = [
@@ -309,13 +311,11 @@ async def scrape_messages(
                 for ele in batch:
                     required_ids.discard(ele["id"])
 
-                # THE INVERTED GHOST TRAP:
-                # If the API returns messages that are historically OLDER than an expected message,
-                # we know the API skipped right over it.
                 ghosts_in_batch = []
-                for expected in expected_missing:
-                    if min_ts <= expected["timestamp"] <= start_anchor:
-                        ghosts_in_batch.append(expected["post_id"])
+                if min_ts is not None:
+                    for expected in expected_missing:
+                        if min_ts <= expected["timestamp"] <= start_anchor:
+                            ghosts_in_batch.append(expected["post_id"])
 
                 if ghosts_in_batch:
                     all_ghosts_found.extend(ghosts_in_batch)
@@ -331,7 +331,7 @@ async def scrape_messages(
                     break
 
                 # Boundary condition: We hit our "after" date limit
-                if min_ts < after:
+                if min_ts is not None and min_ts < after:
                     # Yield only the messages that are within the valid date range
                     valid_messages = [
                         x for x in batch
@@ -422,8 +422,10 @@ async def get_after(model_id, username):
     missing_items = sorted(
         list(unique_missing.values()), key=lambda x: arrow.get(x.get("posted_at") or 0)
     )
+    if not missing_items:
+        return arrow.get("2000").float_timestamp
     return max(
-        float(missing_items[0]["posted_at"] or 0), arrow.get("2000").float_timestamp
+        float(missing_items[0].get("posted_at", 0) or 0), arrow.get("2000").float_timestamp
     )
 
 def time_log(username, after):

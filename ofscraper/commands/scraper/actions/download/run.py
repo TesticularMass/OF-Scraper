@@ -55,33 +55,34 @@ async def consumer(aws, task1, medialist, lock):
                 media_type = "skipped"
                 num_bytes_downloaded = 0
             try:
-                common_globals.total_bytes_downloaded = (
-                    common_globals.total_bytes_downloaded + num_bytes_downloaded
-                )
-                media_type = media_type.lower()
-                if media_type == "images":
-                    common_globals.photo_count += 1
-                    ele.mark_download_succeeded()
+                async with common_globals.count_lock:
+                    common_globals.total_bytes_downloaded = (
+                        common_globals.total_bytes_downloaded + num_bytes_downloaded
+                    )
+                    media_type = media_type.lower()
+                    if media_type == "images":
+                        common_globals.photo_count += 1
+                        ele.mark_download_succeeded()
 
-                elif media_type == "videos":
-                    common_globals.video_count += 1
-                    ele.mark_download_succeeded()
-                elif media_type == "audios":
-                    common_globals.audio_count += 1
-                    ele.mark_download_succeeded()
-                elif media_type == "skipped":
-                    common_globals.skipped += 1
-                    ele.mark_download_failed()
-                elif media_type == "forced_skipped":
-                    ele.mark_download_skipped()
-                    common_globals.forced_skipped += 1
-                sum_count = (
-                    common_globals.photo_count
-                    + common_globals.video_count
-                    + common_globals.audio_count
-                    + common_globals.skipped
-                    + common_globals.forced_skipped
-                )
+                    elif media_type == "videos":
+                        common_globals.video_count += 1
+                        ele.mark_download_succeeded()
+                    elif media_type == "audios":
+                        common_globals.audio_count += 1
+                        ele.mark_download_succeeded()
+                    elif media_type == "skipped":
+                        common_globals.skipped += 1
+                        ele.mark_download_failed()
+                    elif media_type == "forced_skipped":
+                        ele.mark_download_skipped()
+                        common_globals.forced_skipped += 1
+                    sum_count = (
+                        common_globals.photo_count
+                        + common_globals.video_count
+                        + common_globals.audio_count
+                        + common_globals.skipped
+                        + common_globals.forced_skipped
+                    )
                 log_download_progress(media_type)
                 progress_updater.download.update_overall_task(
                     task1,

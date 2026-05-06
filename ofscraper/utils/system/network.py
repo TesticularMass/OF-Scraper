@@ -24,7 +24,7 @@ def check_cdm():
     elif keymode == "cdrm":
         url = of_env.getattr("CDRM")
     else:
-        return
+        return False
     try:
         with sessionManager.sessionManager(
             total_timeout=of_env.getattr("CDM_TEST_TIMEOUT"),

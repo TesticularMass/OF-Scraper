@@ -141,7 +141,7 @@ def dirformatvalidator():
                     list(
                         filter(
                             lambda x: x not in validplaceholders
-                            or not x.find("custom"),
+                            and "custom" not in x,
                             testplaceholders,
                         )
                     )
