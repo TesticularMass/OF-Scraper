@@ -44,6 +44,7 @@ from ofscraper.utils.checkers import check_auth
 from ofscraper.utils.context.run_async import run
 from ofscraper.scripts.after_download_action_script import after_download_action_script
 import ofscraper.managers.manager as manager
+import ofscraper.utils.trial_links as trial_links
 from ofscraper.commands.scraper.actions.download.download import process_dicts
 from ofscraper.managers.postcollection import PostCollection
 from ofscraper.main.close.final.final import final_action
@@ -257,6 +258,7 @@ def checker():
     check_auth()
     allow_check_dupes()
     set_after_check_mode()
+    trial_links.reset()
     try:
         if settings.get_settings().command == "post_check":
             post_checker()
@@ -508,6 +510,8 @@ async def message_checker_runner():
                 visible=True,
             )
             await process_post_media(user_name, model_id, final_post_array)
+            if settings.get_settings().scan_trial_links:
+                trial_links.scan_posts(final_post_array, user_name)
             await make_changes_to_content_tables(
                 final_post_array, model_id=model_id, username=user_name
             )
@@ -596,6 +600,8 @@ async def purchase_checker_runner():
                 visible=True,
             )
             await process_post_media(user_name, model_id, final_post_array)
+            if settings.get_settings().scan_trial_links:
+                trial_links.scan_posts(final_post_array, user_name)
             await make_changes_to_content_tables(
                 final_post_array, model_id=model_id, username=user_name
             )

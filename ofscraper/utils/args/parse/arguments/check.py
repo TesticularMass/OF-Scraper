@@ -101,6 +101,13 @@ text_option = click.option(
     is_flag=True,
 )
 
+scan_trial_links = click.option(
+    "--scan-trial-links",
+    help="Scan message text for OnlyFans trial links and log them",
+    is_flag=True,
+    default=False,
+)
+
 check_mode_media_sort = click.option(
     "-mst",
     "--media-sort",
