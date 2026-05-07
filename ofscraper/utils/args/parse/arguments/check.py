@@ -6,6 +6,7 @@ from ofscraper.utils.args.callbacks.parse.string import (
     StringSplitParse,
     StringSplitParseTitle,
 )
+from ofscraper.utils.args.callbacks.parse.username import UsernameParse
 from ofscraper.utils.args.types.choice import MultiChoice
 
 # check
@@ -106,6 +107,27 @@ scan_trial_links = click.option(
     help="Scan message text for OnlyFans trial links and log them",
     is_flag=True,
     default=False,
+)
+
+subscription_status_option = click.option(
+    "-ss",
+    "--subscription-status",
+    "check_subscription_status",
+    help="Filter models by subscription status (active, inactive, or all; default: all)",
+    default="all",
+    type=click.Choice(["active", "inactive", "all"], case_sensitive=False),
+)
+
+msg_check_username_option = click.option(
+    "--usernames",
+    "--username",
+    "--users",
+    "--user",
+    "check_usernames",
+    help="Check messages/paid content for specific usernames or ALL for all subscriptions",
+    default=None,
+    multiple=True,
+    callback=UsernameParse,
 )
 
 check_mode_media_sort = click.option(

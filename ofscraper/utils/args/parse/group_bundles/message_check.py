@@ -1,7 +1,7 @@
 import cloup as click
 
 
-from ofscraper.utils.args.parse.groups.check_content import url_group
+from ofscraper.utils.args.parse.arguments.check import url_option, file_option, msg_check_username_option
 from ofscraper.utils.args.parse.group_bundles.check import main_check, common_args_check
 from ofscraper.utils.args.parse.group_bundles.advanced_common import advanced_args
 from ofscraper.utils.args.parse.group_bundles.utils.check import check_mode_changes
@@ -20,7 +20,7 @@ def message_check_args(func):
         show_constraints=True,
     )
     @common_args_check
-    @url_group
+    @click.constraints.require_one(url_option, file_option, msg_check_username_option)
     @main_check
     @advanced_args
     @check_mode_changes

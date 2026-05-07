@@ -520,9 +520,54 @@ async def message_checker_runner():
 
 async def message_check_retriver(forced=False):
     links = list(url_helper())
+    usernames = settings.get_settings().check_usernames
+    subscription_status = settings.get_settings().check_subscription_status or "all"
     if settings.get_settings().force:
         forced = True
     async with manager.Manager.session.aget_ofsession() as c:
+        for user_name, model_id in resolve_check_usernames(usernames, subscription_status):
+            log.info(f"Getting Messages/Paid content for {user_name}")
+            await operations.table_init_create(
+                model_id=model_id, username=user_name
+            )
+
+            messages = None
+            oldmessages = read_check(model_id, messages_.API)
+            log.debug(f"Number of messages in cache {len(oldmessages or [])}")
+
+            if oldmessages is not None and not forced:
+                log.info(f"[{user_name}] Using cache for {messages_.API}")
+                messages = oldmessages
+            else:
+                log.info(f"[{user_name}] Fetching fresh data for {messages_.API}")
+                messages = await messages_.get_messages(model_id, user_name, c=c)
+                set_check(messages, model_id, messages_.API)
+
+            message_posts_array = list(
+                map(lambda x: posts_.Post(x, model_id, user_name), messages)
+            )
+            await operations.make_messages_table_changes(
+                message_posts_array, model_id=model_id, username=user_name
+            )
+
+            oldpaid = read_check(model_id, paid_.API)
+            paid = None
+
+            if oldpaid is not None and not forced:
+                log.info(f"[{user_name}] Using cache for {paid_.API}")
+                paid = oldpaid
+            else:
+                log.info(f"[{user_name}] Fetching fresh data for {paid_.API}")
+                paid = await paid_.get_paid_posts(model_id, user_name, c=c)
+                set_check(paid, model_id, paid_.API)
+
+            paid_posts_array = list(
+                map(lambda x: posts_.Post(x, model_id, user_name), paid)
+            )
+
+            final_post_array = paid_posts_array + message_posts_array
+            yield user_name, model_id, final_post_array
+
         for item in links:
             num_match = re.search(
                 f"({of_env.getattr('NUMBER_REGEX')}+)", item
@@ -617,9 +662,11 @@ async def purchase_check_retriver(forced=False):
     async with manager.Manager.session.aget_ofsession(
         sem_count=of_env.getattr("API_REQ_CHECK_MAX"),
     ) as c:
-        for name in settings.get_settings().check_usernames:
-            user_name = profile.scrape_profile(name)["username"]
-            model_id = name if name.isnumeric() else profile.get_id(user_name)
+        subscription_status = settings.get_settings().check_subscription_status or "all"
+        resolved = resolve_check_usernames(
+            settings.get_settings().check_usernames, subscription_status
+        )
+        for user_name, model_id in resolved:
             user_dict[model_id] = user_dict.get(model_id, [])
 
             await operations.table_init_create(model_id=model_id, username=user_name)
@@ -674,9 +721,11 @@ async def stories_check_retriver(forced=False):
     async with manager.Manager.session.aget_ofsession(
         sem_count=of_env.getattr("API_REQ_CHECK_MAX"),
     ) as c:
-        for user_name in settings.get_settings().check_usernames:
-            user_name = profile.scrape_profile(user_name)["username"]
-            model_id = profile.get_id(user_name)
+        subscription_status = settings.get_settings().check_subscription_status or "all"
+        resolved = resolve_check_usernames(
+            settings.get_settings().check_usernames, subscription_status
+        )
+        for user_name, model_id in resolved:
             user_dict[model_id] = user_dict.get(model_id, [])
             await operations.table_init_create(model_id=model_id, username=user_name)
             stories = await highlights.get_stories_post(model_id, c=c)
@@ -691,6 +740,27 @@ async def stories_check_retriver(forced=False):
                 map(lambda x: posts_.Post(x, model_id, user_name, "stories"), stories)
             )
             yield user_name, model_id, stories + highlights_
+
+
+def resolve_check_usernames(usernames=None, subscription_status="all"):
+    usernames = usernames or []
+    if not usernames:
+        return []
+    results = []
+    if "ALL" in usernames:
+        all_models = manager.Manager.current_model_manager.all_subs_retriver()
+        for model in all_models:
+            if subscription_status == "active" and not model.active:
+                continue
+            if subscription_status == "inactive" and model.active:
+                continue
+            results.append((model.name, model.id))
+    else:
+        for name in usernames:
+            user_name = profile.scrape_profile(name)["username"]
+            model_id = name if str(name).isnumeric() else profile.get_id(user_name)
+            results.append((user_name, model_id))
+    return results
 
 
 def url_helper():
