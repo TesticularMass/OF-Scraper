@@ -524,14 +524,30 @@ async def message_check_retriver(forced=False):
     subscription_status = settings.get_settings().check_subscription_status or "all"
     if settings.get_settings().force:
         forced = True
+
+    # Gather (user_name, model_id) pairs from both input sources
+    model_pairs = list(resolve_check_usernames(usernames, subscription_status))
+    for item in links:
+        num_match = re.search(
+            f"({of_env.getattr('NUMBER_REGEX')}+)", item
+        ) or re.search(f"^({of_env.getattr('NUMBER_REGEX')}+)$", item)
+        name_match = re.search(f"^{of_env.getattr('USERNAME_REGEX')}+$", item)
+        if num_match:
+            model_id = num_match.group(1)
+            user_name = profile.scrape_profile(model_id)["username"]
+            model_pairs.append((user_name, model_id))
+        elif name_match:
+            user_name = name_match.group(0)
+            model_id = profile.get_id(user_name)
+            model_pairs.append((user_name, model_id))
+
     async with manager.Manager.session.aget_ofsession() as c:
-        for user_name, model_id in resolve_check_usernames(usernames, subscription_status):
+        for user_name, model_id in model_pairs:
             log.info(f"Getting Messages/Paid content for {user_name}")
             await operations.table_init_create(
                 model_id=model_id, username=user_name
             )
 
-            messages = None
             oldmessages = read_check(model_id, messages_.API)
             log.debug(f"Number of messages in cache {len(oldmessages or [])}")
 
@@ -551,8 +567,6 @@ async def message_check_retriver(forced=False):
             )
 
             oldpaid = read_check(model_id, paid_.API)
-            paid = None
-
             if oldpaid is not None and not forced:
                 log.info(f"[{user_name}] Using cache for {paid_.API}")
                 paid = oldpaid
@@ -567,66 +581,6 @@ async def message_check_retriver(forced=False):
 
             final_post_array = paid_posts_array + message_posts_array
             yield user_name, model_id, final_post_array
-
-        for item in links:
-            num_match = re.search(
-                f"({of_env.getattr('NUMBER_REGEX')}+)", item
-            ) or re.search(f"^({of_env.getattr('NUMBER_REGEX')}+)$", item)
-            name_match = re.search(f"^{of_env.getattr('USERNAME_REGEX')}+$", item)
-
-            model_id = None
-            user_name = None
-            if num_match:
-                model_id = num_match.group(1)
-                user_name = profile.scrape_profile(model_id)["username"]
-            elif name_match:
-                user_name = name_match.group(0)
-                model_id = profile.get_id(user_name)
-
-            if model_id and user_name:
-                log.info(f"Getting Messages/Paid content for {user_name}")
-                await operations.table_init_create(
-                    model_id=model_id, username=user_name
-                )
-
-                # --- Messages ---
-                messages = None
-                oldmessages = read_check(model_id, messages_.API)
-                log.debug(f"Number of messages in cache {len(oldmessages or [])}")
-
-                if oldmessages is not None and not forced:
-                    log.info(f"[{user_name}] Using cache for {messages_.API}")
-                    messages = oldmessages
-                else:
-                    log.info(f"[{user_name}] Fetching fresh data for {messages_.API}")
-                    messages = await messages_.get_messages(model_id, user_name, c=c)
-                    set_check(messages, model_id, messages_.API)
-
-                message_posts_array = list(
-                    map(lambda x: posts_.Post(x, model_id, user_name), messages)
-                )
-                await operations.make_messages_table_changes(
-                    message_posts_array, model_id=model_id, username=user_name
-                )
-
-                # --- Paid Content ---
-                oldpaid = read_check(model_id, paid_.API)
-                paid = None
-
-                if oldpaid is not None and not forced:
-                    log.info(f"[{user_name}] Using cache for {paid_.API}")
-                    paid = oldpaid
-                else:
-                    log.info(f"[{user_name}] Fetching fresh data for {paid_.API}")
-                    paid = await paid_.get_paid_posts(model_id, user_name, c=c)
-                    set_check(paid, model_id, paid_.API)
-
-                paid_posts_array = list(
-                    map(lambda x: posts_.Post(x, model_id, user_name), paid)
-                )
-
-                final_post_array = paid_posts_array + message_posts_array
-                yield user_name, model_id, final_post_array
 
 
 def purchase_checker():
@@ -747,7 +701,7 @@ def resolve_check_usernames(usernames=None, subscription_status="all"):
     if not usernames:
         return []
     results = []
-    if "ALL" in usernames:
+    if any(u.upper() == "ALL" for u in usernames):
         all_models = manager.Manager.current_model_manager.all_subs_retriver()
         for model in all_models:
             if subscription_status == "active" and not model.active:
