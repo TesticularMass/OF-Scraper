@@ -259,6 +259,7 @@ def checker():
     allow_check_dupes()
     set_after_check_mode()
     trial_links.reset()
+    _ensure_models_loaded()
     try:
         if settings.get_settings().command == "post_check":
             post_checker()
@@ -696,13 +697,21 @@ async def stories_check_retriver(forced=False):
             yield user_name, model_id, stories + highlights_
 
 
+def _ensure_models_loaded():
+    """Preload all subscribed models from sync context so @run works correctly.
+    Must be called before entering any async retriever when ALL is used."""
+    usernames = settings.get_settings().check_usernames or []
+    if any(u.upper() == "ALL" for u in usernames):
+        manager.Manager.current_model_manager.all_subs_retriver()
+
+
 def resolve_check_usernames(usernames=None, subscription_status="all"):
     usernames = usernames or []
     if not usernames:
         return []
     results = []
     if any(u.upper() == "ALL" for u in usernames):
-        all_models = manager.Manager.current_model_manager.all_subs_retriver()
+        all_models = manager.Manager.current_model_manager.all_subs
         for model in all_models:
             if subscription_status == "active" and not model.active:
                 continue
