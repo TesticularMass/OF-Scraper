@@ -500,7 +500,10 @@ def start_helper():
 
 def message_checker():
     message_checker_runner()
-    start_helper()
+    if settings.get_settings().scan_trial_links:
+        log.info(f"Trial link scan complete — {trial_links.count()} unique link(s) found")
+    else:
+        start_helper()
 
 
 @run
@@ -590,7 +593,10 @@ async def message_check_retriver(forced=False):
 
 def purchase_checker():
     purchase_checker_runner()
-    start_helper()
+    if settings.get_settings().scan_trial_links:
+        log.info(f"Trial link scan complete — {trial_links.count()} unique link(s) found")
+    else:
+        start_helper()
 
 
 @run

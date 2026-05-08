@@ -17,6 +17,10 @@ def reset():
     _seen_links.clear()
 
 
+def count():
+    return len(_seen_links)
+
+
 def scan_posts(posts, model_username, min_date=None):
     """Scan a batch of posts/messages for OF trial links and log findings."""
     for post in posts:
@@ -88,7 +92,7 @@ def _write_log_file(model: str, link: str, date_str: str):
         log_path = log_dir / f"trial_links_{datetime.now().strftime('%Y-%m-%d')}.log"
         date_part = f" date={date_str}" if date_str else ""
         with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"model={model}{date_part} link={link}\n")
+            f.write(f"{link} poster={model}{date_part}\n")
     except Exception as e:
         log.warning(f"Failed to write trial link log: {e}")
 
