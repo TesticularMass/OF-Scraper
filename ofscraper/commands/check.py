@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import logging
 import re
+from datetime import datetime
 import threading
 import time
 import traceback
@@ -512,7 +513,10 @@ async def message_checker_runner():
             )
             await process_post_media(user_name, model_id, final_post_array)
             if settings.get_settings().scan_trial_links:
-                trial_links.scan_posts(final_post_array, user_name)
+                trial_links.scan_posts(
+                    final_post_array, user_name,
+                    min_date=_parse_trial_min_date(),
+                )
             await make_changes_to_content_tables(
                 final_post_array, model_id=model_id, username=user_name
             )
@@ -601,7 +605,10 @@ async def purchase_checker_runner():
             )
             await process_post_media(user_name, model_id, final_post_array)
             if settings.get_settings().scan_trial_links:
-                trial_links.scan_posts(final_post_array, user_name)
+                trial_links.scan_posts(
+                    final_post_array, user_name,
+                    min_date=_parse_trial_min_date(),
+                )
             await make_changes_to_content_tables(
                 final_post_array, model_id=model_id, username=user_name
             )
@@ -695,6 +702,18 @@ async def stories_check_retriver(forced=False):
                 map(lambda x: posts_.Post(x, model_id, user_name, "stories"), stories)
             )
             yield user_name, model_id, stories + highlights_
+
+
+def _parse_trial_min_date():
+    """Parse --trial-min-date setting, return datetime or None."""
+    raw = settings.get_settings().trial_min_date
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw.strip(), "%Y-%m-%d")
+    except ValueError:
+        log.warning(f"Invalid --trial-min-date '{raw}', expected YYYY-MM-DD. Ignoring.")
+        return None
 
 
 def _ensure_models_loaded():

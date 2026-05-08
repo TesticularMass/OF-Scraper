@@ -109,6 +109,12 @@ scan_trial_links = click.option(
     default=False,
 )
 
+trial_min_date = click.option(
+    "--trial-min-date",
+    help="Only report trial links from posts on or after this date (YYYY-MM-DD)",
+    default=None,
+)
+
 subscription_status_option = click.option(
     "-ss",
     "--subscription-status",

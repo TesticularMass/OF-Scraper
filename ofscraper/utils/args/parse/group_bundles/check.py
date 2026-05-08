@@ -8,6 +8,7 @@ from ofscraper.utils.args.parse.arguments.check import (
     text_option,
     check_mode_media_sort,
     scan_trial_links,
+    trial_min_date,
     subscription_status_option,
 )
 from ofscraper.utils.args.parse.arguments.metadata_filters import (
@@ -56,6 +57,7 @@ def common_args_check(func):
     @logging_options
     @download_options
     @scan_trial_links
+    @trial_min_date
     @subscription_status_option
     @click.option_group(
         "Download Filter Options",
