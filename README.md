@@ -182,10 +182,10 @@ ofscraper db info
 
 ```bash
 # Pull the image
-docker pull datawhores/ofscraper
+docker pull testicularmass/ofscraper
 
 # Run with mounted config
-docker run -v ~/.config/ofscraper:/root/.config/ofscraper datawhores/ofscraper
+docker run -v ~/.config/ofscraper:/root/.config/ofscraper testicularmass/ofscraper
 ```
 
 ## Contributing

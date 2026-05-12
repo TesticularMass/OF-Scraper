@@ -17,6 +17,26 @@ log = logging.getLogger("shared")
 _DB_POOL = ThreadPoolExecutor(max_workers=1)
 
 
+def _is_network_path(db_path: pathlib.Path) -> bool:
+    """Detect SMB/UNC network paths where WAL mode is unreliable."""
+    resolved = str(db_path.resolve())
+    return resolved.startswith("\\\\") or resolved.startswith("//")
+
+
+def _configure_db_connection(conn, is_network: bool):
+    """Apply PRAGMAs. Skip WAL and mmap on network paths — SMB breaks them."""
+    if is_network:
+        conn.execute("PRAGMA journal_mode=DELETE;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        # mmap and large cache_size are unsafe on network drives
+    else:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA mmap_size=268435456;")
+        conn.execute("PRAGMA cache_size=-32768;")
+    conn.row_factory = sqlite3.Row
+
+
 def operation_wrapper_async(func: abc.Callable):
     async def inner(*args, **kwargs):
         loop = asyncio.get_running_loop()
@@ -44,17 +64,12 @@ def operation_wrapper_async(func: abc.Callable):
                     database_path, check_same_thread=False, timeout=db_timeout
                 )
 
-                # 1. Set the PRAGMAs FIRST (Configure the engine)
-                conn.execute("PRAGMA journal_mode=WAL;")
-                conn.execute("PRAGMA synchronous=NORMAL;")
-                conn.execute("PRAGMA mmap_size=268435456;")
-                conn.execute("PRAGMA cache_size=-32768;")
-                conn.row_factory = sqlite3.Row
+                _configure_db_connection(conn, _is_network_path(database_path))
 
-                # 2. THEN grab the write lock
+                # grab the write lock
                 conn.execute("BEGIN IMMEDIATE;")
 
-                # 3. Execute the database logic
+                # Execute the database logic
                 result = func(*args, **kwargs, conn=conn)
                 return result
 
@@ -94,20 +109,11 @@ def operation_wrapper(func: abc.Callable):
             ).resolve()
             database_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Apply the user-configurable timeout for synchronous calls
             conn = sqlite3.connect(
                 database_path, check_same_thread=True, timeout=db_timeout
             )
 
-            # 1. Set the PRAGMAs FIRST
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
-
-            # The RAM-Safe Speed Boosters
-            conn.execute("PRAGMA mmap_size=268435456;")
-            conn.execute("PRAGMA cache_size=-32768;")
-
-            conn.row_factory = sqlite3.Row
+            _configure_db_connection(conn, _is_network_path(database_path))
 
             conn.execute("BEGIN IMMEDIATE;")
 
