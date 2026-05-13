@@ -175,7 +175,12 @@ class Media(base.base):
     def numeric_duration(self):
         if not self.duration:
             return "N/A"
-        return str((arrow.get(self.duration) - arrow.get(0)))
+        total_seconds = int(self.duration)
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes}:{seconds:02d}"
 
     @property
     def url(self):
@@ -411,7 +416,7 @@ class Media(base.base):
         filename = re.sub(r"\.mpd$", "", filename_part)
 
         if self.responsetype == "Profile":
-            date_str = arrow.get(self.date).format("YYYY_MM_DD")
+            date_str = arrow.get(self.date).format("YYYY_MM_DD") if self.date else "unknown_date"
             return f"{filename}_{date_str}"
         return filename
 
@@ -572,10 +577,10 @@ class Media(base.base):
 
     def get_text(self):
         if self.responsetype != "Profile":
-            date_str = arrow.get(self.date).format(data.get_date())
+            date_str = arrow.get(self.date).format(data.get_date()) if self.date else "unknown_date"
             text = self._post.file_sanitized_text or self.filename or date_str
         else:
-            date_str = arrow.get(self.date).format()
+            date_str = arrow.get(self.date).format() if self.date else "unknown_date"
             text = f"{date_str} {self.text or self.filename}"
         return text
 

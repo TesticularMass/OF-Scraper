@@ -249,6 +249,8 @@ class Post(base.base):
 
     @property
     def formatted_date(self):
+        if not self.date:
+            return None
         return arrow.get(self.date).format("YYYY-MM-DD hh:mm:ss")
 
     @property

@@ -295,7 +295,7 @@ def create_all_paid_dict(paid_content):
 
 
 def get_individual_paid_post(username, model_id, postid):
-    data = get_paid_posts(username, model_id)
+    data = get_paid_posts(model_id, username)
     postid = int(postid)
     posts = list(filter(lambda x: int(x.get("id")) == postid, data))
     return posts[0] if posts else None

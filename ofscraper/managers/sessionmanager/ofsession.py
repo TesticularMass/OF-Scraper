@@ -289,7 +289,7 @@ class cdm_session_manual(OFSessionManager):
 
 
 class like_session(OFSessionManager):
-    """A session manager for manual CDM operations, using OFSessionManager presets."""
+    """A session manager for like/unlike operations, using OFSessionManager presets."""
 
     def __init__(
         self,

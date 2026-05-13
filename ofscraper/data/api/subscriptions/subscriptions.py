@@ -46,24 +46,25 @@ async def get_subscriptions(subscribe_count, account="active"):
 @run
 async def get_all_subscriptions(subscribe_count, account="active"):
     if account == "active":
-        return await get_all_activive_subscriptions(subscribe_count)
+        return await get_all_active_subscriptions(subscribe_count)
     else:
         return await get_all_expired_subscriptions(subscribe_count)
 
 
-async def get_all_activive_subscriptions(subscribe_count):
+async def get_all_active_subscriptions(subscribe_count):
     async with manager.Manager.session.aget_subscription_session(
         sem_count=of_env.getattr("SUBSCRIPTION_SEMS"),
     ) as c:
-        # Pass the generator function as a list to the orchestrator
-        return await process_task([scrape_subscriptions_active(c)])
+        # Delegate to activeHelper which handles multi-pass for large counts
+        return await activeHelper(subscribe_count, c)
 
 
 async def get_all_expired_subscriptions(subscribe_count):
     async with manager.Manager.session.aget_subscription_session(
         sem_count=of_env.getattr("SUBSCRIPTION_SEMS"),
     ) as c:
-        return await process_task([scrape_subscriptions_disabled(c)])
+        # Delegate to expiredHelper which handles multi-pass for large counts
+        return await expiredHelper(subscribe_count, c)
 
 
 async def _needs_multi_pass(subscribe_count):

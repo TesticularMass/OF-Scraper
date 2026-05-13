@@ -110,7 +110,6 @@ class databasePlaceholder(basePlaceholder):
         self._variables.update({"first_letter": model_username[0].capitalize()})
         self._variables.update({"model_id": model_id})
         self.add_no_underline()
-        globals().update(self._variables)
         log.trace(
             f"modelid:{model_id}  database placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
         )
@@ -245,7 +244,6 @@ class Placeholders(basePlaceholder):
         model_id = ele.model_id
         root = pathlib.Path(root or common_paths.get_save_location())
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
         log.trace(
             f"modelid:{model_id}  mediadir placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
         )
@@ -268,7 +266,6 @@ class Placeholders(basePlaceholder):
         model_id = ele.model_id
         self._variables.update({"ext": ext})
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
         log.trace(
             f"model_id:{model_id}  filename placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
         )
@@ -451,7 +448,6 @@ class Textholders(basePlaceholder):
         model_id = ele.model_id
         root = pathlib.Path(root or common_paths.get_save_location())
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
         log.trace(
             f"modelid:{model_id}  mediadir placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
         )
@@ -473,7 +469,6 @@ class Textholders(basePlaceholder):
         model_id = ele.model_id
         self._variables.update({"ext": ext})
         await self.add_common_variables(ele, username, model_id)
-        globals().update(self._variables)
         log.trace(
             f"model_id:{model_id}  filename placeholders {list(filter(lambda x:x[0] in set(list(self._variables.keys())),list(locals().items())))}"
         )

@@ -424,41 +424,18 @@ async def post_check_retriver(forced=False):
                     model_id=model_id,
                     username=user_name,
                 )
-                all_post_data = []
-                for ele in [
-                    pinned_data,
-                    archived_data,
-                    labels_data,
-                    timeline_data,
-                    streams_data,
-                ]:
-                    if ele == timeline_data:
-
-                        all_post_data.append(
-                            timeline.filter_timeline_post(
-                                list(
-                                    map(
-                                        lambda x: posts_.Post(x, model_id, user_name),
-                                        timeline_data,
-                                    )
-                                )
-                            )
-                        )
-                    else:
-                        all_post_data.append(
-                            map(lambda x: posts_.Post(x, model_id, user_name), ele)
-                        )
-
-                all_post_data = list(
-                    map(
+                # Apply timeline filtering, wrap everything else as Post objects
+                filtered_timeline = timeline.filter_timeline_post(
+                    list(map(
                         lambda x: posts_.Post(x, model_id, user_name),
-                        pinned_data
-                        + archived_data
-                        + labels_data
-                        + timeline_data
-                        + streams_data,
-                    )
+                        timeline_data,
+                    ))
                 )
+                other_posts = list(map(
+                    lambda x: posts_.Post(x, model_id, user_name),
+                    pinned_data + archived_data + labels_data + streams_data,
+                ))
+                all_post_data = other_posts + filtered_timeline
 
                 yield user_name, model_id, all_post_data
         # individual links

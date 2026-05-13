@@ -71,6 +71,7 @@ def operation_wrapper_async(func: abc.Callable):
 
                 # Execute the database logic
                 result = func(*args, **kwargs, conn=conn)
+                conn.commit()  # Auto-commit if func succeeded without exception
                 return result
 
             except Exception as E:
@@ -117,7 +118,9 @@ def operation_wrapper(func: abc.Callable):
 
             conn.execute("BEGIN IMMEDIATE;")
 
-            return func(*args, **kwargs, conn=conn)
+            result = func(*args, **kwargs, conn=conn)
+            conn.commit()  # Auto-commit if func succeeded without exception
+            return result
 
         except sqlite3.OperationalError as E:
             log.info(f"Database is busy. Current timeout is {db_timeout}s.")

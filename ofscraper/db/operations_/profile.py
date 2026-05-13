@@ -89,11 +89,6 @@ SELECT DISTINCT user_id FROM profiles
 
 @wrapper.operation_wrapper_async
 def get_profile_info(model_id=None, username=None, conn=None, **kwargs) -> list:
-    database_path = placeholder.databasePlaceholder().databasePathHelper(
-        model_id, username
-    )
-    if not pathlib.Path(database_path).exists():
-        return None
     with contextlib.closing(conn.cursor()) as cur:
         try:
             cur.execute(userNameList, ([model_id]))
