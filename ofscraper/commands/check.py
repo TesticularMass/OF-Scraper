@@ -688,13 +688,13 @@ async def stories_check_retriver(forced=False):
 
 
 def _parse_trial_min_date():
-    """Parse --trial-min-date setting, return datetime or None."""
+    """Parse --trial-min-date setting, return arrow object or None."""
     raw = settings.get_settings().trial_min_date
     if not raw:
         return None
     try:
-        return datetime.strptime(raw.strip(), "%Y-%m-%d")
-    except ValueError:
+        return arrow.get(raw.strip(), "YYYY-MM-DD")
+    except Exception:
         log.warning(f"Invalid --trial-min-date '{raw}', expected YYYY-MM-DD. Ignoring.")
         return None
 
