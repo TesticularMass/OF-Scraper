@@ -126,6 +126,22 @@ async def download(c, ele, model_id, username):
         common_globals.log.debug(f"{get_medialog(ele)} Download finished")
         return data
     except Exception as E:
+        if getattr(E, "status", None) == 403 or (hasattr(E, "message") and "Forbidden" in str(E.message)):
+            common_globals.log.info(f"{get_medialog(ele)} 403 Forbidden error detected. Attempting to refresh media signatures.")
+            success = await ele.refresh_media(c)
+            if success:
+                try:
+                    if ele.url:
+                        data = await MainDownloadManager().main_download(c, ele, username, model_id)
+                    elif ele.mpd:
+                        data = await AltDownloadManager().alt_download(c, ele, username, model_id)
+                    return data
+                except Exception as retry_E:
+                    common_globals.log.debug(f"{get_medialog(ele)} exception on retry {retry_E}")
+                    common_globals.log.debug(f"{get_medialog(ele)} exception on retry {traceback.format_exc()}")
+            else:
+                common_globals.log.warning(f"{get_medialog(ele)} Failed to refresh media signatures. Skipping.")
+                
         common_globals.log.debug(f"{get_medialog(ele)} exception {E}")
         common_globals.log.debug(
             f"{get_medialog(ele)} exception {traceback.format_exc()}"

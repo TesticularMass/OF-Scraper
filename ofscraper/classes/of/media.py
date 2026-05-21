@@ -62,6 +62,78 @@ class Media(base.base):
         self.download_succeeded = False
         self.update_download_status()
 
+    async def refresh_media(self, c):
+        """
+        Attempts to fetch a fresh copy of the post metadata from the API
+        to update expired CDN URLs and CloudFront signatures.
+        """
+        import traceback
+        try:
+            self._log.debug(f"{self.id} attempting to refresh media signatures")
+            post_type = self.post.responsetype.lower()
+            post_id = self.post.id
+            model_id = self.post.model_id
+            
+            new_post_data = None
+            
+            # Map the response type to the correct API fetcher
+            if post_type in ["timeline", "pinned", "archived"]:
+                url = of_env.getattr("INDIVIDUAL_TIMELINE").format(post_id)
+                async with c.requests_async(url=url) as r:
+                    new_post_data = await r.json_()
+            
+            elif post_type == "messages":
+                url = of_env.getattr("messageSPECIFIC").format(model_id, post_id)
+                async with c.requests_async(url=url) as r:
+                    data = await r.json_()
+                    posts = data.get("list", [])
+                    new_post_data = posts[0] if posts else None
+                    
+            elif post_type in ["highlights", "stories"]:
+                url = of_env.getattr("storyEP").format(post_id)
+                async with c.requests_async(url=url) as r:
+                    resp_data = await r.json_()
+                    stories = resp_data.get("stories", []) if isinstance(resp_data, dict) else []
+                    # Find the specific story within the list that matches the post_id
+                    for s in stories:
+                        if str(s.get("id")) == str(post_id):
+                            new_post_data = s
+                            break
+                    if not new_post_data and stories:
+                        new_post_data = stories[0]
+
+            else:
+                self._log.debug(f"{self.id} unsupported refresh post type: {post_type}")
+                return False
+                
+            if new_post_data and not new_post_data.get("error"):
+                # Update the parent Post object's raw data
+                self.post._post = new_post_data
+                
+                # Update this media object's raw data
+                media_list = new_post_data.get("media", [])
+                
+                # Sometimes the post *is* the media (like in highlights)
+                if not media_list and new_post_data.get("type") in ["video", "photo", "gif"]:
+                    media_list = [new_post_data]
+
+                for m in media_list:
+                    if str(m.get("id")) == str(self.id):
+                        self._media = m
+                        self._log.debug(f"{self.id} successfully refreshed media signatures")
+                        
+                        # Clear the mpd cache so it gets reparsed with new signatures
+                        self._cached_mpd = None
+                        return True
+                        
+                self._log.debug(f"{self.id} media not found in refreshed post data")
+                
+            return False
+            
+        except Exception as E:
+            self._log.traceback_(E)
+            self._log.traceback_(traceback.format_exc())
+            return False
     def mark_download_skipped(self):
         """Sets the flags to represent a skipped download."""
         self.download_attempted = False

@@ -141,6 +141,11 @@ class AltDownloadManager(DownloadManager):
                     )
                     raise E
                 except Exception as E:
+                    if getattr(E, "status", None) == 403 or (hasattr(E, "message") and "Forbidden" in str(E.message)):
+                        common_globals.log.info(f"{get_medialog(ele)} 403 Forbidden error detected inside alt download loop. Attempting to refresh media signatures.")
+                        await ele.refresh_media(c)
+                        continue
+                    
                     common_globals.log.traceback_(
                         f"{get_medialog(ele)} [attempt {_attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
                     )
