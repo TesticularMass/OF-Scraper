@@ -612,6 +612,7 @@ class sessionManager:
         wait_min = kwargs.get("wait_min") or self._wait_min
         wait_max = kwargs.get("wait_max") or self._wait_max
 
+        r = None
         async for _ in AsyncRetrying(
             stop=tenacity.stop.stop_after_attempt(retries),
             wait=tenacity.wait_random(min=wait_min, max=wait_max),
@@ -669,13 +670,14 @@ class sessionManager:
                             )
                             raise SystemExit("OnlyFans Maintenance detected.")
                         r.raise_for_status()
-                    self._sem.release()
-                    yield r
-                    return
                 except Exception as E:
                     await self._async_handle_error(E, exceptions)
-                    self._sem.release()
                     raise E
+                finally:
+                    self._sem.release()
+                    
+        if r is not None:
+            yield r
 
     @property
     def sleep(self):
