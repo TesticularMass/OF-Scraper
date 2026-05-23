@@ -101,7 +101,6 @@ async def consumer(aws, task1, medialist, lock):
                     refresh=True,
                     advance=1,
                 )
-                await asyncio.sleep(1)
             except Exception as e:
                 common_globals.log.info(
                     f"{get_medialog(ele)} Download Failed because\n{e}"
