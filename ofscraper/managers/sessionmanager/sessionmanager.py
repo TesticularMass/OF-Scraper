@@ -183,16 +183,17 @@ class SessionSleep:
 
     def toomany_req(self):
         log = logging.getLogger("shared")
-        if not self._sleep:
-            self._sleep = self._init_sleep if self._init_sleep > 0 else 1
+        time_since_last = arrow.now().float_timestamp - self._last_date.float_timestamp
+        
+        if not self._sleep or self._sleep < 1.0:
+            # Instantly jump to at least 5 seconds, or higher if configured, to prevent 1-second infinite hammering
+            self._sleep = max(self._init_sleep if self._init_sleep > 0 else 1.0, 5.0)
             log.debug(
-                f"SessionSleep: Backoff triggered => setting sleep to starting value: [{self._sleep:.2f} seconds] due to {self.error_name} error"
+                f"SessionSleep: Backoff triggered => setting sleep to [{self._sleep:.2f} seconds] due to {self.error_name} error"
             )
-        elif (
-            arrow.now().float_timestamp - self._last_date.float_timestamp < self._difmin
-        ):
+        elif time_since_last < self._sleep:
             log.debug(
-                f"SessionSleep: Backoff => not changing sleep [{self._sleep:.2f} seconds], last {self.error_name} error was less than {self._difmin}s ago"
+                f"SessionSleep: Backoff => not changing sleep [{self._sleep:.2f} seconds], last {self.error_name} error was {time_since_last:.2f}s ago (less than current sleep)"
             )
             return
         else:
