@@ -120,66 +120,54 @@ class SessionSleep:
             )
 
     async def async_do_sleep(self):
+        sleep_amount = 0
         async with self._alock:
             self._maybe_decay_sleep()
-
-            # 1. Backoff mode (We hit an error, take a long nap)
-            if self._sleep and self._sleep > self._min_sleep:
-                logging.getLogger("shared").debug(
-                    f"SessionSleep: Backoff [{self._sleep:.2f}s] due to {self.error_name} errors"
-                )
-                await asyncio.sleep(self._sleep)
-                self._last_request_time = arrow.now()
-                return True
-
-            # 2. Pacing mode (Ensure we don't hit the API too fast)
-            elif self._min_sleep and self._min_sleep > 0:
-                time_since_last = (
-                    arrow.now() - self._last_request_time
-                ).total_seconds()
-                wait_time = self._min_sleep - time_since_last
-
+            
+            target_interval = self._sleep if (self._sleep and self._sleep > self._min_sleep) else self._min_sleep
+            if target_interval and target_interval > 0:
+                time_since_last = (arrow.now() - self._last_request_time).total_seconds()
+                wait_time = target_interval - time_since_last
                 if wait_time > 0:
-                    logging.getLogger("shared").debug(
-                        f"SessionSleep: Pacing [{wait_time:.2f}s] due to {self.error_name} limit"
-                    )
-                    await asyncio.sleep(wait_time)
+                    sleep_amount = wait_time
 
+            if sleep_amount > 0:
+                self._last_request_time = arrow.now().shift(seconds=sleep_amount)
+            else:
                 self._last_request_time = arrow.now()
-                return True
 
-            self._last_request_time = arrow.now()
-            return False
+        if sleep_amount > 0:
+            logging.getLogger("shared").debug(
+                f"SessionSleep: Pacing/Backoff [{sleep_amount:.2f}s] due to {self.error_name} limits"
+            )
+            await asyncio.sleep(sleep_amount)
+
+        return sleep_amount > 0
 
     def do_sleep(self):
+        sleep_amount = 0
         with self._lock:
             self._maybe_decay_sleep()
-
-            # 1. Backoff mode
-            if self._sleep and self._sleep > self._min_sleep:
-                logging.getLogger("shared").debug(
-                    f"SessionSleep: Backoff [{self._sleep:.2f}s] due to {self.error_name} errors"
-                )
-                time.sleep(self._sleep)
-                self._last_request_time = arrow.now()
-                return True
-
-            # 2. Pacing mode
-            elif self._min_sleep and self._min_sleep > 0:
-                time_since_last = (
-                    arrow.now() - self._last_request_time
-                ).total_seconds()
-                wait_time = self._min_sleep - time_since_last
+            
+            target_interval = self._sleep if (self._sleep and self._sleep > self._min_sleep) else self._min_sleep
+            if target_interval and target_interval > 0:
+                time_since_last = (arrow.now() - self._last_request_time).total_seconds()
+                wait_time = target_interval - time_since_last
                 if wait_time > 0:
-                    logging.getLogger("shared").debug(
-                        f"SessionSleep: Pacing [{wait_time:.2f}s] due to {self.error_name} limit"
-                    )
-                    time.sleep(wait_time)
-                self._last_request_time = arrow.now()
-                return True
+                    sleep_amount = wait_time
 
-            self._last_request_time = arrow.now()
-            return False
+            if sleep_amount > 0:
+                self._last_request_time = arrow.now().shift(seconds=sleep_amount)
+            else:
+                self._last_request_time = arrow.now()
+
+        if sleep_amount > 0:
+            logging.getLogger("shared").debug(
+                f"SessionSleep: Pacing/Backoff [{sleep_amount:.2f}s] due to {self.error_name} limits"
+            )
+            time.sleep(sleep_amount)
+            
+        return sleep_amount > 0
 
     def toomany_req(self):
         log = logging.getLogger("shared")
