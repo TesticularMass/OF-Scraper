@@ -33,7 +33,7 @@ class Media(base.base):
         self._post = post
         self._final_url = None
         self._mpd = None
-        self._log = None
+        self._log = log
         self._hls = None
         self._lock = asyncio.Lock()
         self._cached_mpd = None

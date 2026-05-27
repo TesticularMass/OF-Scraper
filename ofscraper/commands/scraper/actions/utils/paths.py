@@ -63,7 +63,7 @@ def addLocalDir(path):
 
 def set_time(path, timestamp):
     if platform.system() == "Windows":
-        setctime(path, timestamp)
+        setctime(str(path), timestamp)
     os.utime(path, (timestamp, timestamp))
 
 

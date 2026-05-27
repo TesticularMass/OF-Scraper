@@ -114,7 +114,9 @@ async def process_dicts(username, model_id, medialist, posts):
             )
             common_globals.thread.shutdown()
 
-        setDirectoriesDate()
+        await asyncio.get_running_loop().run_in_executor(
+            None, setDirectoriesDate
+        )
         progress_updater.download.remove_overall_task(task1)
         return (
             common_globals.video_count,
