@@ -114,8 +114,14 @@ async def process_dicts(username, model_id, medialist, posts):
             )
             common_globals.thread.shutdown()
 
-        await asyncio.get_running_loop().run_in_executor(
-            None, setDirectoriesDate
+        # Capture the current directories and clear the global set so it doesn't grow O(N^2)
+        dirSet = set(common_globals.dirSet)
+        common_globals.dirSet.clear()
+        
+        # Fire and forget the directory timestamp updates so we don't block the UI
+        # on slow network drives
+        asyncio.get_running_loop().run_in_executor(
+            None, setDirectoriesDate, dirSet
         )
         progress_updater.download.remove_overall_task(task1)
         return (

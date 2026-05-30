@@ -67,15 +67,18 @@ def set_time(path, timestamp):
     os.utime(path, (timestamp, timestamp))
 
 
-def setDirectoriesDate(log=None):
+def setDirectoriesDate(dirSet=None, log=None):
     log = log or common_globals.log
     log.info("Setting Date for modified directories")
     output = set()
     rootDir = pathlib.Path(common_paths.get_save_location())
-    log.debug(f"Original DirSet {list(common_globals.dirSet)}")
+    
+    # Use provided dirSet or fallback to global
+    target_dirSet = dirSet if dirSet is not None else common_globals.dirSet
+    log.debug(f"Original DirSet {list(target_dirSet)}")
     log.debug(f"rootDir {rootDir}")
 
-    for ele in common_globals.dirSet:
+    for ele in target_dirSet:
         output.add(ele)
         while not os.path.samefile(ele, rootDir) and not os.path.samefile(
             ele.parent, rootDir
