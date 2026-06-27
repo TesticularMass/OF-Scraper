@@ -8,12 +8,14 @@ import ofscraper.utils.paths.common as common_paths
 import ofscraper.utils.settings as settings
 from ofscraper.utils.logs.classes.handlers.discord import DiscordHandler
 
-# Global listener so we can cleanly stop/flush it on shutdown
+# Global listener and queue so we can cleanly stop/flush it on shutdown, and share it across loggers
 log_queue_listener = None
+log_queue = queue.Queue()
 
 
 def add_other_handler(log, clear=True):
     global log_queue_listener
+    global log_queue
 
     if clear:
         log.handlers.clear()
@@ -53,8 +55,7 @@ def add_other_handler(log, clear=True):
             fh2.addFilter(log_class.TraceBackOnly())
             file_handlers.append(fh2)
 
-        # 3. Create the Memory Queue and attach it to the logger
-        log_queue = queue.Queue()
+        # 3. Use the global Memory Queue and attach it to the logger
         queue_handler = QueueHandler(log_queue)
         log.addHandler(queue_handler)
 
