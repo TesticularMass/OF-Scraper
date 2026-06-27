@@ -329,6 +329,7 @@ class AltDownloadManager(DownloadManager):
             ffmpeg_cmd,
             name="ffmpeg",
             level=of_env.getattr("FFMPEG_SUBPROCESS_LEVEL"),
+            capture_output=True,
         )
 
         # Fallback error check if stderr is captured and Output is missing

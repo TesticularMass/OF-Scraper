@@ -78,6 +78,7 @@ async def un_encrypt(item, c, ele, input_=None):
             ],
             level=env.getattr("FFMPEG_SUBPROCESS_LEVEL"),
             name="ffmpeg",
+            capture_output=True,
         )
         if not pathlib.Path(newpath).exists():
             log.debug(f"{get_medialog(ele)} ffmpeg {r.stderr.decode()}")
