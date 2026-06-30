@@ -30,7 +30,11 @@ def set_live(new_live):
 def stop_live():
     global live
     if live:
-        live.stop()
+        if live.is_started:
+            try:
+                live.stop()
+            except Exception:
+                pass
         live = None
 
 def start_live(refresh=True):
