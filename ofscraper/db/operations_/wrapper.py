@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import logging
 import pathlib
 import sqlite3
@@ -15,6 +16,7 @@ log = logging.getLogger("shared")
 
 # Shared pool with 1 worker to serialize DB writes and prevent "database is locked" errors
 _DB_POOL = ThreadPoolExecutor(max_workers=1)
+atexit.register(lambda: _DB_POOL.shutdown(wait=False))
 
 
 def _is_network_path(db_path: pathlib.Path) -> bool:
@@ -81,7 +83,7 @@ def operation_wrapper_async(func: abc.Callable):
                 if conn:
                     try:
                         conn.close()
-                    except Exception:
+                    except sqlite3.Error:
                         pass
 
         # Submit the safe retry block to the single-worker pool
@@ -134,7 +136,7 @@ def operation_wrapper(func: abc.Callable):
             if conn:
                 try:
                     conn.close()
-                except Exception:
+                except sqlite3.Error:
                     pass
 
     return inner

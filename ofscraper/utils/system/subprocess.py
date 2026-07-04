@@ -115,7 +115,7 @@ async def async_run(
         try:
             stream.write(data)
             await stream.drain()
-        except Exception:
+        except (BrokenPipeError, ConnectionResetError):
             pass # Silently swallow Broken Pipe errors if script ignores stdin
         finally:
             try:
@@ -125,8 +125,9 @@ async def async_run(
 
     try:
         # 1. Start feeding stdin in the background
+        in_task = None
         if input is not None:
-            asyncio.create_task(_feed_stdin(process.stdin, input))
+            in_task = asyncio.create_task(_feed_stdin(process.stdin, input))
         
         # 2. Read stdout and stderr concurrently
         out_task = asyncio.create_task(_read_stream(process.stdout))
@@ -138,6 +139,8 @@ async def async_run(
         # 4. Gather the exact output
         stdout = await out_task
         stderr = await err_task
+        if in_task:
+            await in_task
 
     except asyncio.TimeoutError:
         process.kill()
