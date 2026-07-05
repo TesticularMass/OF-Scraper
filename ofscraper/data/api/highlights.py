@@ -248,7 +248,9 @@ async def scrape_highlight_list(c, user_id, offset=0):
                 yield data
                 if not resp_data.get("hasMore"):
                     break
-                current_offset += len(data)
+                # OF uses absolute offsets: server-skipped items still occupy
+                # slots, so advance by the URL's limit=5, not len(returned)
+                current_offset += 5
         except Exception as E:
             log.traceback_(E)
             break

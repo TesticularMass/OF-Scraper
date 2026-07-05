@@ -730,10 +730,12 @@ class Media(base.base):
 
         kId = None
         for prot in adapt_set.content_protections:
-            if prot.value is None:
+            if prot.value is None and prot.pssh:
                 kId = prot.pssh[0].pssh
                 break
 
+        if not selected_repr.base_urls:
+            return None
         origname = f"{selected_repr.base_urls[0].base_url_value}"
         return {
             "origname": origname,
@@ -753,11 +755,13 @@ class Media(base.base):
 
         kId = None
         for prot in adapt_set.content_protections:
-            if prot.value is None:
+            if prot.value is None and prot.pssh:
                 kId = prot.pssh[0].pssh
                 sensitive.add_sensitive_pattern(kId, "pssh_code")
                 break
 
+        if not selected_repr.base_urls:
+            return None
         origname = f"{selected_repr.base_urls[0].base_url_value}"
         return {
             "origname": origname,

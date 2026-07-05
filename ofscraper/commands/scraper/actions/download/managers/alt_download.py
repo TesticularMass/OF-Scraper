@@ -183,7 +183,11 @@ class AltDownloadManager(DownloadManager):
             params = get_alt_params(ele)
             base_url = re.sub(r"[0-9a-z]*\.mpd$", "", ele.mpd, flags=re.IGNORECASE)
             url = f"{base_url}{item['origname']}"
-            headers = {"Cookie": f"{ele.hls_header}{auth_requests.get_cookies_str()}"}
+            # Merge the cookie into the resume headers; assignment here used to
+            # overwrite the Range header, so resumed segments re-downloaded from
+            # byte 0 and got appended to the existing partial file
+            headers = headers or {}
+            headers["Cookie"] = f"{ele.hls_header}{auth_requests.get_cookies_str()}"
             common_globals.log.debug(
                 f"{get_medialog(ele)} [attempt {self._alt_attempt_get(item).get()}/{get_download_retries()}] Downloading media with url  {ele.mpd}"
             )
@@ -195,7 +199,13 @@ class AltDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as l:
-                item["total"] = int(l.headers.get("content-length"))
+                # 206 content-length only covers the remaining bytes
+                content_length = int(l.headers.get("content-length") or 0)
+                item["total"] = (
+                    resume_size + content_length
+                    if l.status == 206
+                    else content_length
+                )
                 total = item["total"]
 
                 data = {
@@ -217,6 +227,12 @@ class AltDownloadManager(DownloadManager):
                     total = item["total"]
                     return item
                 elif total != resume_size:
+                    if l.status != 206 and resume_size:
+                        # Server ignored the Range header and sent the full body;
+                        # appending it to the partial file would corrupt it
+                        pathlib.Path(placeholderObj.tempfilepath).unlink(
+                            missing_ok=True
+                        )
                     await self._download_fileobject_writer(
                         total, l, ele, placeholderObj, item
                     )
@@ -236,25 +252,6 @@ class AltDownloadManager(DownloadManager):
         common_globals.log.debug(
             f"{get_medialog(ele)} [attempt {self._alt_attempt_get(item).get()}/{get_download_retries()}] finished writing media to disk"
         )
-
-    async def _download_fileobject_writer_reader(self, ele, total, res, placeholderObj):
-        task1 = await self._add_download_job_task(
-            ele, total=total, placeholderObj=placeholderObj
-        )
-        fileobject = await aiofiles.open(placeholderObj.tempfilepath, "ab").__aenter__()
-        try:
-            await fileobject.write(await res.read_())
-        except Exception as E:
-            raise E
-        finally:
-            try:
-                await fileobject.close()
-            except Exception as E:
-                raise E
-            try:
-                await self._remove_download_job_task(task1, ele)
-            except Exception as E:
-                raise E
 
     async def _download_fileobject_writer_streamer(
         self, ele, total, res, placeholderObj
@@ -332,6 +329,20 @@ class AltDownloadManager(DownloadManager):
             capture_output=True,
         )
 
+        if t.returncode != 0:
+            common_globals.log.debug(
+                f"{common_logs.get_medialog(ele)} ffmpeg merge failed with returncode {t.returncode}"
+            )
+            common_globals.log.debug(
+                f"{common_logs.get_medialog(ele)} ffmpeg {t.stderr.decode()}"
+            )
+            common_globals.log.debug(
+                f"{common_logs.get_medialog(ele)} ffmpeg {t.stdout.decode()}"
+            )
+            # keep the source tracks so a retry can re-merge them
+            temp_path.unlink(missing_ok=True)
+            raise Exception("ffmpeg DRM merge failed")
+
         # Fallback error check if stderr is captured and Output is missing
         if t.stderr and t.stderr.decode().find("Output") == -1:
             common_globals.log.debug(f"{common_logs.get_medialog(ele)} ffmpeg failed")
@@ -342,12 +353,6 @@ class AltDownloadManager(DownloadManager):
                 f"{common_logs.get_medialog(ele)} ffmpeg {t.stdout.decode()}"
             )
 
-        # Clean up temp tracks
-        if video:
-            video["path"].unlink(missing_ok=True)
-        if audio:
-            audio["path"].unlink(missing_ok=True)
-
         expected_duration = ele.duration
         if not verify_media_integrity(temp_path, expected_duration):
             common_globals.log.warning(
@@ -355,6 +360,12 @@ class AltDownloadManager(DownloadManager):
             )
             temp_path.unlink(missing_ok=True)
             raise Exception("Merged DRM media failed integrity check")
+
+        # Clean up temp tracks only after the merged file is verified
+        if video:
+            video["path"].unlink(missing_ok=True)
+        if audio:
+            audio["path"].unlink(missing_ok=True)
 
         common_globals.log.debug(
             f"Moving intermediate path {temp_path} to {sharedPlaceholderObj.trunicated_filepath}"

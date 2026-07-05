@@ -289,6 +289,9 @@ def create_all_paid_dict(paid_content):
     user_dict = {}
     for ele in paid_content:
         user_id = ele.get("fromUser", {}).get("id") or ele.get("author", {}).get("id")
+        if user_id is None:
+            log.debug(f"paid item {ele.get('id')} has no fromUser/author id, skipping")
+            continue
         user_dict.setdefault(str(user_id), []).append(ele)
     [update_check(val, key, None, API) for key, val in user_dict.items()]
     return user_dict

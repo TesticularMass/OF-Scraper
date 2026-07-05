@@ -59,10 +59,12 @@ class DownloadManager:
             self.total = new_total
 
     def _get_resume_header(self, resume_size, total):
+        # Open-ended range: an explicit end of {total} was off-by-one (end byte
+        # is inclusive) and the cached total may be stale anyway
         return (
             None
             if not resume_size or not total
-            else {"Range": f"bytes={resume_size}-{total}"}
+            else {"Range": f"bytes={resume_size}-"}
         )
 
     def _get_resume_size(

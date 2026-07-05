@@ -164,7 +164,11 @@ class MainDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as r:
-                total = int(r.headers["content-length"])
+                # 206 content-length only covers the remaining bytes
+                content_length = int(r.headers.get("content-length") or 0)
+                total = (
+                    resume_size + content_length if r.status == 206 else content_length
+                )
                 data = {
                     "content-total": total,
                     "content-type": r.headers.get("content-type"),
@@ -188,7 +192,13 @@ class MainDownloadManager(DownloadManager):
                     total = 0
                     return (total, tempholderObj.tempfilepath, placeholderObj)
                 elif total != resume_size:
-                    self._resume_cleaner(resume_size, total, tempholderObj.tempfilepath)
+                    resume_size = self._resume_cleaner(
+                        resume_size, total, tempholderObj.tempfilepath
+                    )
+                    if r.status != 206 and resume_size:
+                        # Server ignored the Range header and sent the full body;
+                        # appending it to the partial file would corrupt it
+                        pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
                     await self._download_fileobject_writer(
                         r, ele, tempholderObj, placeholderObj, total
                     )
@@ -211,28 +221,6 @@ class MainDownloadManager(DownloadManager):
         common_globals.log.debug(
             f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] finished writing media to disk"
         )
-
-    async def _download_fileobject_writer_reader(
-        self, r, ele, tempholderObj, placeholderObj, total
-    ):
-        task1 = await self._add_download_job_task(
-            ele, total=total, tempholderObj=tempholderObj, placeholderObj=placeholderObj
-        )
-
-        fileobject = await aiofiles.open(tempholderObj.tempfilepath, "ab").__aenter__()
-        try:
-            await fileobject.write(await r.read_())
-        except Exception as E:
-            raise E
-        finally:
-            try:
-                await fileobject.close()
-            except Exception:
-                pass
-            try:
-                await self._remove_download_job_task(task1, ele)
-            except Exception:
-                pass
 
     async def _download_fileobject_writer_streamer(
         self, res, ele, tempholderObj, placeholderObj, total

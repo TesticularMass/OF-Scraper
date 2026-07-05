@@ -107,9 +107,10 @@ class Model:
     def subscribed(self):
         if not self.subscribed_data:
             return None
-        elif len(self.subscribed_data.get("subscribes", [])) == 0:
+        subscribes = self.subscribed_data.get("subscribes") or []
+        if len(subscribes) == 0:
             return self.subscribed_data.get("subscribeAt")
-        return self.subscribed_data.get("subscribes")[0].get("startDate")
+        return subscribes[0].get("startDate")
 
     @property
     def renewed(self):
@@ -125,7 +126,7 @@ class Model:
     @property
     def active(self):
         # 1. Permanent Active States
-        if self.subscribed_data and self.subscribed_data["status"] == "Set to Expire":
+        if self.subscribed_data and self.subscribed_data.get("status") == "Set to Expire":
             return True
         elif self.renewed:
             return True

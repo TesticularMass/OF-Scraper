@@ -245,7 +245,9 @@ async def scrape_labels(c, model_id, offset=0):
                 if not data.get("hasMore"):
                     break
 
-                current_offset += len(batch)
+                # OF uses absolute offsets: server-skipped items still occupy
+                # slots, so advance by the URL's limit=100, not len(returned)
+                current_offset += 100
         except Exception as E:
             log.traceback_(E)
             log.traceback_(traceback.format_exc())
@@ -299,7 +301,9 @@ async def scrape_posts_labels(c, label, model_id, offset=0):
                 if not data.get("hasMore"):
                     break
 
-                current_offset += len(batch)
+                # OF uses absolute offsets: server-skipped items still occupy
+                # slots, so advance by the URL's limit=100, not len(returned)
+                current_offset += 100
         except Exception as E:
             log.traceback_(E)
             log.traceback_(traceback.format_exc())

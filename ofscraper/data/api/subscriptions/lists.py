@@ -126,7 +126,7 @@ async def scrape_for_list(c, offset=0):
             )
             async with c.requests_async(url=url) as r:
                 data = await r.json_()
-                out_list = data["list"] or []
+                out_list = data.get("list") or []
                 log.debug(
                     f"offset:{current_offset} -> lists names found {list(map(lambda x:x['name'],out_list))}"
                 )
@@ -146,7 +146,9 @@ async def scrape_for_list(c, offset=0):
                 if not data.get("hasMore") or not out_list:
                     break
 
-                current_offset += len(out_list)
+                # OF uses absolute offsets: server-skipped items still occupy
+                # slots, so advance by the URL's limit=100, not len(returned)
+                current_offset += 100
 
         except asyncio.TimeoutError:
             log.debug(f"Task timed out {url}")
@@ -257,8 +259,10 @@ async def scrape_list_members(c, item, offset=0):
                 if "nextOffset" in data:
                     current_offset = data["nextOffset"]
                 else:
-                    # Fallback if nextOffset isn't present but hasMore is true
-                    current_offset += len(users)
+                    # Fallback if nextOffset isn't present but hasMore is true.
+                    # OF uses absolute offsets, so advance by the URL's
+                    # limit=100, not len(returned)
+                    current_offset += 100
 
         except asyncio.TimeoutError:
             log.debug(f"Task timed out {url}")

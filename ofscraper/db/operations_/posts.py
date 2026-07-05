@@ -157,7 +157,7 @@ def write_post_table_transition(
             "model_id",
             "is_deleted",
         )
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(postInsertTransition, insertData)
         conn.commit()
 

@@ -494,7 +494,7 @@ def write_media_table_transition(inputData, model_id=None, conn=None, **kwargs):
             "unlocked",
         ]
         inputData = _media_cleaup_helper(inputData)
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         curr.executemany(mediaInsertTransition, insertData)
         conn.commit()
 

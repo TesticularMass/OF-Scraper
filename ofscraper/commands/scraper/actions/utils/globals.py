@@ -10,8 +10,6 @@ import ofscraper.utils.logs.logger as logger
 
 attempt = None
 attempt2 = None
-total_count = None
-total_count2 = None
 innerlog = None
 localDirSet = None
 log = None
@@ -72,9 +70,5 @@ def mainProcessVariableInit():
 def set_up_contexvars():
     global attempt
     global attempt2
-    global total_count
-    global total_count2
     attempt = contextvars.ContextVar("attempt", default=0)
     attempt2 = contextvars.ContextVar("attempt2", default=0)
-    total_count = contextvars.ContextVar("total", default=0)
-    total_count2 = contextvars.ContextVar("total2", default=0)

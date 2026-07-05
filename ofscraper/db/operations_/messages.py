@@ -152,7 +152,7 @@ def write_messages_table_transition(
             "user_id",
             "model_id",
         ]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(messagesInsert, insertData)
         conn.commit()
 

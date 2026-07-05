@@ -111,7 +111,7 @@ def write_stories_table_transition(
             "created_at",
             "model_id",
         ]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(storiesInsert, insertData)
         conn.commit()
 

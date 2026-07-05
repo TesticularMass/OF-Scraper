@@ -201,7 +201,7 @@ class InputApp(App):
 
             self.query_one("#label_opt_sidebar").update(f"Options Menu:  [bold cyan]Ctrl+S[/bold cyan] [bold]({'Open' if opt_open else 'Closed'})[/bold]")
             self.query_one("#label_dl_sidebar").update(f"Download Menu: [bold cyan]Ctrl+D[/bold cyan] [bold]({'Open' if dl_open else 'Closed'})[/bold]")
-        except:
+        except Exception:
             pass
 
     def set_active_tab(self, active_btn_id: str):

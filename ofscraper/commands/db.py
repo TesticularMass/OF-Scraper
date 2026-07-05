@@ -255,10 +255,10 @@ class DBManager:
         # modify dictionary
         for i, dictionary in enumerate(dictionaries):
             dictionary = OrderedDict(dictionary)
-            dictionary["posted_at"] = arrow.get(dictionary["posted_at"]).format(
+            dictionary["posted_at"] = arrow.get(dictionary.get("posted_at") or 0).format(
                 of_env.getattr("API_DATE_FORMAT")
             )
-            dictionary["created_at"] = arrow.get(dictionary["created_at"]).format(
+            dictionary["created_at"] = arrow.get(dictionary.get("created_at") or 0).format(
                 of_env.getattr("API_DATE_FORMAT")
             )
             size = dictionary.pop("size", None)

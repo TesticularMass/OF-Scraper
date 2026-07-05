@@ -446,6 +446,8 @@ class sessionManager:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._session:
             await self._session.__aexit__(exc_type, exc_val, exc_tb)
+        # re-entry must create a fresh session, not reuse the closed one
+        self._session = None
 
     def __enter__(self):
         self._set_session(async_=False)
@@ -454,6 +456,7 @@ class sessionManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._session:
             self._session.__exit__(exc_type, exc_val, exc_tb)
+        self._session = None
         time.sleep(1)
 
     def _create_headers(self, headers, url, sign, forced):

@@ -123,7 +123,7 @@ def write_profile_table_transition(inputData, conn=None, **kwargs) -> list:
             "user_id",
             "username",
         ]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(profileInsertTransition, insertData)
         conn.commit()
 

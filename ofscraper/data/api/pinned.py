@@ -138,6 +138,9 @@ async def scrape_pinned_posts(c, model_id, offset=0):
                 if not data.get("hasMore"):
                     break
 
+                # NOTE: timelinePinnedEP has no offset param; the second format
+                # arg fills counters={}. Pinned posts come back in one page and
+                # the loop exits via hasMore, so this advance is inert.
                 current_offset += len(batch)
 
         except Exception as E:

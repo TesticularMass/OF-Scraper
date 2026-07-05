@@ -80,9 +80,13 @@ async def un_encrypt(item, c, ele, input_=None):
             name="ffmpeg",
             capture_output=True,
         )
-        if not pathlib.Path(newpath).exists():
+        if r.returncode != 0 or not pathlib.Path(newpath).exists():
+            log.debug(f"{get_medialog(ele)} ffmpeg returncode {r.returncode}")
             log.debug(f"{get_medialog(ele)} ffmpeg {r.stderr.decode()}")
             log.debug(f"{get_medialog(ele)} ffmpeg {r.stdout.decode()}")
+            # ffmpeg -y can leave a partial output behind on failure; remove it
+            # but keep the encrypted source so a retry can re-decrypt
+            pathlib.Path(newpath).unlink(missing_ok=True)
             await asyncio.get_running_loop().run_in_executor(
                 common_globals.thread,
                 partial(
@@ -186,7 +190,10 @@ async def key_helper_manual(c, pssh, licence_url, id):
                 cdm.parse_license(session_id, (data))
                 keys = cdm.get_keys(session_id)
                 cdm.close(session_id)
-            keyobject = list(filter(lambda x: x.type == "CONTENT", keys))[0]
+            content_keys = [x for x in keys if x.type == "CONTENT"]
+            if not content_keys:
+                raise Exception(f"ID:{id} no CONTENT key in license response")
+            keyobject = content_keys[0]
 
         key = "{}:{}".format(keyobject.kid.hex, keyobject.key.hex())
         return key

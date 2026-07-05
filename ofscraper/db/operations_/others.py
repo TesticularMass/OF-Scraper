@@ -201,7 +201,7 @@ def write_others_table_transition(
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "model_id"]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(othersInsert, insertData)
         conn.commit()
 
@@ -231,7 +231,7 @@ def write_products_table_transition(
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "title", "model_id"]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(productsInsert, insertData)
         conn.commit()
 

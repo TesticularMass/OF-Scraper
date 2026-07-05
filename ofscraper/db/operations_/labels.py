@@ -130,7 +130,7 @@ def write_labels_table_transition(
 ):
     with contextlib.closing(conn.cursor()) as curr:
         ordered_keys = ["label_id", "name", "type", "post_id", "model_id"]
-        insertData = [tuple([data[key] for key in ordered_keys]) for data in inputData]
+        insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         curr.executemany(labelInsert, insertData)
         conn.commit()
 
