@@ -34,7 +34,11 @@ def stop_live_screen(clear=False):
     if not live.is_started:
         yield
         return
-    saved_renderable = live.renderable
+    # rich 15: the .renderable property wraps the stored renderable in a new
+    # Group on every read (live-stack support). Saving the property and
+    # feeding it back to update() nests one Group per cycle until
+    # RecursionError. get_renderable() returns the raw stored renderable.
+    saved_renderable = live.get_renderable()
     original_transient_state = live.transient
     live.transient = False
 
@@ -128,7 +132,11 @@ class ProgressLayoutManager:
         self.revert = revert
 
     def __enter__(self):
-        self.previous_layout = self.live.renderable
+        # get_renderable(), NOT .renderable: the rich 15 property wraps the
+        # stored renderable in a fresh Group each read, so save/restore via
+        # the property grows the layout one level per screen switch until
+        # RecursionError (~1000 switches)
+        self.previous_layout = self.live.get_renderable()
         if self.supress_key:
             console_.get_shared_console().quiet = (
                 of_env.getattr(self.supress_key)
