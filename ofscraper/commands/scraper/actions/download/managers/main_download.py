@@ -121,8 +121,11 @@ class MainDownloadManager(DownloadManager):
                     if getattr(E, "status", None) == 403 or (hasattr(E, "message") and "Forbidden" in str(E.message)):
                         common_globals.log.info(f"{common_logs.get_medialog(ele)} 403 Forbidden error detected inside main download loop. Attempting to refresh media signatures.")
                         await ele.refresh_media(c)
-                        continue
-                    
+                        # re-raise so tenacity schedules the next attempt with the
+                        # refreshed url; `continue` exits the attempt context
+                        # cleanly, ending the retry loop and returning None
+                        raise E
+
                     common_globals.log.traceback_(
                         f"{common_logs.get_medialog(ele)} [attempt {common_globals.attempt.get()}/{get_download_retries()}] {traceback.format_exc()}"
                     )

@@ -120,17 +120,18 @@ def parse_profile(profile: dict) -> tuple:
             }
         )
 
-    # Keep info tuple consistent for existing profile info prints
+    # Keep info tuple consistent for existing profile info prints.
+    # Restricted/deactivated accounts can omit any of these fields
     info = (
-        encoding.encode_utf_16(profile["name"]),
-        profile["username"],
-        profile["id"],
-        profile["joinDate"],
-        profile["postsCount"],
-        profile["photosCount"],
-        profile["videosCount"],
-        profile["audiosCount"],
-        profile["archivedPostsCount"],
+        encoding.encode_utf_16(profile.get("name") or ""),
+        profile.get("username") or "unknown",
+        profile.get("id"),
+        profile.get("joinDate"),
+        profile.get("postsCount") or 0,
+        profile.get("photosCount") or 0,
+        profile.get("videosCount") or 0,
+        profile.get("audiosCount") or 0,
+        profile.get("archivedPostsCount") or 0,
     )
 
     return output, info
