@@ -159,10 +159,6 @@ ofscraper db --username model1 --posts messages
 
 Database merge and transition tools are available through the interactive menu (`ofscraper` with no arguments).
 
-### GUI (legacy)
-
-A tkinter GUI is available via `ofscraper --gui`, but the CLI is the primary, actively maintained interface.
-
 ## Architecture
 
 ```
@@ -181,12 +177,13 @@ A tkinter GUI is available via `ofscraper --gui`, but the CLI is the primary, ac
 │   │   ├── models/             # Model retriever utilities
 │   │   └── posts/              # Post processing
 │   ├── db/                     # Database layer (SQLite, schema, operations)
+│   ├── filters/                # Model and media filtering
 │   ├── managers/               # Session, model, and state managers
+│   ├── scripts/                # User script hooks (naming, after-download, skip)
 │   ├── utils/
 │   │   ├── args/               # CLI argument parsing (Click/Cloup)
 │   │   ├── auth/               # Authentication and header management
 │   │   └── trial_links.py      # Trial link scanner
-│   ├── gui/                    # Legacy tkinter GUI
 │   └── prompts/                # Interactive terminal prompts
 ```
 
