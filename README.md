@@ -1,10 +1,10 @@
 # OF-Scraper
 
-A command-line tool for downloading media from OnlyFans and performing bulk actions like liking or unliking posts.
+A command-line tool for downloading media from OnlyFans and performing bulk actions like liking, unliking, and subscribing.
 
 > I found something useful and wanted to make it better. That's it.
 
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
 
@@ -13,18 +13,19 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 ### Core Features
 - **Media Download** — Photos, videos, and audio from subscribed models
 - **Bulk Like/Unlike** — Toggle likes across multiple models and posts at configurable rates
+- **Subscribe Action** — Batch-subscribe to expired accounts that are free or have a claimable $0 promo
 - **Interactive Table UI** — Terminal-based table with filtering, sorting, and per-row download cart
-- **Content Areas** — Timeline, Pinned, Archived, Labels, Streams, Messages, and Purchased content
+- **Content Areas** — Timeline, Pinned, Archived, Labels, Streams, Messages, Stories, Highlights, and Purchased content
 - **DRM Support** — Handles DRM-protected content with proper CDM setup
-- **Daemon Mode** — Automated recurring scrapes on configurable intervals
+- **Daemon Mode** — Automated recurring scrapes on a configurable interval
 
 ### Data Management
 - **Deduplication** — Local SQLite databases track downloaded content, skip duplicates
-- **Database Operations** — Merge, export, and manage per-model databases
-- **Caching** — API responses cached to avoid redundant network calls (override with `--force`)
+- **Database Table** — Inspect scraped post/media info straight from the local database
+- **Caching** — API responses cached to avoid redundant network calls
 
 ### Filtering & Sorting
-- **Model Filters** — Filter subscriptions by active/expired status, price, last seen, labels, and more
+- **Model Filters** — Filter subscriptions by active/expired status, price, last seen, promo availability, and more
 - **Media Filters** — Filter by media type, quality, duration, file size, download status
 - **Sort Options** — Sort models and media by date, price, username, type, and more
 
@@ -41,84 +42,97 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 ## Installation
 
 ### Requirements
-- Python 3.11+
-- ffmpeg (for video processing)
+- Python 3.11–3.14
+- ffmpeg (for video processing and DRM decryption)
 
 ### Setup
 
 ```bash
-# Install from PyPI
-pip install ofscraper
-
-# Or clone and install locally
 git clone https://github.com/TesticularMass/OF-Scraper.git
 cd OF-Scraper
 pip install -r requirements.txt
+pip install -e . --no-build-isolation
 
-# Run
+# Run (interactive menu)
 ofscraper
 ```
 
 ## Usage
 
+Run `ofscraper` with no arguments for the interactive menu, or drive everything with flags:
+
 ### Main Scraper Mode
 
 ```bash
-# Download media from all active subscriptions
-ofscraper --usernames ALL --subscription-status active
+# Download media from all subscriptions
+ofscraper --action download --username ALL
 
 # Download from specific users
-ofscraper --usernames model1,model2
+ofscraper --action download --username model1,model2
+
+# Only active subscriptions
+ofscraper --action download --username ALL --active-subscription
+
+# Restrict content areas
+ofscraper --action download --username model1 --posts Timeline Archived Messages
 
 # Download text only (skip media)
-ofscraper --usernames model1 --text-only
+ofscraper --action download --username model1 --text-only
 
-# Bulk like all posts from a model
-ofscraper --usernames model1 --like
+# Bulk like posts from a model
+ofscraper --action like --username model1
 
-# Bulk unlike all liked posts
-ofscraper --usernames model1 --unlike
+# Bulk unlike previously liked posts
+ofscraper --action unlike --username model1
 
-# Daemon mode — re-scrape every 60 minutes
-ofscraper --usernames ALL --daemon --daemon-delay 3600
+# Subscribe to all eligible free/$0-promo expired accounts
+ofscraper --action subscribe --username ALL
 
-# Force fresh data (skip cache)
-ofscraper --usernames model1 --force
+# Subscribe then download in one run
+ofscraper --action subscribe,download --username model1
+
+# Daemon mode — re-run every 60 minutes
+ofscraper --action download --username ALL --daemon 60
+
+# Force redownload of all media
+ofscraper --action download --username model1 --force-all
 ```
 
 ### Check Modes (Interactive Table)
 
+Browse content in the terminal table without committing to a full scrape:
+
 ```bash
-# Check messages + paid content for a model
-ofscraper msg_check -u https://onlyfans.com/modelName
+# Check messages for specific models
+ofscraper msg_check --username model1
 
-# Check posts/timeline for a model
-ofscraper post_check -u https://onlyfans.com/modelName
+# Check posts/timeline
+ofscraper post_check --username model1
 
-# Check paid content by username
-ofscraper paid_check -u model1,model2
+# Check paid content
+ofscraper paid_check --username model1,model2
 
 # Check stories and highlights
-ofscraper story_check -u model1
+ofscraper story_check --username model1
+
+# Force fresh data from the API instead of cache
+ofscraper post_check --username model1 --force
 ```
 
 ### Trial Link Scanner
 
 ```bash
 # Scan all active subscriptions for trial links
-ofscraper msg_check --usernames ALL --subscription-status active --scan-trial-links
+ofscraper msg_check --username ALL --subscription-status active --scan-trial-links
 
 # Scan specific user's paid content
-ofscraper paid_check -u modelName --scan-trial-links
+ofscraper paid_check --username modelName --scan-trial-links
 
 # Scan all expired subscriptions
-ofscraper msg_check --usernames all --subscription-status inactive --scan-trial-links
+ofscraper msg_check --username ALL --subscription-status inactive --scan-trial-links
 
-# Scan from a file of usernames
-ofscraper msg_check -f users.txt --scan-trial-links
-
-# Force fresh API data while scanning
-ofscraper msg_check --usernames ALL --scan-trial-links --force
+# Only report links from posts on or after a date
+ofscraper msg_check --username ALL --scan-trial-links --trial-min-date 2026-01-01
 ```
 
 Trial links are written to `{log_folder}/trial_links/trial_links_{YYYY-MM-DD}.log`.
@@ -126,28 +140,28 @@ Trial links are written to `{log_folder}/trial_links/trial_links_{YYYY-MM-DD}.lo
 ### Metadata Mode
 
 ```bash
-# Scrape metadata for all active subscriptions
-ofscraper metadata --usernames ALL --subscription-status active
+# Scrape metadata for all subscriptions without downloading media
+ofscraper metadata --username ALL
 
-# Scrape metadata and paid content info
-ofscraper metadata --usernames model1 --scrape-paid
+# Include paid content info
+ofscraper metadata --username model1 --scrape-paid
 
 # Anonymous metadata scrape (requires specific usernames)
-ofscraper metadata --usernames model1 --anon
+ofscraper metadata --username model1 --anon
 ```
 
-### Database Operations
+### Database Table
 
 ```bash
-# Merge databases
-ofscraper db merge
-
-# Export database
-ofscraper db export
-
-# View database info
-ofscraper db info
+# Print scraped post/media info from the local database
+ofscraper db --username model1 --posts messages
 ```
+
+Database merge and transition tools are available through the interactive menu (`ofscraper` with no arguments).
+
+### GUI (legacy)
+
+A tkinter GUI is available via `ofscraper --gui`, but the CLI is the primary, actively maintained interface.
 
 ## Architecture
 
@@ -156,13 +170,14 @@ ofscraper db info
 ├── ofscraper/
 │   ├── commands/               # CLI command implementations
 │   │   ├── check.py            # Check modes (msg/post/paid/story)
-│   │   ├── scraper/            # Scraper actions (download, like, unlike)
-│   │   └── db.py               # Database operations
+│   │   ├── scraper/            # Scraper actions (download, like, unlike, subscribe)
+│   │   ├── metadata/           # Metadata operations
+│   │   └── db.py               # Database table command
 │   ├── classes/
 │   │   ├── of/                 # OF data models (Post, Media, Model)
 │   │   └── table/              # Terminal table UI
 │   ├── data/
-│   │   ├── api/                # API clients (timeline, messages, paid, etc.)
+│   │   ├── api/                # API clients (timeline, messages, paid, subscriptions, etc.)
 │   │   ├── models/             # Model retriever utilities
 │   │   └── posts/              # Post processing
 │   ├── db/                     # Database layer (SQLite, schema, operations)
@@ -171,21 +186,20 @@ ofscraper db info
 │   │   ├── args/               # CLI argument parsing (Click/Cloup)
 │   │   ├── auth/               # Authentication and header management
 │   │   └── trial_links.py      # Trial link scanner
+│   ├── gui/                    # Legacy tkinter GUI
 │   └── prompts/                # Interactive terminal prompts
 ```
 
-## Documentation
-
-[Full documentation](https://of-scraper.gitbook.io/of-scraper)
-
 ## Docker
 
+A `Dockerfile` is included for containerized runs:
+
 ```bash
-# Pull the image
-docker pull testicularmass/ofscraper
+# Build the image
+docker build -t ofscraper .
 
 # Run with mounted config
-docker run -v ~/.config/ofscraper:/root/.config/ofscraper testicularmass/ofscraper
+docker run -it -v ~/.config/ofscraper:/root/.config/ofscraper ofscraper
 ```
 
 ## Contributing
