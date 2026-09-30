@@ -1,11 +1,24 @@
-import asyncio
 import re
 import logging
 import os
 import platform
+import sys
 
 import psutil
 from setproctitle import setproctitle
+
+
+def set_terminal_blocking():
+    """Repair terminal flags inherited from an earlier uvloop-based run."""
+    if os.name != "posix":
+        return
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        try:
+            if stream.isatty():
+                os.set_blocking(stream.fileno(), True)
+        except (AttributeError, OSError, ValueError):
+            # Captured or closed streams may not expose a usable descriptor.
+            pass
 
 
 def getcpu_count():
@@ -13,14 +26,6 @@ def getcpu_count():
         return len(psutil.Process().cpu_affinity())
     else:
         return psutil.cpu_count()
-
-
-def set_eventloop():
-    plat = platform.system()
-    if plat == "Linux":
-        import uvloop
-
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 def get_dupe_ofscraper():

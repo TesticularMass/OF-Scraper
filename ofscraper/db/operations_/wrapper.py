@@ -7,6 +7,7 @@ from collections import abc
 from concurrent.futures import ThreadPoolExecutor
 
 import tenacity
+import psutil
 
 import ofscraper.classes.placeholder as placeholder
 import ofscraper.utils.context.exit as exit
@@ -20,9 +21,22 @@ atexit.register(lambda: _DB_POOL.shutdown(wait=False))
 
 
 def _is_network_path(db_path: pathlib.Path) -> bool:
-    """Detect SMB/UNC network paths where WAL mode is unreliable."""
-    resolved = str(db_path.resolve())
-    return resolved.startswith("\\\\") or resolved.startswith("//")
+    """Detect UNC paths and mounted network filesystems where WAL is unreliable."""
+    if str(db_path).startswith(("\\\\", "//")):
+        return True
+    resolved = db_path.resolve()
+    # The deepest mount wins: a local filesystem can be mounted inside a share.
+    mounts = sorted(
+        psutil.disk_partitions(all=True),
+        key=lambda mount: len(pathlib.Path(mount.mountpoint).parts),
+        reverse=True,
+    )
+    for mount in mounts:
+        if resolved.is_relative_to(pathlib.Path(mount.mountpoint)):
+            return mount.fstype.lower() in {
+                "cifs", "smb3", "smbfs", "nfs", "nfs4", "sshfs", "fuse.sshfs",
+            }
+    return False
 
 
 def _configure_db_connection(conn, is_network: bool):

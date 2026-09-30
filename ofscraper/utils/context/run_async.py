@@ -1,6 +1,7 @@
 import asyncio
 
 import ofscraper.utils.context.exit as exit
+from ofscraper.utils.context.eventloop import new_event_loop
 
 
 def run(coro):
@@ -9,7 +10,7 @@ def run(coro):
             # Get the loop or create a new one
             loop = asyncio.get_event_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
+            loop = new_event_loop()
             asyncio.set_event_loop(loop)
         if not loop.is_running():
             try:
@@ -36,7 +37,7 @@ def run_forever(coro):
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
+            loop = new_event_loop()
         if not loop.is_running():
             try:
                 asyncio.set_event_loop(loop)

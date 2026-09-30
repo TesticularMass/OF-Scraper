@@ -77,6 +77,10 @@ def main_menu_action():
                 merge.merge_runner()
             elif result_main_prompt == "quit":
                 return True
+        except (EOFError, OSError):
+            # A closed input stream or failed terminal cannot be recovered by
+            # immediately redrawing the menu. Let the caller shut down instead.
+            raise
         except Exception as E:
             log.debug(E)
             log.debug(traceback.format_exc())

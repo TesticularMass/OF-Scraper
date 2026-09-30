@@ -48,8 +48,8 @@ def setLogger():
 
 
 def systemSet():
+    system.set_terminal_blocking()
     system.setName()
-    system.set_eventloop()
     if platform.system() == "Windows":
         os.system("color")
 
