@@ -67,6 +67,7 @@ WHERE post_id = (?) AND model_id = (?);
 timelinePostInfo = """
 SELECT created_at,post_id FROM posts 
 WHERE archived=(0) AND model_id=(?) AND (is_deleted = 0 OR is_deleted IS NULL)
+AND (pinned = 0 OR pinned IS NULL)
 """
 archivedPostInfo = """
 SELECT created_at,post_id FROM posts 

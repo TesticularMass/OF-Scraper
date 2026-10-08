@@ -3,6 +3,7 @@ import pathlib
 import re
 import traceback
 from functools import partial
+from urllib.parse import urljoin
 
 import aiofiles
 import arrow
@@ -157,8 +158,7 @@ class AltDownloadManager(DownloadManager):
     async def _alt_download_sendreq(self, item, c, ele, placeholderObj):
         try:
             _attempt = self._alt_attempt_get(item)
-            base_url = re.sub(r"[0-9a-z]*\.mpd$", "", ele.mpd, flags=re.IGNORECASE)
-            url = f"{base_url}{item['origname']}"
+            url = urljoin(ele.mpd, item["origname"])
             common_globals.log.debug(
                 f"{get_medialog(ele)} Attempting to download media {item['origname']} with {url}"
             )
@@ -181,8 +181,7 @@ class AltDownloadManager(DownloadManager):
             total = None
             common_globals.log.debug(f"{get_medialog(ele)} resume header {headers}")
             params = get_alt_params(ele)
-            base_url = re.sub(r"[0-9a-z]*\.mpd$", "", ele.mpd, flags=re.IGNORECASE)
-            url = f"{base_url}{item['origname']}"
+            url = urljoin(ele.mpd, item["origname"])
             # Merge the cookie into the resume headers; assignment here used to
             # overwrite the Range header, so resumed segments re-downloaded from
             # byte 0 and got appended to the existing partial file
@@ -199,6 +198,9 @@ class AltDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as l:
+                content_type = (l.headers.get("content-type") or "").split(";", 1)[0].lower()
+                if content_type in {"application/dash+xml", "application/xml", "text/xml"}:
+                    raise ValueError("Received a manifest instead of a media track")
                 # 206 content-length only covers the remaining bytes
                 content_length = int(l.headers.get("content-length") or 0)
                 item["total"] = (
@@ -485,9 +487,10 @@ class AltDownloadManager(DownloadManager):
         video_total = video["total"] if video else 0
 
         if (audio_total + video_total) == 0:
-            if ele.mediatype.capitalize() != "Forced_skipped":
-                await self._force_download(ele, username, model_id)
-            return ele.mediatype, 0
+            if ele.mediatype.capitalize() == "Forced_skipped":
+                return "forced_skipped", 0
+            # No file was produced. Leave this media eligible for a retry.
+            return "skipped", 0
 
         for m in [audio, video]:
             if m is not None:
