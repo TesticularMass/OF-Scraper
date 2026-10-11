@@ -51,14 +51,3 @@ class NumField(Horizontal):
     @property
     def integer_input(self):
         return self.query_one(self.Field)
-
-
-class PostiveNumField(NumField):
-    Field = PostiveIntegerInput
-
-    def compose(self):
-        yield self.Field(
-            placeholder=self.filter_name.capitalize().replace("_", " "),
-            id=f"{self.filter_name}_input",
-            value=self.default,
-        )

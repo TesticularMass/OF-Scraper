@@ -14,12 +14,10 @@ from ofscraper.utils.context.eventloop import new_event_loop
 @unittest.skipUnless(sys.platform == "linux", "Linux terminal regression")
 class TerminalSummaryTest(unittest.TestCase):
     def test_network_loop_does_not_change_ui_loop_factory(self):
-        import uvloop
-
         network = new_event_loop()
         ui = asyncio.new_event_loop()
         try:
-            self.assertIsInstance(network, uvloop.Loop)
+            self.assertIsInstance(network, asyncio.SelectorEventLoop)
             self.assertIsInstance(ui, asyncio.SelectorEventLoop)
         finally:
             network.close()
@@ -33,7 +31,6 @@ class TerminalSummaryTest(unittest.TestCase):
         script = '''
 import os
 import asyncio
-import uvloop
 import ofscraper.__main__
 from ofscraper.main.open.load import systemSet
 from ofscraper.prompts.promptConvert import getChecklistSelection
@@ -47,7 +44,7 @@ assert getChecklistSelection(message="FIRST_MENU", choices=["Continue"]) == "Con
 assert os.get_blocking(1), "Menu left stdout nonblocking"
 @run
 async def network_work():
-    assert isinstance(asyncio.get_running_loop(), uvloop.Loop)
+    assert isinstance(asyncio.get_running_loop(), asyncio.SelectorEventLoop)
     assert await asyncio.gather(asyncio.sleep(0, result=1), asyncio.sleep(0, result=2)) == [1, 2]
 network_work()
 asyncio.get_event_loop().close()

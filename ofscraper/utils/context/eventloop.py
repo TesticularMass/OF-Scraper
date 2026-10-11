@@ -1,15 +1,10 @@
-"""Create network event loops without changing the terminal UI's loop policy."""
+"""Create event loops without changing the terminal UI's loop policy."""
 
 import asyncio
-import sys
 
 
 def new_event_loop():
-    # A global uvloop policy also affects prompt-toolkit. Its terminal reader
-    # leaves the shared stdin/stdout descriptor nonblocking, breaking large
-    # Rich writes. Keep uvloop scoped to our network work instead.
-    if sys.platform == "linux":
-        import uvloop
-
-        return uvloop.new_event_loop()
+    # Use the standard loop for downloads as well as prompts. uvloop's native
+    # Linux I/O polling aborted a long-running download in uv__epoll_ctl_flush;
+    # SIGABRT bypasses Python exception handling and normal resource cleanup.
     return asyncio.new_event_loop()

@@ -50,8 +50,7 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 ```bash
 git clone https://github.com/TesticularMass/OF-Scraper.git
 cd OF-Scraper
-pip install -r requirements.txt
-pip install -e . --no-build-isolation
+pip install -e .
 
 # Run (interactive menu)
 ofscraper
