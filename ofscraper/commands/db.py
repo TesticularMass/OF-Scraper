@@ -116,10 +116,11 @@ class DBManager:
             medias = [media for media in medias if not media["downloaded"]]
 
         # download type
-        if args.protected:
-            medias = [media for media in medias if "mpd" in media["link"]]
-        elif args.normal:
-            medias = [media for media in medias if "mpd" not in media["link"]]
+        dl_type = getattr(args, "download_type", None) or ("protected" if getattr(args, "protected", False) else "normal" if getattr(args, "normal", False) else None)
+        if dl_type == "protected":
+            medias = [media for media in medias if "mpd" in (media.get("link") or "")]
+        elif dl_type == "normal":
+            medias = [media for media in medias if "mpd" not in (media.get("link") or "")]
         # unlocked
         if args.unlocked:
             medias = [media for media in medias if media["unlocked"]]
@@ -199,9 +200,11 @@ class DBManager:
             ]
         # id filters
         if args.post_id:
-            medias = [media for media in medias if media["post_id"] in args.post_id]
+            wanted_posts = {int(x) if str(x).isnumeric() else x for x in args.post_id}
+            medias = [media for media in medias if media["post_id"] in wanted_posts or str(media["post_id"]) in args.post_id]
         if args.media_id:
-            medias = [media for media in medias if media["media_id"] in args.media_id]
+            wanted_media = {int(x) if str(x).isnumeric() else x for x in args.media_id}
+            medias = [media for media in medias if media["media_id"] in wanted_media or str(media["media_id"]) in args.media_id]
         self.media = medias
 
     def get_max_post(self):
@@ -360,17 +363,24 @@ class DBManager:
                 writer.writerow(row)
 
     def _convert_seconds(self, dictionary):
-        if not dictionary.get("duration"):
+        raw = dictionary.get("duration")
+        if not raw:
             return 0
-        parts = dictionary.get("duration").split(":")
-        x = time.strptime(
-            ":".join(parts[-3:]), "%H:%M:%S"
-        )
-        curr_sec = datetime.timedelta(
-            hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec
-        ).total_seconds()
-        day_sec = int(parts[0]) * 3600 if len(parts) > 3 else 0
-        return curr_sec + day_sec
+        if isinstance(raw, (int, float)):
+            return float(raw)
+        parts = str(raw).split(":")
+        try:
+            if len(parts) == 4:
+                return int(parts[0]) * 86400 + int(parts[1]) * 3600 + int(parts[2]) * 60 + float(parts[3])
+            elif len(parts) == 3:
+                return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+            elif len(parts) == 2:
+                return int(parts[0]) * 60 + float(parts[1])
+            elif len(parts) == 1:
+                return float(parts[0])
+        except (ValueError, TypeError):
+            return 0
+        return 0
 
 
 def db():

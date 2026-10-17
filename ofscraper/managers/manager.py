@@ -8,11 +8,6 @@ import ofscraper.utils.system.system as system
 from ofscraper.managers.model import ModelManager
 
 
-from ofscraper.commands.db import db
-import ofscraper.commands.metadata.metadata as metadata
-import ofscraper.commands.scraper.scraper as actions
-import ofscraper.commands.manual as manual
-import ofscraper.commands.check as check
 import ofscraper.utils.settings as settings
 
 
@@ -99,20 +94,26 @@ class mainManager:
         return self._model_manager
 
     def pick(self):
-        if settings.get_settings().command in [
+        cmd = settings.get_settings().command
+        if cmd in [
             "post_check",
             "msg_check",
             "paid_check",
             "story_check",
         ]:
+            import ofscraper.commands.check as check
             check.checker()
-        elif settings.get_settings().command == "metadata":
+        elif cmd == "metadata":
+            import ofscraper.commands.metadata.metadata as metadata
             metadata.process_selected_areas()
-        elif settings.get_settings().command == "manual":
+        elif cmd == "manual":
+            import ofscraper.commands.manual as manual
             manual.manual_download()
-        elif settings.get_settings().command == "db":
+        elif cmd == "db":
+            from ofscraper.commands.db import db
             db()
         else:
+            import ofscraper.commands.scraper.scraper as actions
             actions.main()
 
     def print_name(self):

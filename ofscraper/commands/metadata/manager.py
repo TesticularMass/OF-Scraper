@@ -97,14 +97,12 @@ class MetaDataManager:
         # for update
         elif pathlib.Path(placeholderObj.trunicated_filepath).exists():
             return str(placeholderObj.trunicated_filename)
-        elif pathlib.Path(prevData.get("filename") or "").is_file():
-            return prevData.get("filename")
-        elif pathlib.Path(
-            prevData.get("directory") or "", prevData.get("filename") or ""
+        elif prevData.get("filename") and pathlib.Path(prevData.get("filename")).is_file():
+            return pathlib.Path(prevData.get("filename")).name
+        elif prevData.get("directory") and prevData.get("filename") and pathlib.Path(
+            prevData.get("directory"), prevData.get("filename")
         ).is_file():
-            return str(pathlib.Path(
-                prevData.get("directory") or "", prevData.get("filename") or ""
-            ))
+            return prevData.get("filename")
         return str(placeholderObj.trunicated_filename)
 
     def _metadata_dir_helper(self, placeholderObj, prevData):
@@ -113,13 +111,13 @@ class MetaDataManager:
         # for update
         elif pathlib.Path(placeholderObj.trunicated_filedir).exists():
             return str(placeholderObj.trunicated_filedir)
-        elif pathlib.Path(prevData.get("directory") or "").is_dir():
+        elif prevData.get("directory") and pathlib.Path(prevData.get("directory")).is_dir():
             return prevData.get("directory")
-        elif pathlib.Path(
-            prevData.get("directory") or "", prevData.get("filename") or ""
+        elif prevData.get("directory") and prevData.get("filename") and pathlib.Path(
+            prevData.get("directory"), prevData.get("filename")
         ).is_file():
             return str(pathlib.Path(
-                prevData.get("directory") or "", prevData.get("filename") or ""
+                prevData.get("directory"), prevData.get("filename")
             ).parent)
         return str(placeholderObj.trunicated_filedir)
 
@@ -128,8 +126,7 @@ class MetaDataManager:
             return prevData.get("hash")
         elif pathlib.Path(placeholderObj.trunicated_filepath).is_file():
             return hash.get_hash(
-                pathlib.Path(placeholderObj.trunicated_filepath),
-                mediatype=ele.mediatype,
+                pathlib.Path(placeholderObj.trunicated_filepath)
             )
         elif pathlib.Path(
             prevData.get("directory") or "", prevData.get("filename") or ""

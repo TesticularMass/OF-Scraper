@@ -425,7 +425,7 @@ def performance_config():
                 or human readable such as 10mb
                 """,
                 "default": str(data.get_download_limit()),
-                "filter": lambda x: int(x) if x != "None" else 0,
+                "filter": lambda x: int(parse_size(x)) if x != "None" else 0,
             }
         ],
         altx=funct,

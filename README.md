@@ -154,9 +154,22 @@ ofscraper metadata --username model1 --anon
 ```bash
 # Print scraped post/media info from the local database
 ofscraper db --username model1 --posts messages
+
+# Filter database entries by post ID or media ID
+ofscraper db --username model1 --post-id 123456 --media-id 789012
 ```
 
 Database merge and transition tools are available through the interactive menu (`ofscraper` with no arguments).
+
+### Manual Mode
+
+```bash
+# Download specific posts or media by URL or ID
+ofscraper manual --url https://onlyfans.com/123456/model1
+
+# Download from a file of line-separated URLs
+ofscraper manual --file urls.txt
+```
 
 ## Architecture
 
@@ -167,6 +180,7 @@ Database merge and transition tools are available through the interactive menu (
 │   │   ├── check.py            # Check modes (msg/post/paid/story)
 │   │   ├── scraper/            # Scraper actions (download, like, unlike, subscribe)
 │   │   ├── metadata/           # Metadata operations
+│   │   ├── manual.py           # Manual URL/post ID downloads
 │   │   └── db.py               # Database table command
 │   ├── classes/
 │   │   ├── of/                 # OF data models (Post, Media, Model)
@@ -182,6 +196,7 @@ Database merge and transition tools are available through the interactive menu (
 │   ├── utils/
 │   │   ├── args/               # CLI argument parsing (Click/Cloup)
 │   │   ├── auth/               # Authentication and header management
+│   │   ├── of_env/             # Environment defaults and configuration loader
 │   │   └── trial_links.py      # Trial link scanner
 │   └── prompts/                # Interactive terminal prompts
 ```

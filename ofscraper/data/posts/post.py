@@ -362,7 +362,12 @@ async def process_all_paid():
                     value,
                 )
             )
-            temp_postcollection.add_posts(all_posts, actions="scrape_paid_download")
+            paid_actions = ["download", "scrape_paid_download"]
+            if settings.get_settings().command == "metadata":
+                paid_actions.append("metadata")
+            if settings.get_settings().text:
+                paid_actions.append("text")
+            temp_postcollection.add_posts(all_posts, actions=paid_actions)
             await operations.make_post_table_changes(
                 temp_postcollection.posts,
                 model_id=model_id,

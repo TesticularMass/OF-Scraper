@@ -1,8 +1,9 @@
+from copy import deepcopy
 import ofscraper.utils.args.accessors.read as read_args
 
 
 def resetUserFilters():
-    args = read_args.retriveArgs()
+    args = deepcopy(read_args.retriveArgs())
     args.userlist = []
     args.blacklist = []
     args.renewal = None
@@ -17,12 +18,24 @@ def resetUserFilters():
     args.renewal_price = None
     args.current_price = None
     args.promo_price = None
+    args.promo_price_min = None
+    args.promo_price_max = None
+    args.regular_price_min = None
+    args.regular_price_max = None
+    args.current_price_min = None
+    args.current_price_max = None
+    args.renewal_price_min = None
+    args.renewal_price_max = None
+    args.expired_before = None
+    args.expired_after = None
+    args.subscribed_before = None
+    args.subscribed_after = None
     args.sort = "name"
     args.desc = False
     return args
 
 
 def resetUserSelect():
-    args = read_args.retriveArgs()
+    args = deepcopy(read_args.retriveArgs())
     args.usernames = None
     return args

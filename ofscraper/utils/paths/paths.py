@@ -70,15 +70,15 @@ def _windows_truncateHelper(path):
         return path
     path = pathlib.Path(path)
     dir = path.parent
-    file = path.name
-    match = re.search(r"_[0-9]+\.[a-z4]*$", path.name, re.IGNORECASE) or re.search(
-        r"\.[a-z4]*$", path.name, re.IGNORECASE
+    match = re.search(r"_[0-9]+\.[a-z0-9]+$", path.name, re.IGNORECASE) or re.search(
+        r"\.[a-z0-9]+$", path.name, re.IGNORECASE
     )
     if match:
         ext = match.group(0)
+        file = path.name[:-len(ext)]
     else:
         ext = ""
-    file = re.sub(ext, "", path.name)
+        file = path.name
     max_bytes = (
         of_env.getattr("WINDOWS_MAX_PATH_BYTES")
         - get_string_byte_size_windows(ext)
@@ -87,13 +87,14 @@ def _windows_truncateHelper(path):
     if max_bytes <= 0:
         raise ValueError(f"dir too large for max bytes: {path}")
     low, high = 0, len(file)
-    while low < high:
+    while low <= high:
         mid = (low + high) // 2
         if get_string_byte_size_windows(file[:mid]) <= max_bytes:
+            best = mid
             low = mid + 1
         else:
-            high = mid
-    newFile = f"{file[:high]}{ext}"
+            high = mid - 1
+    newFile = f"{file[:best]}{ext}"
     final_path = pathlib.Path(dir, newFile)
     log.debug(
         f"path: {path} filepath bytesize: {get_string_byte_size_windows(final_path)}"
@@ -103,14 +104,18 @@ def _windows_truncateHelper(path):
 
 def _mac_truncateHelper(path):
     path = pathlib.Path(os.path.normpath(path))
-    if len(str(path)) <= of_env.getattr("MAC_MAX_PATH"):
+    if len(path.name) <= of_env.getattr("MAC_MAX_PATH"):
         return path
     dir = path.parent
-    match = re.search(r"_[0-9]+\.[a-z4]*$", path.name, re.IGNORECASE) or re.search(
-        r"\.[a-z4]*$", path.name, re.IGNORECASE
+    match = re.search(r"_[0-9]+\.[a-z0-9]+$", path.name, re.IGNORECASE) or re.search(
+        r"\.[a-z0-9]+$", path.name, re.IGNORECASE
     )
-    ext = match.group(0) if match else ""
-    file = re.sub(ext, "", path.name)
+    if match:
+        ext = match.group(0)
+        file = path.name[:-len(ext)]
+    else:
+        ext = ""
+        file = path.name
     maxlength = of_env.getattr("MAC_MAX_PATH") - len(ext)
     newFile = f"{file[:maxlength]}{ext}"
     final = pathlib.Path(dir, newFile)
@@ -121,23 +126,31 @@ def _mac_truncateHelper(path):
 
 def _linux_truncateHelper(path):
     path = pathlib.Path(os.path.normpath(path))
+    if get_string_byte_size_unix(path.name) <= of_env.getattr("LINUX_MAX_FILE_NAME_BYTES"):
+        return path
     dir = path.parent
-    match = re.search(r"_[0-9]+\.[a-z4]*$", path.name, re.IGNORECASE) or re.search(
-        r"\.[a-z4]*$", path.name, re.IGNORECASE
+    match = re.search(r"_[0-9]+\.[a-z0-9]+$", path.name, re.IGNORECASE) or re.search(
+        r"\.[a-z0-9]+$", path.name, re.IGNORECASE
     )
-    ext = match.group(0) if match else ""
-    file = re.sub(ext, "", path.name)
+    if match:
+        ext = match.group(0)
+        file = path.name[:-len(ext)]
+    else:
+        ext = ""
+        file = path.name
     max_bytes = of_env.getattr("LINUX_MAX_FILE_NAME_BYTES") - get_string_byte_size_unix(
         ext
     )
     low, high = 0, len(file)
-    while low < high:
+    best = 0
+    while low <= high:
         mid = (low + high) // 2
         if get_string_byte_size_unix(file[:mid]) <= max_bytes:
+            best = mid
             low = mid + 1
         else:
-            high = mid
-    newFile = f"{file[:high]}{ext}"
+            high = mid - 1
+    newFile = f"{file[:best]}{ext}"
     log.debug(f"path: {path} filename bytesize: {get_string_byte_size_unix(newFile)}")
     return pathlib.Path(dir, newFile)
 

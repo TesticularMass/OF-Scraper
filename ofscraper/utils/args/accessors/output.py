@@ -1,8 +1,9 @@
-import ofscraper.utils.settings as settings
+import ofscraper.utils.args.accessors.read as read_args
 
 
 def low_output():
+    args = read_args.retriveArgs()
     return (
-        settings.get_args().output_level in {"OFF", "LOW", "PROMPT"}
-        or settings.get_args().no_rich
+        args.output_level in {"OFF", "LOW", "PROMPT"}
+        or args.no_rich
     )

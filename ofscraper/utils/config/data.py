@@ -337,7 +337,7 @@ def get_discord(config=None):
     if config is False:
         return of_env.getattr("DISCORD_DEFAULT")
     val = config.get("discord")
-    return val if val is not None else of_env.getattr("DISCORD_DEFAULT", "")
+    return val if val is not None else of_env.getattr("DISCORD_DEFAULT")
 
 
 @wrapper.config_reader
@@ -579,7 +579,7 @@ def cache_mode_helper(config=None):
         "cache-mode"
     )
     final_data = data if data is not None else of_env.getattr("CACHEDEFAULT")
-    if final_data in {"sqlite", "json", "disabled"}:
+    if final_data in {"sqlite", "json", "disabled", "api_disabled"}:
         return final_data
     else:
         return of_env.getattr("CACHEDEFAULT")

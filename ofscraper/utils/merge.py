@@ -9,17 +9,23 @@ console = Console()
 
 def merge_runner():
     while True:
+        confirmed = False
         while True:
             if not prompts.backup_prompt_db():
                 console.print("waiting for backup confirmation")
-                break
+                return
             curr_folder = prompts.folder_prompt_db()
             new_db = prompts.new_db_prompt()
             confirm = prompts.confirm_prompt_db(curr_folder, new_db)
             if confirm is False:
                 continue
             elif confirm is True:
+                confirmed = True
                 break
+            else:  # None -> Back to Main Menu
+                return
+        if not confirmed:
+            return
         completed, skipped = merge_loop(curr_folder, new_db)
         if not prompts.confirm_db_continue(completed, skipped):
             break
@@ -29,8 +35,8 @@ def merge_runner():
 async def merge_loop(curr_folder, new_db):
     db_merger = merge.MergeDatabase()
     failures, completed, skipped = await db_merger(curr_folder, new_db)
-    for failure in failures:
-        if failure["reason"] == "Found model_id was not numeric":
+    for ele, failure in failures:
+        if isinstance(failure, dict) and failure.get("reason") == "Found model_id was not numeric":
             continue
     return completed, skipped
 

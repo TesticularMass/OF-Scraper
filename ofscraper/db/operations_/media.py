@@ -111,7 +111,7 @@ GROUP BY hash, size
 HAVING COUNT(*) > 1;
 """
 mediaDupeFiles = """
-SELECT filename
+SELECT directory, filename
 FROM medias
 where hash=(?)
 """
@@ -377,7 +377,17 @@ def get_dupe_media_files(
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(mediaDupeFiles, [hash])
-        return [dict(row)["filename"] for row in cur.fetchall()]
+        rows = [dict(row) for row in cur.fetchall()]
+        out = []
+        import pathlib
+        for r in rows:
+            directory = r.get("directory")
+            filename = r.get("filename")
+            if directory and filename:
+                out.append(str(pathlib.Path(directory, filename)))
+            elif filename:
+                out.append(filename)
+        return out
 
 
 @wrapper.operation_wrapper_async

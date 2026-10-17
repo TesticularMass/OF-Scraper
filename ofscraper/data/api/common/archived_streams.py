@@ -259,14 +259,18 @@ async def scrape_posts(
                     for ghost_id in ghosts_in_batch:
                         required_ids.discard(ghost_id)
 
+                should_stop = False
                 if not is_last_chunk and len(required_ids) == 0:
-                    break
+                    should_stop = True
 
                 if max_ts > before:
-                    break
+                    should_stop = True
 
                 current_timestamp = max_ts
                 yield batch
+
+                if should_stop:
+                    break
 
     except Exception as error:
         log.traceback_(error)

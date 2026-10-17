@@ -13,7 +13,6 @@ from bs4 import MarkupResemblesLocatorWarning
 from mpegdash.parser import MPEGDASHParser
 
 import ofscraper.classes.of.base as base
-import ofscraper.managers.manager as manager
 import ofscraper.utils.args.accessors.quality as quality
 import ofscraper.utils.config.data as data
 import ofscraper.utils.dates as dates
@@ -539,6 +538,7 @@ class Media(base.base):
         async with self._lock:
             if self._cached_mpd:  # double check lock
                 return self._cached_mpd
+            import ofscraper.managers.manager as manager
             async with manager.Manager.session.aget_ofsession(
                 retries=of_env.getattr("MPD_NUM_TRIES"),
                 wait_min=of_env.getattr("OF_MIN_WAIT_API"),

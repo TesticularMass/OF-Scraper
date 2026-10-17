@@ -24,7 +24,7 @@ def run(coro):
                 raise E
             finally:
                 # Soft cleanup: shut down generators without killing the loop instantly
-                if loop.is_running():
+                if not loop.is_closed():
                     loop.run_until_complete(loop.shutdown_asyncgens())
         # If the loop is ALREADY running (nested call), just return the coro
         return coro(*args, **kwargs)

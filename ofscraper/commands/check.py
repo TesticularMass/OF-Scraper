@@ -408,11 +408,7 @@ async def post_check_retriver(forced=False):
                         streams_resp = await streams.get_streams_posts(
                             model_id, user_name, c=c
                         )
-                        streams_data = [
-                            post
-                            for stream_item in streams_resp
-                            for post in stream_item.get("posts", [])
-                        ]
+                        streams_data = streams_resp
                         set_check(streams_data, model_id, streams.API)
 
                 await operations.make_post_table_changes(
@@ -463,8 +459,9 @@ async def post_check_retriver(forced=False):
 def reset_data():
     # clean up args once check modes are ready to launch
     args = settings.get_args()
-    if args.username:
-        args.username = settings.get_settings().usernames = None
+    args.username = None
+    args.usernames = None
+    args.check_usernames = None
     settings.update_args(args)
 
 
@@ -557,7 +554,7 @@ async def message_check_retriver(forced=False):
                 paid = oldpaid
             else:
                 log.info(f"[{user_name}] Fetching fresh data for {paid_.API}")
-                paid = await paid_.get_paid_posts(model_id, user_name, c=c)
+                paid = await paid_.get_paid_posts(user_name, model_id, c=c)
                 set_check(paid, model_id, paid_.API)
 
             paid_posts_array = list(
@@ -633,7 +630,7 @@ async def purchase_check_retriver(forced=False):
                 ]
             else:
                 log.info(f"[{user_name}] Fetching fresh data for {paid_.API}")
-                paid = await paid_.get_paid_posts(model_id, user_name, c=c)
+                paid = await paid_.get_paid_posts(user_name, model_id, c=c)
                 set_check(paid, model_id, paid_.API)
             posts_array = list(map(lambda x: posts_.Post(x, model_id, user_name), paid))
             yield user_name, model_id, posts_array
@@ -768,7 +765,7 @@ async def get_paid_ids(model_id, user_name):
         async with manager.Manager.session.aget_ofsession(
             sem_count=of_env.getattr("API_REQ_CHECK_MAX")
         ) as c:
-            paid = await paid_.get_paid_posts(model_id, user_name, c=c)
+            paid = await paid_.get_paid_posts(user_name, model_id, c=c)
             set_check(paid, model_id, paid_.API)
 
     media = await process_post_media(user_name, model_id, paid)

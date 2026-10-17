@@ -7,7 +7,9 @@ from ofscraper.utils.args.parse.arguments.post_content import (
     db_sort_option,
     db_desc_option,
     db_posts_option,
+    post_id_filter_option,
 )
+from ofscraper.utils.args.parse.arguments.media_content import media_id_filter
 
 from ofscraper.utils.args.parse.groups.media_filter import (
     media_type_option,
@@ -24,8 +26,8 @@ from ofscraper.utils.args.parse.groups.user_sort import user_sorting_options
 from ofscraper.utils.args.parse.arguments.metadata_filters import (
     downloaded_option,
     lock_option,
-    check_post_id_filter_option,
-    check_media_id_filter_option,
+    
+    
     preview_option,
     created_after,
     created_before,
@@ -93,8 +95,8 @@ def db_args(func):
         posted_after,
         created_before,
         created_after,
-        check_media_id_filter_option,
-        check_post_id_filter_option,
+        media_id_filter,
+        post_id_filter_option,
         help="Filter based on properties of the media in the database",
     )
     @user_select_options

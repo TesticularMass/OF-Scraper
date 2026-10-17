@@ -368,7 +368,7 @@ def modify_sort_prompt(args):
                 "type": "list",
                 "name": "type",
                 "message": "Sort Accounts by..",
-                "default": args.desc is False,
+                "default": args.sort or "name",
                 "choices": [
                     Choice("name", "By Name"),
                     Choice("subscribed", "Subscribed Date"),
@@ -388,7 +388,7 @@ def modify_sort_prompt(args):
                     Choice(True, "Ascending"),
                     Choice(False, "Descending", enabled=True),
                 ],
-                "default": True,
+                "default": args.desc is False,
             },
         ],
         altd=prompt_helpers.sort_info,

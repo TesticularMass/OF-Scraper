@@ -38,14 +38,17 @@ class PriceField(Horizontal):
         val_lower = str(value).lower()
         if val_lower == "free":
             value = "0"
-        maxvalue=float(self.query_one(f"#{self.filter_name}_max").value or 0)
-        minvalue=float(self.query_one(f"#{self.filter_name}_min").value or 0)
-        if not maxvalue and not minvalue:
+        max_str = self.query_one(f"#{self.filter_name}_max").value
+        min_str = self.query_one(f"#{self.filter_name}_min").value
+        has_max = max_str != "" and max_str is not None
+        has_min = min_str != "" and min_str is not None
+        if not has_max and not has_min:
             return True
-        if not maxvalue:
-            return float(value) >= minvalue
-        if not minvalue:
-            return float(value) <= maxvalue
-        return float(value) >= minvalue and float(value) <= maxvalue
+        val_float = float(value)
+        if has_max and not has_min:
+            return val_float <= float(max_str)
+        if has_min and not has_max:
+            return val_float >= float(min_str)
+        return float(min_str) <= val_float <= float(max_str)
 
     

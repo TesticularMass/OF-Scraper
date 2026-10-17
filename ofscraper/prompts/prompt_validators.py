@@ -132,27 +132,10 @@ def dirformatvalidator():
         try:
             testplaceholders = list(
                 filter(
-                    lambda x: x is not None, [v[1] for v in string.Formatter().parse(x)]
+                    lambda v: v is not None, [val[1] for val in string.Formatter().parse(x)]
                 )
             )
-            validplaceholders = placeholders.all_placeholders()
-            if (
-                len(
-                    list(
-                        filter(
-                            lambda x: x not in validplaceholders
-                            or not x.find("custom"),
-                            testplaceholders,
-                        )
-                    )
-                )
-                > 0
-            ):
-                return
-            result = {}
-
-            for d in list(map(lambda x: {x: "placeholder"}, placeholders)):
-                result.update(d)
+            result = {k: "placeholder" for k in testplaceholders}
             validate_filepath(
                 str(pathlib.Path(x.format(**result))), platform=platform.system()
             )
@@ -200,10 +183,7 @@ def fileformatvalidator():
                 > 0
             ):
                 return
-            result = {}
-
-            for d in list(map(lambda x: {x: "placeholder"}, placeholders)):
-                result.update(d)
+            result = {k: "placeholder" for k in placeholders}
             validate_filename(x.format(**result), platform=platform.system())
 
             return True
@@ -300,10 +280,7 @@ def metadatavalidator():
                 > 0
             ):
                 return
-            result = {}
-
-            for d in list(map(lambda x: {x: "placeholder"}, placeholders)):
-                result.update(d)
+            result = {k: "placeholder" for k in placeholders}
             validate_filepath(
                 str(pathlib.Path(x.format(**result))), platform=platform.system()
             )

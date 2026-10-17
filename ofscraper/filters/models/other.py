@@ -11,10 +11,11 @@ import ofscraper.utils.settings as settings
 def otherFilters(filterusername):
     log = logging.getLogger("shared")
     log.debug(f"Excluded usernames: {settings.get_settings().excluded_username}")
-    if len(settings.get_settings().excluded_username) > 0:
+    excluded = settings.get_settings().excluded_username or []
+    if len(excluded) > 0:
         filterusername = list(
             filter(
-                lambda x: x.name not in settings.get_settings().excluded_username,
+                lambda x: x.name not in excluded,
                 filterusername,
             )
         )

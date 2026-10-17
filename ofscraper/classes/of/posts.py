@@ -135,7 +135,7 @@ class Post(base.base):
     @property
     def missed_downloads(self):
         """Convenience property to see what failed to download."""
-        return self.failed_downloads
+        return [m for m in self.media if m.download_attempted and not m.download_succeeded]
 
     # --------------------------------------------------------------------------------
     # --- Data Access Properties (Complete) ---
@@ -284,8 +284,12 @@ class Post(base.base):
     @property
     def media(self) -> list[Media.Media]:
         """Returns a list of all viewable media objects for this post."""
-        if int(self.fromuser) != int(self.model_id):
-            return []
+        if self.fromuser is not None and self.model_id is not None:
+            if str(self.fromuser).isdigit() and str(self.model_id).isdigit():
+                if int(self.fromuser) != int(self.model_id):
+                    return []
+            elif str(self.fromuser) != str(self.model_id):
+                return []
         media_items = map(
             lambda x: Media.Media(x[1], x[0], self), enumerate(self.post_media)
         )

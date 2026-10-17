@@ -161,14 +161,21 @@ async def process_urls(urls):
                 else:
                     value = await fetch_func(post_id, c)
 
-                if not value or value.get("error"):
+                has_error = value.get("error") if isinstance(value, dict) else False
+                if not value or has_error:
                     log.info(f"Failed to get data for URL {url}")
                     continue
 
-                # For unknown types, extract user info from the response
-                if api_type == "unknown":
-                    username, model_id = get_profile_helper(value)
-                    if not username:
+                # Extract user info from response if not already known
+                if not model_id:
+                    sample_item = value[0] if isinstance(value, list) and value else value
+                    if isinstance(sample_item, dict):
+                        username, model_id = get_profile_helper(sample_item)
+                        if not model_id and sample_item.get("userId"):
+                            model_id = sample_item.get("userId")
+                            u_data = profile.scrape_profile(model_id)
+                            username = u_data.get("username")
+                    if not model_id:
                         log.info(f"Could not find user info for post ID {post_id}")
                         continue
 

@@ -13,7 +13,8 @@ import ofscraper.managers.manager as manager
 
 
 log = logging.getLogger("shared")
-console = console.shared_console
+def _get_console():
+    return console.get_shared_console()
 currentData = None
 currentProfile = None
 
@@ -34,9 +35,7 @@ def delete_profile():
     if profile==profile_data.get_active_profile():
         log.error("can't delete active profile")
         return
-    p = common_paths.get_config_home() / profile
-    shutil.rmtree(p)
-    manager.Manager.profile_manager.delete_profile()
+    manager.Manager.profile_manager.delete_profile(profile)
     print(f"[green]Successfully deleted[/green] {profile}")
 
 
@@ -49,7 +48,7 @@ def create_profile():
         manager.Manager.profile_manager.switch_profile(name,permanent=True)
     if choice=="active":
         manager.Manager.profile_manager.switch_profile(name,permanent=False)
-    console.print(
+    _get_console().print(
         "[green]Successfully created[/green] {dir_name}".format(dir_name=name)
     )
 

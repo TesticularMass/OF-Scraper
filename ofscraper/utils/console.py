@@ -1,7 +1,9 @@
 from rich.console import Console
 from rich.theme import Theme
 
-from ofscraper.utils.args.accessors.output import low_output
+def low_output():
+    from ofscraper.utils.args.accessors.output import low_output as _lo
+    return _lo()
 
 theme = Theme(
     {
@@ -13,7 +15,7 @@ theme = Theme(
     }
 )
 
-quiet = low_output() is True
+quiet = False
 shared_console = None
 
 other_console = None
@@ -28,7 +30,7 @@ def get_console():
 def get_shared_console():
     global shared_console
     if not shared_console:
-        shared_console = Console(theme=theme, quiet=quiet, markup=True)
+        shared_console = Console(theme=theme, quiet=low_output() is True, markup=True)
 
     return shared_console
 

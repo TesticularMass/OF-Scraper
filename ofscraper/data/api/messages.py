@@ -324,8 +324,9 @@ async def scrape_messages(
                     for g_id in ghosts_in_batch:
                         required_ids.discard(g_id)
 
+                should_stop = False
                 if not is_last_chunk and len(required_ids) == 0:
-                    break
+                    should_stop = True
 
                 # Boundary condition: We hit our "after" date limit
                 if min_ts < after:
@@ -349,6 +350,9 @@ async def scrape_messages(
 
                 current_message_id = new_mid
                 yield batch
+
+                if should_stop:
+                    break
 
     except Exception as E:
         log.traceback_(E)

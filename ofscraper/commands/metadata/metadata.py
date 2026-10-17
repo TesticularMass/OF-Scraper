@@ -40,7 +40,6 @@ from ofscraper.commands.scraper.actions.utils.workers import get_max_workers
 from ofscraper.utils.context.run_async import run
 from ofscraper.commands.metadata.consumer import consumer
 from ofscraper.commands.metadata.desc import desc
-from ofscraper.data.posts.scrape_paid import scrape_paid_all
 from ofscraper.managers.postcollection import PostCollection
 
 log = logging.getLogger("shared")
@@ -82,6 +81,7 @@ class MetadataCommandManager(CommandManager):
     @run_async
     async def metadata_paid_all(self):
         """Helper to run the 'scrape_paid_all' process in metadata mode."""
+        from ofscraper.data.posts.scrape_paid import scrape_paid_all
         old_args = copy.deepcopy(settings.get_args())
         self._force_change_metadata()
         await scrape_paid_all()
@@ -187,7 +187,7 @@ class MetadataCommandManager(CommandManager):
         )
         if filtered_media:
             log.info(f"Found {len(filtered_media)} stray items to mark as locked")
-            await batch_set_media_downloaded(
+            batch_set_media_downloaded(
                 filtered_media, model_id=model_id, username=username
             )
 

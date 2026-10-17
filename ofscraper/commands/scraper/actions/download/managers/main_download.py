@@ -59,9 +59,9 @@ class MainDownloadManager(DownloadManager):
             ele.add_size(result[0])
 
             if result[0] == 0:
-                if ele.mediatype.capitalize() != "Forced_skipped":
-                    await self._force_download(ele, username, model_id)
-                return ele.mediatype.capitalize(), 0
+                if ele.mediatype.capitalize() == "Forced_skipped":
+                    return "forced_skipped", 0
+                return "skipped", 0
 
             return await self._handle_result_main(result, ele, username, model_id)
 

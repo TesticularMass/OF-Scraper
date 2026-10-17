@@ -22,6 +22,7 @@ class MetadataStats:
         self.changed_photo = 0
         self.unchanged_count = 0
         self.failed_count = 0
+        self.skipped_count = 0
 
     @property
     def total_changed(self):
@@ -61,10 +62,15 @@ class MetadataStats:
             else "0 failed"
         )
 
+        skipped_str = (
+            f"[bold yellow]{self.skipped_count} skipped[/bold yellow]"
+            if self.skipped_count > 0
+            else "0 skipped"
+        )
         return (
             f"({self.total_changed} changed media item total "
             f"[{videos_str}, {audios_str}, {photos_str}], "
-            f"{unchanged_str}, {failed_str})"
+            f"{unchanged_str}, {failed_str}, {skipped_str})"
         )
 
 

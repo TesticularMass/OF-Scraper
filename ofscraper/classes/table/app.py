@@ -437,8 +437,8 @@ class InputApp(App):
         self.update_search_info()
 
     def init_sort(self):
-        self._reverse = settings.get_settings().desc or False
-        self._sortkey = settings.get_settings().db_sort or "number"
+        self._reverse = settings.get_settings().desc or settings.get_settings().media_desc or False
+        self._sortkey = settings.get_settings().mediasort or settings.get_settings().db_sort or "number"
         self._sort_runner(key=self._sortkey)
 
     def reset_sort(self):
@@ -469,7 +469,16 @@ class InputApp(App):
                 elif key == "price":
                     sort_val = 0 if str(raw_val).lower() == "free" else float(raw_val or 0)
                 elif key == "length":
-                    sort_val = arrow.get(raw_val or "0:0:0", ["h:m:s"]).timestamp()
+                    parts = str(raw_val or "0:0:0").split(":")
+                    try:
+                        if len(parts) == 3:
+                            sort_val = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(float(parts[2]))
+                        elif len(parts) == 2:
+                            sort_val = int(parts[0]) * 60 + int(float(parts[1]))
+                        else:
+                            sort_val = int(float(parts[0]))
+                    except (ValueError, TypeError):
+                        sort_val = 0
                 elif key == "post_date":
                     sort_val = arrow.get(raw_val).timestamp()
                 elif key in {"post_id", "media_id"}:

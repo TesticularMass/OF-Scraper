@@ -234,6 +234,7 @@ async def rebuild_messages_table(model_id=None, username=None, db_path=None, **k
 async def make_messages_table_changes(
     all_messages, model_id=None, username=None, **kwargs
 ):
+    all_messages = list(all_messages)
     curr_id = set(await get_all_messages_ids(model_id=model_id, username=username))
     new_posts = list(filter(lambda x: x.id not in curr_id, all_messages))
     curr_posts = list(filter(lambda x: x.id in curr_id, all_messages))

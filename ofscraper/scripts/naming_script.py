@@ -8,8 +8,6 @@ import ofscraper.utils.settings as settings
 import ofscraper.utils.config.data as config_data
 from ofscraper.utils.system.subprocess import async_run # Changed to async_run
 import ofscraper.utils.of_env.of_env as env
-from ofscraper.classes.of.posts import Post
-from ofscraper.classes.of.media import Media
 
 
 async def naming_script(dir, file, ele): # Made async
@@ -30,6 +28,8 @@ async def naming_script(dir, file, ele): # Made async
 
     log.info(f"Attempting to run naming script: {script_path}")
 
+    from ofscraper.classes.of.posts import Post
+    from ofscraper.classes.of.media import Media
     try:
         payload_data = {
             "dir": str(dir),

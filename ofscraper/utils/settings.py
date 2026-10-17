@@ -100,17 +100,20 @@ def merged_settings():
 
     # --- Cache Logic ---
     cache_mode = (
-        config_data.get_cache_mode()
-        if hasattr(config_data, "get_cache_mode")
+        config_data.cache_mode_helper()
+        if hasattr(config_data, "cache_mode_helper")
         else of_env.getattr("CACHEDEFAULT")
     )
-    merged.cached_disabled = args.no_cache or args.no_api_cache
+    merged.cached_disabled = args.no_cache or cache_mode == "disabled"
     merged.cache_disabled = args.no_cache or cache_mode == "disabled"
     merged.api_cache_disabled = (
-        args.no_cache or args.no_api_cache or cache_mode == "api_disabled"
+        args.no_cache or args.no_api_cache or cache_mode in {"disabled", "api_disabled"}
     )
 
     # --- Basic Config Overrides ---
+    merged.ffmpeg = config_data.get_ffmpeg()
+    merged.users_first = args.users_first
+    merged.userfirst = args.users_first
     merged.key_mode = args.key_mode or config_data.get_key_mode()
     merged.dynamic_rules = args.dynamic_rules or config_data.get_dynamic()
     merged.download_bars = args.downloadbars or config_data.get_show_downloadprogress()
@@ -142,7 +145,13 @@ def merged_settings():
     # --- File & Download Settings ---
     merged.text_type = args.text_type or config_data.get_textType()
     merged.space_replacer = args.space_replacer or config_data.get_spacereplacer()
-    merged.text_length = args.text_length or config_data.get_textlength()
+    merged.text_length = (
+        args.textlength
+        if getattr(args, "textlength", None) is not None
+        else args.text_length
+        if getattr(args, "text_length", None) is not None
+        else config_data.get_textlength()
+    )
     merged.size_max = args.size_max or config_data.get_filesize_max()
     merged.size_min = args.size_min or config_data.get_filesize_min()
     merged.download_sems = args.downloadsem or config_data.get_download_semaphores()

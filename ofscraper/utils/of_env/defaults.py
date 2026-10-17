@@ -361,6 +361,8 @@ def load_defaults():
         os.getenv("OFSC_FINAL_SCRIPT_SUBPROCESS_LEVEL", "10")
     )
     config["LOG_SUBPROCESS_LEVEL"] = int(os.getenv("OFSC_LOG_SUBPROCESS_LEVEL", "10"))
+    config["SCRIPT_OUTPUT_SUBPROCCESS"] = os.getenv("OFSC_SCRIPT_OUTPUT_SUBPROCCESS", "True").lower() in ("true", "1")
+    config["SCRIPT_OUTPUT_SUBPROCCESS_LEVEL"] = int(os.getenv("OFSC_SCRIPT_OUTPUT_SUBPROCCESS_LEVEL", "10"))
     config["FFMPEG_SUBPROCESS_LEVEL"] = int(
         os.getenv("OFSC_FFMPEG_SUBPROCESS_LEVEL", "10")
     )

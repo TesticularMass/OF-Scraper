@@ -24,7 +24,7 @@ def sort_by_date(media):
 # dupe filters that prioritize viewable
 def dupefiltermedia(media):
     output = defaultdict(lambda: None)
-    media = sorted(media, key=lambda item: (item.post.date, item.id, item.count))
+    media = sorted(media, key=lambda item: (item.post.date or "", item.id, item.count))
     if of_env.getattr("ALLOW_DUPE_MEDIA"):
         for item in media:
             if not output[(item.id, item.post_id)]:
@@ -108,21 +108,26 @@ def media_length_filter(media):
     filteredMedia = media
     max_length = settings.get_settings().length_max
     min_length = settings.get_settings().length_min
+    def _duration_val(x):
+        try:
+            return float(x.duration) if x.duration is not None else None
+        except (ValueError, TypeError):
+            return None
     if max_length:
         filteredMedia = list(
             filter(
-                lambda x: x.mediatype.capitalize() != "Videos"
-                or x.duration is None
-                or x.duration <= max_length,
+                lambda x: x.mediatype.capitalize() not in {"Videos", "Audios"}
+                or _duration_val(x) is None
+                or _duration_val(x) <= float(max_length),
                 filteredMedia,
             )
         )
     if min_length:
         filteredMedia = list(
             filter(
-                lambda x: x.mediatype.capitalize() != "Videos"
-                or x.duration is None
-                or x.duration >= min_length,
+                lambda x: x.mediatype.capitalize() not in {"Videos", "Audios"}
+                or _duration_val(x) is None
+                or _duration_val(x) >= float(min_length),
                 filteredMedia,
             )
         )
@@ -146,9 +151,9 @@ def final_media_sort(media):
     if media_sort == "date" and is_reversed:
         media = list(reversed(media))
     if media_sort == "text":
-        media = sorted(media, key=lambda x: x.text, reverse=is_reversed)
+        media = sorted(media, key=lambda x: x.text or "", reverse=is_reversed)
     elif media_sort == "filename":
-        media = sorted(media, key=lambda x: x.filename, reverse=is_reversed)
+        media = sorted(media, key=lambda x: x.filename or "", reverse=is_reversed)
     return media
 
 
@@ -157,7 +162,7 @@ def previous_download_filter(medialist, username=None, model_id=None):
 
     # sort to key order same
     medialist = sorted(
-        medialist, key=lambda item: (item.post.date, item.id, item.count)
+        medialist, key=lambda item: (item.post.date or "", item.id, item.count)
     )
 
     # Early Exit if forcing all

@@ -67,8 +67,13 @@ class TimeField(Container):
             seconds = val % 60
 
         elif val != "N/A" and val != "N\\A":
-            valArray = val.split(":")
-            hours, minutes, seconds = valArray
+            valArray = str(val).split(":")
+            if len(valArray) == 3:
+                hours, minutes, seconds = valArray
+            elif len(valArray) == 2:
+                hours, minutes, seconds = 0, valArray[0], valArray[1]
+            else:
+                hours, minutes, seconds = 0, 0, valArray[0]
         else:
             hours, minutes, seconds = 0, 0, 0
         for pack in zip(minLenthInputs, [hours, minutes, seconds]):
@@ -83,8 +88,13 @@ class TimeField(Container):
             seconds = val % 60
 
         elif val != "N/A" and val != "N\\A":
-            valArray = val.split(":")
-            hours, minutes, seconds = valArray
+            valArray = str(val).split(":")
+            if len(valArray) == 3:
+                hours, minutes, seconds = valArray
+            elif len(valArray) == 2:
+                hours, minutes, seconds = 0, valArray[0], valArray[1]
+            else:
+                hours, minutes, seconds = 0, 0, valArray[0]
         else:
             hours, minutes, seconds = 0, 0, 0
         for pack in zip(maxLenthInputs, [hours, minutes, seconds]):
@@ -94,35 +104,43 @@ class TimeField(Container):
         for ele in self.query(IntegerInput):
             ele.value = ""
 
-    def compare(self, value):
-        max_val = arrow.get(
-            "{hour}:{minute}:{second}".format(
-                hour=self.query_one("#max_hour").value or 0,
-                minute=self.query_one("#max_minute").value or 0,
-                second=self.query_one("#max_second").value or 0,
-            ),
-            ["h:m:s"],
-        )
-        min_val = arrow.get(
-            "{hour}:{minute}:{second}".format(
-                hour=self.query_one("#min_hour").value or 0,
-                minute=self.query_one("#min_minute").value or 0,
-                second=self.query_one("#min_second").value or 0,
-            ),
-            ["h:m:s"],
-        )
-        compare_value = arrow.get(
-            "0:0:0" if value in {"N\\A", "N/A"} else value, ["h:m:s"]
-        )
+    def _parse_duration_seconds(self, value):
+        if not value or value in {"N\\A", "N/A"}:
+            return 0
+        parts = str(value).split(":")
+        try:
+            if len(parts) == 3:
+                return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(float(parts[2]))
+            elif len(parts) == 2:
+                return int(parts[0]) * 60 + int(float(parts[1]))
+            elif len(parts) == 1:
+                return int(float(parts[0]))
+        except (ValueError, TypeError):
+            return 0
+        return 0
 
-        if min_val == max_val and min_val == arrow.get("0:0:0", ["h:m:s"]):
+    def compare(self, value):
+        max_sec = (
+            int(self.query_one("#max_hour").value or 0) * 3600
+            + int(self.query_one("#max_minute").value or 0) * 60
+            + int(self.query_one("#max_second").value or 0)
+        )
+        min_sec = (
+            int(self.query_one("#min_hour").value or 0) * 3600
+            + int(self.query_one("#min_minute").value or 0) * 60
+            + int(self.query_one("#min_second").value or 0)
+        )
+        compare_sec = self._parse_duration_seconds(value)
+
+        if min_sec == max_sec and min_sec == 0:
             return True
-        elif max_val == arrow.get("0:0:0", ["h:m:s"]):
-            return compare_value > min_val
-        elif min_val == arrow.get("0:0:0", ["h:m:s"]):
-            return compare_value < max_val
+        elif max_sec == 0:
+            return compare_sec >= min_sec
+        elif min_sec == 0:
+            return compare_sec <= max_sec
         else:
-            return compare_value.is_between(min_val, max_val, bounds="[]")
+            return min_sec <= compare_sec <= max_sec
+
 
     @property
     def key(self):
