@@ -23,18 +23,8 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     COMMIT_TIMESTAMP=$(git show -s --format=%ct HEAD)
     echo "Commit Timestamp (Unix): ${COMMIT_TIMESTAMP}"
 
-    # Find the highest version tag based on newest commit date (committerdate)
-    HIGHEST_TAG=$(git tag --sort=-committerdate | \
-                  grep -E '^v?[0-9]+\.[0-9]+(\.[0-9]+)?([-.][a-zA-Z0-9.]+)?$' | \
-                  head -n 1)
-
-    if [ -z "$HIGHEST_TAG" ]; then
-        BASE_VERSION="0.0.0"
-        echo "No valid version tags found pointing to recent commits. Using fallback base version: ${BASE_VERSION}"
-    else
-        BASE_VERSION=$(echo "$HIGHEST_TAG" | sed 's/^v//')
-        echo "Base version from newest commit tag: ${BASE_VERSION}"
-    fi
+    BASE_VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+    echo "Base version from pyproject.toml: ${BASE_VERSION}"
     
     # Sanitize BASE_VERSION for use in Git tag/Docker tag names (replace . and + with -)
     SANITIZED_BASE_VERSION=$(echo "$BASE_VERSION" | sed 's/[.+]/_/g')
@@ -119,8 +109,6 @@ echo "Is Newer Than Last Successful Run: ${IS_NEWER}"
 # --- Environment-Specific Output ---
 if [ -n "$GITHUB_ENV" ] && [ -n "$GITHUB_OUTPUT" ]; then
     echo "--- GitHub Actions environment detected. Setting outputs and env vars. ---"
-    
-    echo "HATCH_VCS_PRETEND_VERSION=${VERSION}" >> "$GITHUB_ENV"
     
     echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
     echo "SANITIZED_VERSION=${SANITIZED_VERSION}" >> "$GITHUB_OUTPUT"

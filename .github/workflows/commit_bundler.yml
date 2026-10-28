@@ -75,11 +75,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v1
 
-      - name: Set Version Environment Variables
-        shell: bash
-        run: |
-          echo "HATCH_VCS_PRETEND_VERSION=${{ needs.generate_version.outputs.version }}" >> $GITHUB_ENV
-
       - name: Install Dependencies and Build Tools
         shell: bash
         run: |

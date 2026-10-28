@@ -1019,6 +1019,7 @@ wheels = [
 
 [[package]]
 name = "ofscraper"
+version = "3.14.3.post1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

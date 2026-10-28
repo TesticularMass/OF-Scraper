@@ -1,6 +1,6 @@
 [project]
 name = "ofscraper"
-dynamic = ["version"]
+version = "3.14.3.post1"
 description = "automatically scrape onlyfans"
 authors = [{ name = "TesticularMass" }]
 readme = "README.md"
@@ -61,15 +61,8 @@ ofscraper = "ofscraper.__main__:main"
 packages = ["ofscraper"]
 
 [build-system]
-requires = ["hatchling~=1.29.0", "version-pioneer~=0.0.16"]
+requires = ["hatchling~=1.29.0"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "version-pioneer"
-
-[tool.version-pioneer]
-# This tells the plugin to create a _version.py file inside your ofscraper package.
-versionscript = "plugins.py"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

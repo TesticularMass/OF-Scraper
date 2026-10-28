@@ -3,8 +3,9 @@ set -e
 
 # --- Get input version from environment variable ---
 # In GitHub Actions, INPUT_VERSION is passed from the workflow dispatch.
-# Locally, if not set, it defaults to empty, triggering fallback to Git tags.
+# Locally, if not set, it defaults to empty, triggering fallback to pyproject.toml.
 INPUT_VERSION="${INPUT_VERSION:-}"
+PROJECT_VERSION=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
 
 # --- Initialize outputs ---
 PACKAGE_VERSION=""
@@ -52,25 +53,19 @@ else
         fi
         echo "Using INPUT_VERSION: ${INPUT_VERSION} (Local execution)"
     else
-        # INPUT_VERSION NOT provided locally, fall back to Git tags
+        PACKAGE_VERSION="${PROJECT_VERSION}"
+        echo "INPUT_VERSION not set. Using version from pyproject.toml: ${PACKAGE_VERSION} (Local execution)"
         if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
             LONG_HASH=$(git rev-parse HEAD)
-            HIGHEST_TAG=$(git tag --sort=-committerdate | \
-                          grep -E '^v?[0-9]+\.[0-9]+(\.[0-9]+)?([-.][a-zA-Z0-9.]+)?$' | \
-                          head -n 1)
-
-            if [ -n "$HIGHEST_TAG" ]; then
-                PACKAGE_VERSION=$(echo "$HIGHEST_TAG" | sed 's/^v//')
-                echo "INPUT_VERSION not set. Derived version from Git tag: ${PACKAGE_VERSION} (Local execution)"
-            else
-                PACKAGE_VERSION="0.0.0"
-                echo "INPUT_VERSION not set and no valid Git tags found. Using fallback version: ${PACKAGE_VERSION} (Local execution)"
-            fi
-        else
-            PACKAGE_VERSION="0.0.0"
-            echo "Not a git repository. Using fallback version: ${PACKAGE_VERSION} (Local execution)"
         fi
     fi
+fi
+
+# The built package always takes its version from pyproject.toml, so a release
+# tag that disagrees with it would publish artifacts under the wrong version.
+if [ "$PACKAGE_VERSION" != "$PROJECT_VERSION" ]; then
+    echo "Error: release version '${PACKAGE_VERSION}' does not match pyproject.toml version '${PROJECT_VERSION}'." >&2
+    exit 1
 fi
 
 # Derive short hash AFTER LONG_HASH is determined
@@ -94,9 +89,9 @@ else
 fi
 
 # --- Determine if it's a stable or dev release based on PACKAGE_VERSION ---
-# Stable: pure semantic versioning (e.g., 1.2.3)
-# Dev: contains any letters (e.g., alpha, beta, rc, dev)
-if [[ "$PACKAGE_VERSION" =~ [a-zA-Z] ]]; then
+# Stable: final or post releases (e.g., 1.2.3, 1.2.3.post1)
+# Dev: pre-release or dev suffix (e.g., 1.2.3a1, 1.2.3-beta.1, 1.2.3rc1, 1.2.3.dev1)
+if [[ "$PACKAGE_VERSION" =~ (a|b|rc|alpha|beta|pre|preview|dev)[.-]?[0-9]*$ ]]; then
     IS_DEV_RELEASE="true"
 else
     IS_STABLE_RELEASE="true"
@@ -115,9 +110,6 @@ echo "Current Commit Timestamp (from HEAD): ${CURRENT_COMMIT_TIMESTAMP}"
 # Directly use $GITHUB_ACTIONS for the check
 if [ "$GITHUB_ACTIONS" = "true" ] && [ -n "$GITHUB_ENV" ] && [ -n "$GITHUB_OUTPUT" ]; then
     echo "--- GitHub Actions environment detected. Setting outputs and env vars. ---"
-
-    # For subsequent steps in the same job (e.g., for build arguments)
-    echo "HATCH_VCS_PRETEND_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
 
     # For other jobs that depend on this one
     echo "long_hash=${LONG_HASH}" >> "$GITHUB_OUTPUT"

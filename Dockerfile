@@ -2,7 +2,6 @@
 # Stage 1: Build the application artifact
 FROM ghcr.io/astral-sh/uv:0.7.13-python3.11-bookworm-slim AS builder
 
-ARG BUILD_VERSION
 WORKDIR /app
 
 # --- This is the ABSOLUTE ONLY essential change to fix the psutil/gcc error ---
@@ -11,23 +10,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential\
     python3-dev \
-    git \
     && rm -rf /var/lib/apt/lists/*
-COPY --parents pyproject.toml uv.lock README.md .git ofscraper plugins.py .
+COPY --parents pyproject.toml uv.lock README.md ofscraper .
 
 RUN \
-    if [ -n "$BUILD_VERSION" ]; then \
-      VERSION="$BUILD_VERSION"; \
-    else \
-      SHORT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "0000000"); \
-      HIGHEST_TAG=$(git tag --sort=-committerdate | grep -E '^v?[0-9]+\.[0-9]+(\.[0-9]+)?([-.][a-zA-Z0-9.]+)?$' | head -n 1); \
-      if [ -z "$HIGHEST_TAG" ]; then BASE_VERSION="0.0.0"; else BASE_VERSION=$(echo "$HIGHEST_TAG" | sed 's/^v//'); fi; \
-      VERSION="${BASE_VERSION}+g${SHORT_HASH}"; \
-    fi && \
-    export HATCH_VCS_PRETEND_VERSION=$VERSION && \
-    echo "Build OF-SCRAPER with ${VERSION}" && \
-
-    python3 -m pip install --no-cache-dir hatch hatch-vcs && \
+    python3 -m pip install --no-cache-dir hatch && \
     uv sync --locked && \
     hatch build
 
