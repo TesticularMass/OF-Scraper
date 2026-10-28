@@ -116,6 +116,17 @@ def load_defaults():
         "OFSC_METADATA_DEFAULT", "{configpath}/{profile}/.data/{model_id}"
     )
     response_type_default_env = os.getenv("OFSC_RESPONSE_TYPE_DEFAULT")
+    default_response_types = {
+        "message": "Messages",
+        "timeline": "Posts",
+        "archived": "Archived",
+        "paid": "Purchased",
+        "stories": "Stories",
+        "highlights": "Stories",
+        "profile": "Profile",
+        "pinned": "Posts",
+        "streams": "Streams",
+    }
     if response_type_default_env:
         try:
             config["RESPONSE_TYPE_DEFAULT"] = json.loads(response_type_default_env)
@@ -123,29 +134,9 @@ def load_defaults():
             print(
                 f"Warning: OFSC_RESPONSE_TYPE_DEFAULT environment variable '{response_type_default_env}' is not valid JSON. Using default dictionary."
             )
-            config["RESPONSE_TYPE_DEFAULT"] = {
-                "message": "Messages",
-                "timeline": "Posts",
-                "archived": "Archived",
-                "paid": "Purchased",
-                "stories": "Stories",
-                "highlights": "Stories",
-                "profile": "Profile",
-                "pinned": "Posts",
-                "streams": "Streams",
-            }
+            config["RESPONSE_TYPE_DEFAULT"] = default_response_types
     else:
-        config["RESPONSE_TYPE_DEFAULT"] = {
-            "message": "Messages",
-            "timeline": "Posts",
-            "archived": "Archived",
-            "paid": "Messages",
-            "stories": "Stories",
-            "highlights": "Stories",
-            "profile": "Profile",
-            "pinned": "Posts",
-            "streams": "Streams",
-        }
+        config["RESPONSE_TYPE_DEFAULT"] = default_response_types
     empty_media_default_env = os.getenv("OFSC_EMPTY_MEDIA_DEFAULT")
     if empty_media_default_env:
         try:
