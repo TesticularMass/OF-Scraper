@@ -8,7 +8,6 @@ from typing import Union
 from pathlib import Path
 
 import arrow
-from async_property import async_cached_property
 from bs4 import MarkupResemblesLocatorWarning
 from mpegdash.parser import MPEGDASHParser
 
@@ -18,6 +17,7 @@ import ofscraper.utils.config.data as data
 import ofscraper.utils.dates as dates
 import ofscraper.utils.of_env.of_env as of_env
 import ofscraper.utils.logs.utils.sensitive as sensitive
+from ofscraper.utils.async_cached_property import async_cached_property
 
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
