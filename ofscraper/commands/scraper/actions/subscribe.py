@@ -151,7 +151,7 @@ def _subscribe_batch(candidates):
                 )
                 results.append({"username": username, "status": "success"})
             else:
-                log.warning(f"[bold red]Failed to subscribe to {username}[/bold red]")
+                # subscribe_by_id already logged the status code or exception.
                 results.append({"username": username, "status": "failed"})
 
             # Small delay between requests to avoid rate limiting

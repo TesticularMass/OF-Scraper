@@ -17,9 +17,6 @@ def check_cdm():
     keymode = settings.get_settings().key_mode
     console.print(f"[yellow]Key Mode: {keymode}\n\n[/yellow]")
     if keymode == "manual":
-        console.print(
-            "[yellow]WARNING:Make sure you have all the correct settings for choosen cdm\nhttps://of-scraper.gitbook.io/of-scraper/cdm-options\n\n[/yellow]"
-        )
         return True
     elif keymode == "cdrm":
         url = of_env.getattr("CDRM")
@@ -35,9 +32,6 @@ def check_cdm():
             with c.requests(url=url, headers={}) as r:
                 if r.ok:
                     console.print("[green] CDM service seems to be working\n[/green]")
-                    console.print(
-                        "[yellow]WARNING:Make sure you have all the correct settings for choosen cdm\nhttps://of-scraper.gitbook.io/of-scraper/cdm-options\n\n[/yellow]"
-                    )
                     return True
                 else:
                     console.print(

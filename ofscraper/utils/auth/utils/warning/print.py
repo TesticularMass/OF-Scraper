@@ -6,19 +6,33 @@ import ofscraper.utils.console as console
 import ofscraper.utils.of_env.of_env as of_env
 import ofscraper.utils.settings as settings
 
+# Session secrets; showing them in full would leak the login if the output is shared.
+SECRET_KEYS = {"sess", "x-bc", "auth_uid", "auth_uid_"}
+
+
+def mask_secret(value):
+    text = str(value or "")
+    if len(text) <= 8:
+        return "*" * len(text)
+    return f"{'*' * 8}{text[-4:]}"
+
 
 def print_auth_warning(auth=None):
     auth = auth or auth_requests.auth_file.read_auth()
     auth.update({"app-token": of_env.getattr("APP_TOKEN")})
+    shown = {
+        key: mask_secret(value) if key in SECRET_KEYS else value
+        for key, value in auth.items()
+    }
 
     console.get_console().print(
         textwrap.dedent(
             """
-        [bold red]This info is only printed to console[/bold red]
+        [bold red]Secret values are masked; only their last 4 characters are shown[/bold red]
         """
         )
     )
-    console.get_console().print_json(json.dumps(auth))
+    console.get_console().print_json(json.dumps(shown))
     console.get_console().print(
         f"[bold] Dynamic Rule: {settings.get_settings().dynamic_rules}"
     )

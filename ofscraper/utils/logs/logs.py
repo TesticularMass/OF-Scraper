@@ -7,7 +7,6 @@ import sys
 import certifi
 
 import ofscraper.utils.config.file as config_file
-import ofscraper.utils.console as console
 import ofscraper.utils.paths.common as common_paths
 import ofscraper.utils.settings as settings
 import ofscraper.utils.system.system as system
@@ -49,10 +48,3 @@ def print_args():
 def print_config():
     log = logging.getLogger("shared")
     log.debug(config_file.open_config())
-
-
-def discord_warning():
-    if settings.get_settings().discord_level == "DEBUG":
-        console.get_shared_console().print(
-            "[bold red]Warning Discord with DEBUG is not recommended\nAs processing messages is much slower compared to other[/bold red]"
-        )

@@ -35,7 +35,7 @@ def _call(method, *args, **kwargs):
             except sqlite3.DatabaseError as error:
                 code = getattr(error, "sqlite_errorname", type(error).__name__)
                 if attempt == 0:
-                    log.warning(
+                    log.debug(
                         "Cache %s failed (%s: %s); retrying with a fresh connection.",
                         method, code, error,
                     )

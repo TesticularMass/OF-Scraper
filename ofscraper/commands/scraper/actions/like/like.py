@@ -24,9 +24,18 @@ import ofscraper.utils.live.updater as progress_updater
 from ofscraper.classes.of.posts import Post
 
 log = logging.getLogger("shared")
-warning_str = "\n[red]Current Like rate can eat through the ~1000 like limit in ~1 hour\nIncreasing the rate could lead to getting logged out[/red]"
-like_str = "Performing Like Action on {name}" + warning_str
-unlike_str = "Performing Unlike Action on {name}" + warning_str
+warning_str = "[red]Current Like rate can eat through the ~1000 like limit in ~1 hour\nIncreasing the rate could lead to getting logged out[/red]"
+like_str = "Performing Like Action on {name}"
+unlike_str = "Performing Unlike Action on {name}"
+_rate_warning_shown = False
+
+
+def _warn_like_rate_once():
+    global _rate_warning_shown
+    if not _rate_warning_shown:
+        log.warning(warning_str)
+        _rate_warning_shown = True
+
 
 @exit.exit_wrapper
 def process_like(posts=None, model_id=None, username=None, **kwargs):
@@ -34,6 +43,7 @@ def process_like(posts=None, model_id=None, username=None, **kwargs):
         progress_updater.activity.update_task(
             description=like_str.format(name=username), visible=True
         )
+        _warn_like_rate_once()
         logging.getLogger("shared").warning(like_str.format(name=username))
         like(model_id, username, posts)
 
@@ -44,6 +54,7 @@ def process_unlike(posts=None, model_id=None, username=None, **kwargs):
         progress_updater.activity.update_task(
             description=unlike_str.format(name=username), visible=True
         )
+        _warn_like_rate_once()
         logging.getLogger("shared").warning(unlike_str.format(name=username))
         unlike(model_id, username, posts)
 

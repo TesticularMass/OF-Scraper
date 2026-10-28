@@ -1,5 +1,4 @@
 import logging
-import time
 import re
 
 import ofscraper.data.api.init as init
@@ -56,4 +55,3 @@ def unique_name_warning():
             https://of-scraper.gitbook.io/of-scraper/config-options/customizing-save-path#warning[/red]      \
             "
         )
-        time.sleep(of_env.getattr("LOG_DISPLAY_TIMEOUT") * 3)

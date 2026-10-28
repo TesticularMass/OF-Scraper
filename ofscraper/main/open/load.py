@@ -7,7 +7,6 @@ import ofscraper.main.open.run as run
 import ofscraper.utils.config.config as config_
 import ofscraper.utils.dates as dates
 import ofscraper.utils.logs.logger as logger
-import ofscraper.utils.logs.logs as logs
 import ofscraper.utils.paths.manage as paths_manage
 import ofscraper.utils.system.system as system
 import ofscraper.utils.settings as settings
@@ -43,7 +42,6 @@ def setdate():
 
 def setLogger():
     logger.get_shared_logger()
-    logs.discord_warning()
     paths_manage.cleanup_logs()
 
 
