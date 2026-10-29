@@ -4,7 +4,7 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 
 > I found something useful and wanted to make it better. That's it.
 
-![Python](https://img.shields.io/badge/python-3.11%E2%80%933.14-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11%E2%80%933.15-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
 
@@ -42,7 +42,7 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 ## Installation
 
 ### Requirements
-- Python 3.11–3.14
+- Python 3.11–3.15 (on 3.15, `lz4` has no prebuilt wheels yet, so installing needs a C compiler)
 - ffmpeg (for video processing and DRM decryption)
 
 ### Setup
