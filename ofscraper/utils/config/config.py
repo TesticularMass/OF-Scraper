@@ -45,6 +45,7 @@ def update_config(field: str, value):
     config.update({field: value})
     new_config = schema.get_current_config_schema(config)
     config_file.write_config(new_config)
+    _reset_cache()
     log.debug(f"new config: {config}")
     return new_config
 
@@ -59,4 +60,13 @@ def update_config_full(config_, updated_config):
     config.update(updated_config)
     log.debug(f"new config: {config}")
     config_file.write_config(config)
+    _reset_cache()
     return config
+
+
+def _reset_cache():
+    # The main profile and cache-mode settings decide where the cache lives.
+    # Imported here because the cache module imports the config readers.
+    import ofscraper.utils.cache.cache as cache
+
+    cache.reset()

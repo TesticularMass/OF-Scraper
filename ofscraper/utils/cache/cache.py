@@ -90,3 +90,17 @@ def close(*args, **kwargs):
                         getattr(error, "sqlite_errorname", type(error).__name__), error,
                     )
                 _disabled_due_to_error = True
+
+
+def reset():
+    """Forget the open cache so the next call opens the active profile's cache.
+
+    The cache lives in the profile folder and its format follows the config, so
+    call this after switching or renaming profiles or changing the config.
+    """
+    global cache, _disabled_due_to_error
+    close()
+    with lock:
+        cache = None
+        # The failure that disabled the old cache says nothing about the new one.
+        _disabled_due_to_error = False

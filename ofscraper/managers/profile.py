@@ -1,6 +1,7 @@
 import logging
 import shutil
 from ofscraper.managers.model import ModelManager
+import ofscraper.utils.cache.cache as cache
 import ofscraper.utils.settings as settings
 import ofscraper.utils.profiles.data as data
 import ofscraper.utils.paths.common as common_paths
@@ -37,6 +38,7 @@ class ProfileManager:
             log.info(f"Temporarily switching active profile to '{new_profile_name}' for this session...")
             args.profile = new_profile_name
         settings.update_args(args)
+        cache.reset()
         log.info(f"[green]✅ Active profile is now '{new_profile_name}'[/green]")   
 
     def delete_profile(self, profile_name: str):
@@ -94,6 +96,8 @@ class ProfileManager:
             args=settings.get_args()
             args.profile=new_name
             settings.update_args(args)
+        # The folder holding the open cache moved.
+        cache.reset()
         log.info(f"[green]Successfully renamed profile '{old_name}' to '{new_name}'[/green]")
     
     @property
