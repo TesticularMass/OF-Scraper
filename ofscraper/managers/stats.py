@@ -417,7 +417,9 @@ class StatsManager:
             elif not media.download_succeeded:
                 stat_obj.failed_count += 1
             else:
-                stat_obj.total_bytes += media.size or 0
+                # media.size raises until a size is recorded, and known bad
+                # URLs are marked downloaded without one
+                stat_obj.total_bytes += media.media.get("size") or 0
                 mtype = media.mediatype.lower()
                 if mtype == "videos":
                     stat_obj.video_count += 1
