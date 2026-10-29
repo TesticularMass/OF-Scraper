@@ -138,6 +138,15 @@ jobs:
             "$OFSCRAPER_EXECUTABLE"
         shell: bash
 
+      - name: Check the Executable Starts
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then EXE_EXT=".exe"; else EXE_EXT=""; fi
+          EXE="dist/ofscraper_${{ matrix.artifact_suffix }}_${{ steps.prep_build_version.outputs.sanitized_tag }}${EXE_EXT}"
+          "$EXE" --version
+          # loads the argument modules of a subcommand
+          "$EXE" db --help > /dev/null
+        shell: bash
+
       - name: Build Executable (Dir)
         run: |
           OFSCRAPER_EXECUTABLE="ofscraper/__main__.py"
