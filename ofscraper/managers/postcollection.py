@@ -1,5 +1,8 @@
 from collections.abc import Iterable
 import logging
+
+import arrow
+
 import ofscraper.filters.media.filters as helpers
 import ofscraper.utils.settings as settings
 from ofscraper.classes.of.posts import Post
@@ -28,6 +31,9 @@ class PostCollection:
         self.mode = mode
         # Internal dictionary to store posts, using post_id as the key for de-duplication
         self._posts_map = {}
+        # Area -> timestamp of the oldest post its successful scan returned
+        # (None when it returned nothing). Failed or skipped areas are absent.
+        self.scanned_areas = {}
         log.info(f"Initialized PostCollection for {username}")
 
     @property
@@ -108,6 +114,11 @@ class PostCollection:
 
         if new_posts_added > 0:
             log.info(f"Added {new_posts_added} posts to the collection")
+
+    def record_scanned_area(self, area: str, posts: list[Post]) -> None:
+        """Remember that an area's scan succeeded and how far back it reached."""
+        dates = [arrow.get(post.date).float_timestamp for post in posts if post.date]
+        self.scanned_areas[area] = min(dates) if dates else None
 
     def get_media_to_download(self) -> list:
         """

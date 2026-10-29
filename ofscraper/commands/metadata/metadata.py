@@ -120,7 +120,7 @@ class MetadataCommandManager(CommandManager):
         await metadata_process(username, model_id, media)
 
         # Optionally, find and mark media in the DB that is no longer accessible
-        await self._metadata_stray_media(username, model_id, media)
+        await self._metadata_stray_media(username, model_id, postcollection)
 
         # Update and print statistics for this user's metadata activity
         manager.Manager.stats_manager.update_and_print_stats(
@@ -146,45 +146,46 @@ class MetadataCommandManager(CommandManager):
             }
         }
 
-    async def _metadata_stray_media(self, username, model_id, media):
+    async def _metadata_stray_media(self, username, model_id, postcollection):
         """
-        Finds and marks media in the database that is no longer present in a scrape.
+        Locks database media that a successful scan no longer returns.
+
+        Compares against everything the API returned, before user filters, and
+        only within each area's scan: scans are incremental, so media older than
+        the oldest post a scan returned was never checked.
         """
         if not settings.get_settings().mark_stray:
             return
-        all_db_media = []
-        curr_media_set = set(map(lambda x: str(x.id), media))
+        if settings.get_settings().post_id:
+            log.info("Skipping stray media check: --post-id limits the scan to specific posts")
+            return
         args = settings.get_args()
         progress_updater.activity.update_task(
             description=mark_stray_str.format(username=username)
         )
-        # Fetch all media for the user from the database based on selected areas
-        if "Timeline" in args.download_area:
-            all_db_media.extend(
-                await get_timeline_media(model_id=model_id, username=username)
-            )
-        if "Messages" in args.download_area:
-            all_db_media.extend(
-                await get_messages_media(model_id=model_id, username=username)
-            )
-        if "Archived" in args.download_area:
-            all_db_media.extend(
-                await get_archived_media(model_id=model_id, username=username)
-            )
-        if not all_db_media:
-            return
-        # Filter to find items in the DB that were not in the current scrape
-        filtered_media = list(
-            filter(
-                lambda x: str(x["media_id"]) not in curr_media_set
-                and arrow.get(x.get("posted_at") or 0).is_between(
-                    arrow.get(args.after or 0), args.before
-                )
-                and x.get("downloaded") != 1
-                and x.get("unlocked") != 0,
-                all_db_media,
-            )
-        )
+        scanned_media = {str(media.id) for media in postcollection.all_media}
+        after = arrow.get(args.after or 0).float_timestamp
+        before = arrow.get(args.before).float_timestamp if args.before else float("inf")
+        area_queries = {
+            "Timeline": get_timeline_media,
+            "Messages": get_messages_media,
+            "Archived": get_archived_media,
+        }
+        filtered_media = []
+        for area, query in area_queries.items():
+            # Absent: not scanned or the scan failed. None: it returned no posts.
+            scan_start = postcollection.scanned_areas.get(area)
+            if scan_start is None:
+                continue
+            window_start = max(after, scan_start)
+            for row in await query(model_id=model_id, username=username):
+                if (
+                    str(row["media_id"]) not in scanned_media
+                    and window_start <= (row.get("posted_at") or 0) <= before
+                    and row.get("downloaded") != 1
+                    and row.get("unlocked") != 0
+                ):
+                    filtered_media.append(row)
         if filtered_media:
             log.info(f"Found {len(filtered_media)} stray items to mark as locked")
             batch_set_media_downloaded(

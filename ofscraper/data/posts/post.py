@@ -630,6 +630,7 @@ async def process_tasks(model_id, username, ele, c=None):
 
                 if actions_for_this_batch:
                     postcollection.add_posts(posts, actions=actions_for_this_batch)
+                postcollection.record_scanned_area(area_title, posts)
             except Exception as E:
                 log.debug(E)
     return postcollection
