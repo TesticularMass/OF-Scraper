@@ -281,13 +281,13 @@ class InputApp(App):
     # --- Cart: Add Actions (Additive Only) ---
     # ==========================================
     def action_select_current_page(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
         start = (self.main_page - 1) * num_page
         self._add_items_to_cart(self._filtered_rows[start : start + num_page])
 
     def action_select_all_filtered(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         self._add_items_to_cart(self._filtered_rows)
 
     def _add_items_to_cart(self, rows_to_evaluate: list):
@@ -302,13 +302,13 @@ class InputApp(App):
         self.update_cart_info()
 
     def action_select_unique_current_page(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
         start = (self.main_page - 1) * num_page
         self._run_unique_selection(self._filtered_rows[start : start + num_page])
 
     def action_select_unique_all_filtered(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         self._run_unique_selection(self._filtered_rows)
 
     def _run_unique_selection(self, rows_to_evaluate: list):
@@ -332,7 +332,7 @@ class InputApp(App):
         self.update_cart_info()
 
     def action_select_page_undownloaded(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
         start = (self.main_page - 1) * num_page
 
@@ -346,7 +346,7 @@ class InputApp(App):
         self.update_cart_info()
 
     def action_select_all_undownloaded(self) -> None:
-        if self.query_one(ContentSwitcher).current != "table_page": return
+        if self.is_sidebar_open or self.query_one(ContentSwitcher).current != "table_page": return
         for row in self._filtered_rows:
             # Skip locked or unknown media
             if row.get("download_type") == "unknown" or not row.get("unlocked"):
@@ -360,6 +360,7 @@ class InputApp(App):
     # --- Cart: Clear Actions ---
     # ==========================================
     def action_clear_current_page(self) -> None:
+        if self.is_sidebar_open: return
         active_tab = self.query_one(ContentSwitcher).current
         if active_tab == "table_page":
             num_page = int(self.query_one("#main_per_page_input").value or AMOUNT_PER_PAGE)
@@ -367,41 +368,39 @@ class InputApp(App):
             for row in self._filtered_rows[start : start + num_page]:
                 if row["download_cart"] == "[added]":
                     row["download_cart"] = "[]"
-            self.set_page()
-            self.update_cart_info()
-            
         elif active_tab == "cart_page":
             cart_rows = [row for row in self.table_data if row.get("download_cart") == "[added]"]
             num_page = int(self.query_one("#cart_per_page_input").value or AMOUNT_PER_PAGE)
             start = (self.cart_page - 1) * num_page
             for row in cart_rows[start : start + num_page]:
                 row["download_cart"] = "[]"
-            self.update_cart_table()
-            self.update_cart_info()
+        # both pages show cart state, so refresh both
+        self.set_page()
+        self.update_cart_table()
+        self.update_cart_info()
 
     def action_clear_all_filtered(self) -> None:
+        if self.is_sidebar_open: return
         active_tab = self.query_one(ContentSwitcher).current
         if active_tab == "table_page":
             for row in self._filtered_rows:
                 if row["download_cart"] == "[added]":
                     row["download_cart"] = "[]"
             self.set_page()
+            self.update_cart_table()
             self.update_cart_info()
         elif active_tab == "cart_page":
             self.action_clear_entire_cart() # Shift+C on the cart page nukes the cart
 
     def action_clear_entire_cart(self) -> None:
         """Nukes everything currently marked as [added] in the global table."""
+        if self.is_sidebar_open: return
         for row in self.table_data:
             if row["download_cart"] == "[added]":
                 row["download_cart"] = "[]"
-        
-        active_tab = self.query_one(ContentSwitcher).current
-        if active_tab == "table_page":
-            self.set_page()
-        elif active_tab == "cart_page":
-            self.update_cart_table()
-            
+
+        self.set_page()
+        self.update_cart_table()
         self.update_cart_info()
 
     # --- Rest of Table Logic ---
@@ -732,5 +731,15 @@ class InputApp(App):
     @property
     def table(self):
         return self.query_one("#data_table")
+
+    @property
+    def is_sidebar_open(self) -> bool:
+        """True if either sidebar is shown; its inputs then own the keyboard."""
+        try:
+            return self.query_one("#options_sidebar").has_class("-show") or self.query_one(
+                "#download_option_sidebar"
+            ).has_class("-show")
+        except Exception:
+            return False
 
 app = InputApp()
