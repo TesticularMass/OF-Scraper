@@ -19,9 +19,10 @@ set_data_dir_path() {
     # Save downloads into DATA_DIR (the mounted folder) unless told otherwise.
     # The app's own default, ~/Data/ofscraper, is a different folder on a
     # case-sensitive filesystem, so downloads stayed inside the container.
-    # The image sets OFSC_SAVE_PATH_DEFAULT to $APP_HOME/data; follow a custom
-    # DATA_DIR unless the save path was also set explicitly.
-    if [ -z "${OFSC_SAVE_PATH_DEFAULT-}" ] || [ "$OFSC_SAVE_PATH_DEFAULT" = "$APP_HOME/data" ]; then
+    # The Dockerfile sets OFSC_SAVE_PATH_DEFAULT to /home/ofscraper/data (keep
+    # the two in sync); follow DATA_DIR, including one under a custom APP_HOME,
+    # unless the save path was also set explicitly.
+    if [ -z "${OFSC_SAVE_PATH_DEFAULT-}" ] || [ "$OFSC_SAVE_PATH_DEFAULT" = "/home/ofscraper/data" ]; then
         export OFSC_SAVE_PATH_DEFAULT="$DATA_DIR"
     fi
 }

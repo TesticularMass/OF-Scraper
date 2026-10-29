@@ -52,6 +52,8 @@ main() {
     if [ -z "${HOME:-}" ] || [ "$HOME" = "/" ] || [ ! -w "$HOME" ]; then
         export HOME="$APP_HOME"
     fi
+    # a custom APP_HOME may not exist yet
+    mkdir -p "$HOME" 2>/dev/null || true
     if [ ! -w "$HOME" ]; then
         echo "WARN: HOME ($HOME) is not writable by UID $CURRENT_UID. Mount a writable folder there or set APP_HOME to one."
     fi
