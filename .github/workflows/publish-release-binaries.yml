@@ -96,6 +96,8 @@ jobs:
             python_arch: x64
             wheel_platform: x86_64-apple-darwin
             macos_target: "10.13"
+            # The compiled protobuf wheel requires macOS 11; use its Python fallback.
+            pyinstaller_opts: --exclude-module google._upb._message
 
     steps:
       - name: Checkout Full Git History
@@ -219,6 +221,13 @@ jobs:
             ${PYINSTALLER_OPTS} ${{ matrix.pyinstaller_opts }} \
             "$OFSCRAPER_EXECUTABLE"
 
+      - name: Check the Directory Executable Starts
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then EXE_EXT=".exe"; else EXE_EXT=""; fi
+          EXE="dist/ofscraper_${{ matrix.artifact_suffix }}_dir/ofscraper_${{ matrix.artifact_suffix }}_dir${EXE_EXT}"
+          "$EXE" --version
+          "$EXE" db --help > /dev/null
+
       - name: Check the Bundled Libraries Resolve
         if: runner.os == 'Linux'
         run: |
@@ -234,22 +243,24 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           DIR="dist/ofscraper_${{ matrix.artifact_suffix }}_dir"
-          # the newest glibc or macOS version each bundled file needs
+          # the newest glibc or macOS version each bundled file needs; files
+          # that aren't binaries have none, which pipefail would treat as an error
           if [ "${{ runner.os }}" == "Linux" ]; then
             OBJDUMP="objdump"
             if [ -n "${{ matrix.cross }}" ]; then OBJDUMP="${{ matrix.cross }}-objdump"; fi
-            needs() { "$OBJDUMP" -T "$1" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -Vu | tail -1; }
+            needs() { "$OBJDUMP" -T "$1" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -Vu | tail -1 || true; }
             OS_NAME=glibc
           else
-            needs() { otool -l "$1" 2>/dev/null | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; v=0}' | sort -Vu | tail -1; }
+            needs() { otool -l "$1" 2>/dev/null | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; v=0}' | sort -Vu | tail -1 || true; }
             OS_NAME=macOS
           fi
           find "$DIR" -type f | while read -r f; do
             v=$(needs "$f"); if [ -n "$v" ]; then echo "$v ${f#"$DIR"/}"; fi
           done | sort -V > oldest-os.txt
           OLDEST=$(tail -1 oldest-os.txt | cut -d' ' -f1)
+          test -n "$OLDEST"
           echo "Files that need $OS_NAME $OLDEST:"
-          grep "^$OLDEST " oldest-os.txt | head -20
+          awk -v version="$OLDEST" '$1 == version && ++n <= 20' oldest-os.txt
           echo "ofscraper_${{ matrix.artifact_suffix }} needs $OS_NAME $OLDEST or newer" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Zip Directory (Unix)
