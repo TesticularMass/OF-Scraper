@@ -55,7 +55,7 @@ console = console_.get_shared_console()
 
 
 ALL_MEDIA = {}
-ROWS = {}
+ROWS = []
 MEDIA_KEY = ["id", "postid", "username"]
 check_user_dict = defaultdict(dict)
 
@@ -260,7 +260,15 @@ def allow_check_dupes():
 
 
 def get_areas():
-    return settings.get_settings().check_area
+    """Post-check areas, with "All" expanded the same way as --like-area."""
+    all_areas = ["Timeline", "Pinned", "Archived", "Streams"]
+    if of_env.getattr("INCLUDE_LABELS_ALL"):
+        all_areas.append("Labels")
+    areas = set(settings.get_settings().check_area or [])
+    if "All" in areas:
+        areas.update(all_areas)
+    areas.discard("All")
+    return areas
 
 
 def checker():
@@ -853,7 +861,11 @@ async def row_gather(username, model_id):
         # Fallback just in case the dates are poorly formatted
         sorted_media = sorted(media, key=lambda x: arrow.get(x.date), reverse=True)
 
-    for count, ele in enumerate(sorted_media):
+    # Every checked model shares one table keyed by "index", so keys must be
+    # unique across models. A model gathered again replaces its earlier rows.
+    ROWS = [row for row in ROWS if row["username"] != username]
+    first_index = max((row["index"] for row in ROWS), default=0) + 1
+    for index, ele in enumerate(sorted_media, start=first_index):
         is_unlocked = unlocked_helper(ele)
         is_downloaded = (ele.id, ele.post_id) in downloaded
         post_media_len = len(ele._post.post_media)
@@ -873,8 +885,8 @@ async def row_gather(username, model_id):
 
         out.append(
             {
-                "index": count + 1,
-                "number": count + 1,
+                "index": index,
+                "number": index,
                 "download_cart": cart_state,
                 "username": username,
                 "downloaded": is_downloaded,
@@ -894,5 +906,4 @@ async def row_gather(username, model_id):
             }
         )
 
-    ROWS = ROWS or []
     ROWS.extend(out)
