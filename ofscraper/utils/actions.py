@@ -89,7 +89,7 @@ def set_download_area(action=None):
     args = settings.get_args()
     action = action or args.actions or {}
     selected = None
-    not_anon_safe = ["Messages", "Purchases", "Highlights", "Stories"]
+    not_anon_safe = ["Messages", "Purchased", "Highlights", "Stories"]
     selected = areas.get_download_area()
     if settings.get_settings().command == "metadata":
         if args.anon and all([ele in not_anon_safe for ele in selected]):
