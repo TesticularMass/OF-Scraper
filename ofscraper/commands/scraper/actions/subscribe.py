@@ -2,8 +2,8 @@
 Subscribe action — subscribe to OnlyFans accounts at no cost.
 
 Filters selected models to those that are subscribable for free:
-  - Base subscription price is 0, OR
-  - A claimable promotion brings the price to 0
+  - A claimable promotion brings the price to 0 (subscribed with that promo), OR
+  - The base subscription price is known to be 0
 
 Only considers models whose subscription has expired (or was never active).
 
@@ -50,13 +50,28 @@ def _get_free_promo(model):
     return None
 
 
+def _base_price(model):
+    """Price without a promotion: the current subscribe price, else the regular one.
+
+    Returns None when the API reported neither; an unknown price is not free.
+    """
+    for price in (getattr(model, "sub_price", None), getattr(model, "regular_price", None)):
+        if price is not None:
+            return price
+    return None
+
+
 def get_subscribable_models(models):
     """Return (model, promo_or_None) pairs for models that can be
     subscribed to at no cost.
 
     A model qualifies if its subscription is not active AND either:
-      1. ``final_current_price`` is 0  (base price is free), or
-      2. It has a claimable promotion at price 0.
+      1. It has a claimable promotion at price 0, which must be sent with the
+         request, or
+      2. Its base price is known to be 0.
+
+    ``Model.final_current_price`` is not used: it folds promotion prices in and
+    defaults to 0 when no price is known.
     """
     out = []
     for m in models:
@@ -66,30 +81,27 @@ def get_subscribable_models(models):
             log.debug(f"[subscribe] {name}: skipped (active subscription)")
             continue
 
-        # Check base / current price
         price = getattr(m, "final_current_price", None)
+        base_price = _base_price(m)
         promo_claim = getattr(m, "lowest_promo_claim", None)
         regular = getattr(m, "regular_price", None)
         sub_price = getattr(m, "sub_price", None)
 
         log.debug(
             f"[subscribe] {name}: active={active}, "
-            f"sub_price={sub_price!r}, final_current_price={price!r}, "
+            f"sub_price={sub_price!r}, base_price={base_price!r}, final_current_price={price!r}, "
             f"lowest_promo_claim={promo_claim!r}, regular_price={regular!r}"
         )
 
-        if _is_price_zero(price):
-            log.debug(f"[subscribe] {name}: qualifies (final_current_price=0)")
-            out.append((m, None))
-            continue
-
-        # Check for a claimable $0 promo
         free_promo = _get_free_promo(m)
         if free_promo is not None:
             log.debug(
                 f"[subscribe] {name}: qualifies ($0 claimable promo: {free_promo})"
             )
             out.append((m, free_promo))
+        elif _is_price_zero(base_price):
+            log.debug(f"[subscribe] {name}: qualifies (base price is 0)")
+            out.append((m, None))
         else:
             log.debug(f"[subscribe] {name}: skipped (not free)")
 

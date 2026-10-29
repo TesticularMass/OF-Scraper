@@ -78,17 +78,19 @@ class scraperManager(CommandManager):
         return bool(set(settings.get_settings().actions) - {"subscribe"})
 
     def _run_subscribe_batch(self, userdata):
-        """Run subscribe as a batch if it's in the action list.
+        """Run subscribe as a batch over the models the user selected.
 
-        Uses the full unfiltered model list (all_subs) instead of the
-        filtered ``userdata`` because subscribe needs expired accounts
-        which the sub_status filter may have removed.  The subscribe
-        action has its own internal active/price filtering.
+        Expired accounts stay in the selection unless the user filters to
+        active subscriptions; the subscribe action skips active ones itself.
         """
         if "subscribe" not in settings.get_settings().actions:
             return
-        all_models = manager.Manager.current_model_manager.all_subs
-        subscribe_action.process_subscribe_batch(models=all_models)
+        if settings.get_settings().sub_status:
+            log.warning(
+                "Subscribe only targets expired subscriptions, but "
+                "--active-subscription removed them from the selection"
+            )
+        subscribe_action.process_subscribe_batch(models=userdata)
 
     @exit.exit_wrapper
     @run_async
