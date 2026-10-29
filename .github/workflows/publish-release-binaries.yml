@@ -46,19 +46,19 @@ jobs:
 
     steps:
       - name: Checkout Full Git History
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.input_version || github.ref }} # Use the input_version or default branch
           fetch-depth: 0
           fetch-tags: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12.0' # Keep specific Python version for consistent builds
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10.3.1
 
       - name: Prepare Version for Build Tools
         id: prep_build_version
@@ -184,7 +184,7 @@ jobs:
       actions: read # Needed to download artifacts within this job
     steps:
       - name: Checkout Full Git History
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.input_version || github.ref }} # Use the input_version or default branch
           fetch-depth: 0
@@ -200,7 +200,7 @@ jobs:
         run: ls -R artifacts
 
       - name: Create or Update Release
-        uses: ncipollo/release-action@v1.17.0
+        uses: ncipollo/release-action@v1.21.0
 
         with:
           artifacts: artifacts/*/*

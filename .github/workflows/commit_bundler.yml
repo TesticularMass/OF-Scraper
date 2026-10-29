@@ -30,7 +30,7 @@ jobs:
       is_newer_than_last_successful_run: ${{ steps.version.outputs.IS_NEWER_THAN_LAST_SUCCESSFUL_RUN }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Essential for git merge-base to compare full history
           fetch-tags: true
@@ -64,16 +64,16 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: 3.12.0
       - name: Install uv
-        uses: astral-sh/setup-uv@v1
+        uses: astral-sh/setup-uv@v10.3.1
 
       - name: Install Dependencies and Build Tools
         shell: bash
@@ -116,7 +116,7 @@ jobs:
           echo "one_file_name=${EXE_NAME}${EXE_EXT}" >> $GITHUB_OUTPUT
 
       - name: Upload One-File Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.build_onefile.outputs.one_file_name }}
           path: ${{ steps.build_onefile.outputs.one_file_path }}
@@ -154,7 +154,7 @@ jobs:
 
       - name: Upload Zipped One-Dir Artifact
         if: success() && steps.build_onedir_zip.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.build_onedir_zip.outputs.zip_name }}
           path: ${{ steps.build_onedir_zip.outputs.zip_path }}
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload One-Dir Folder (if zip failed)
         if: failure() && steps.build_onedir_zip.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.build_onedir_zip.outputs.dir_name }}
           path: ${{ steps.build_onedir_zip.outputs.dir_path }}
@@ -177,7 +177,7 @@ jobs:
       contents: write # Required to create/update GitHub Releases
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts/
           # No specific `if-no-files-found` here on download-artifact, it will download what's available
@@ -187,7 +187,7 @@ jobs:
         run: ls -R artifacts
 
       - name: Create or Update Release
-        uses: ncipollo/release-action@v1.17.0
+        uses: ncipollo/release-action@v1.21.0
 
         with:
           artifacts: artifacts/*/* # Attach any downloaded artifacts (will include only those that were built successfully)

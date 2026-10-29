@@ -64,7 +64,7 @@ jobs:
       commit_timestamp: ${{ steps.release_info.outputs.commit_timestamp }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.version || github.ref }}
           fetch-depth: 0
@@ -94,14 +94,14 @@ jobs:
       should_apply_dev_latest: ${{steps.run_python_logic.outputs.should_apply_dev_latest}}
     steps:
       - name: Checkout repository for script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           repository: ${{ github.repository }}
           github-server-url: ${{ github.server_url }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -129,7 +129,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -138,11 +138,11 @@ jobs:
           github-server-url: ${{ github.server_url }}
       - run: git checkout ${{ needs.determine_tags_and_versions.outputs.long_hash }}
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: 3.11.5
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10.3.1
 
       - name: Install Build and Publish Tools
         run: |
@@ -174,7 +174,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -183,11 +183,11 @@ jobs:
           github-server-url: ${{ github.server_url }}
       - run: git checkout ${{ needs.determine_tags_and_versions.outputs.long_hash }}
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: 3.11.5
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v10.3.1
 
       - name: create venv and activate
         run: |
