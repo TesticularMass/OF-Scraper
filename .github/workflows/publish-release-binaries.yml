@@ -58,23 +58,24 @@ jobs:
           # built for that glibc, so the binaries run on old distros. frozenlist's
           # and protobuf's compiled modules need libstdc++, which PyInstaller
           # would copy from the runner (glibc 2.38); both fall back to Python.
+          # Python 3.13's iOS-only _ios_support makes PyInstaller copy libobjc.
           - artifact_suffix: linux
             os: ubuntu-24.04
             uv_python: cpython-3.13-linux-x86_64-gnu
             wheel_platform: x86_64-manylinux_2_17
-            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message --exclude-module _ios_support
           - artifact_suffix: linux_aarch64
             os: ubuntu-24.04-arm
             uv_python: cpython-3.13-linux-aarch64-gnu
             wheel_platform: aarch64-manylinux_2_17
-            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message --exclude-module _ios_support
           # 32-bit ARM runs natively on the ARM64 runner. Packages without
           # armv7 wheels are compiled with Ubuntu 22.04's cross compiler.
           - artifact_suffix: linux_armv7
             os: ubuntu-22.04-arm
             uv_python: cpython-3.13-linux-armv7-gnueabihf
             cross: arm-linux-gnueabihf
-            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message --exclude-module _ios_support
           - artifact_suffix: windows
             os: windows-latest
             python_arch: x64
@@ -111,6 +112,8 @@ jobs:
         with:
           python-version: '3.13'
           architecture: ${{ matrix.python_arch }}
+          # the runners cache older patch releases
+          check-latest: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.1
@@ -155,6 +158,8 @@ jobs:
           if [ -n "${{ matrix.cross }}" ]; then
             export CC="${{ matrix.cross }}-gcc" CXX="${{ matrix.cross }}-g++"
             export LDSHARED="${{ matrix.cross }}-gcc -shared"
+            # only the target's libraries; lz4 found the runner's own liblz4
+            export PKG_CONFIG_LIBDIR="/usr/lib/${{ matrix.cross }}/pkgconfig" PKG_CONFIG_PATH=""
           fi
 
           uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements-build.txt
@@ -229,17 +234,23 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           DIR="dist/ofscraper_${{ matrix.artifact_suffix }}_dir"
+          # the newest glibc or macOS version each bundled file needs
           if [ "${{ runner.os }}" == "Linux" ]; then
             OBJDUMP="objdump"
             if [ -n "${{ matrix.cross }}" ]; then OBJDUMP="${{ matrix.cross }}-objdump"; fi
-            OLDEST=$(find "$DIR" -type f -exec "$OBJDUMP" -T {} \; 2>/dev/null \
-              | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu | tail -1)
+            needs() { "$OBJDUMP" -T "$1" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -Vu | tail -1; }
+            OS_NAME=glibc
           else
-            OLDEST=macOS-$(find "$DIR" -type f -exec otool -l {} \; 2>/dev/null \
-              | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; v=0}' \
-              | sort -Vu | tail -1)
+            needs() { otool -l "$1" 2>/dev/null | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; v=0}' | sort -Vu | tail -1; }
+            OS_NAME=macOS
           fi
-          echo "ofscraper_${{ matrix.artifact_suffix }} needs ${OLDEST} or newer" | tee -a "$GITHUB_STEP_SUMMARY"
+          find "$DIR" -type f | while read -r f; do
+            v=$(needs "$f"); if [ -n "$v" ]; then echo "$v ${f#"$DIR"/}"; fi
+          done | sort -V > oldest-os.txt
+          OLDEST=$(tail -1 oldest-os.txt | cut -d' ' -f1)
+          echo "Files that need $OS_NAME $OLDEST:"
+          grep "^$OLDEST " oldest-os.txt | head -20
+          echo "ofscraper_${{ matrix.artifact_suffix }} needs $OS_NAME $OLDEST or newer" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Zip Directory (Unix)
         if: runner.os != 'Windows'
