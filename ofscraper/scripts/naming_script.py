@@ -3,7 +3,6 @@ import json
 import os
 import subprocess
 import traceback
-import arrow
 import ofscraper.utils.settings as settings
 import ofscraper.utils.config.data as config_data
 from ofscraper.utils.system.subprocess import async_run # Changed to async_run
@@ -30,6 +29,9 @@ async def naming_script(dir, file, ele): # Made async
 
     from ofscraper.classes.of.posts import Post
     from ofscraper.classes.of.media import Media
+    # the same date the file would be named with; profile media is dated by
+    # the join date, which some accounts hide
+    from ofscraper.classes.placeholder import format_date
     try:
         payload_data = {
             "dir": str(dir),
@@ -52,7 +54,7 @@ async def naming_script(dir, file, ele): # Made async
                     "post_id": ele.post_id,
                     "media_id": ele.id,
                     "media_type": ele.mediatype.capitalize(),
-                    "date": arrow.get(ele.postdate).format(config_data.get_date()),
+                    "date": format_date(ele.postdate),
                     "download_type": ele.downloadtype,
                 }
             )
@@ -64,7 +66,7 @@ async def naming_script(dir, file, ele): # Made async
                     "post_id": ele.id,
                     "media_id": None,
                     "media_type": None,
-                    "date": arrow.get(ele.date).format(config_data.get_date()),
+                    "date": format_date(ele.date),
                     "download_type": None,
                 }
             )
