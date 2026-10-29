@@ -12,7 +12,6 @@ r"""
 """
 
 import threading
-import re
 from copy import deepcopy
 import arrow
 from diskcache import Disk, JSONDisk
@@ -65,21 +64,27 @@ def get_settings():
 
 
 def setup_settings():
-    # 1. PRE-SCAN: Get the list of .env files from config before doing anything else
-    # We call the raw config reader directly so we don't trigger a full merge yet
-    env_files = config_data.get_env_files()
-
-    # 2. LOAD: Initialize the environment so of_env.getattr works correctly
-    load_env_files(env_files)
+    # 1. LOAD: the env files must be in place before of_env reads its defaults
+    load_env_files(_env_files(read_args.retriveArgs()))
     of_env.get_all_configs(forced=True)
 
-    # 3. MERGE: Now that defaults are loaded, merge everything into the final object
+    # 2. MERGE: Now that defaults are loaded, merge everything into the final object
     merged = merged_settings()
 
     # Cache it globally
     global settings
     settings = merged
     return merged
+
+
+def _env_files(args):
+    """--env-files, else the config's env_files, as a list of paths."""
+    env_files = args.env_files or config_data.get_env_files() or []
+    if isinstance(env_files, str):
+        # a hand-written config may hold "a.env,b.env"; iterating the string
+        # would treat each character as a path
+        env_files = env_files.split(",")
+    return [str(path).strip() for path in env_files if str(path).strip()]
 
 
 def resetUserFilters():
@@ -210,14 +215,7 @@ def merged_settings():
     )
 
     # --- Environment Files ---
-    env_out = args.env_files or (
-        config_data.get_env_files() if hasattr(config_data, "get_env_files") else []
-    )
-    merged.env_files = (
-        [x for x in re.split(r",| ", env_out) if x.strip()]
-        if isinstance(env_out, str)
-        else ([str(x).strip() for x in env_out] if env_out else [])
-    )
+    merged.env_files = _env_files(args)
 
     # --- CLI Overrides ---
     merged.text = args.text or args.text_only
