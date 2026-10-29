@@ -157,7 +157,7 @@ class ArchivedStreamScansTest(unittest.IsolatedAsyncioTestCase):
                     ]
                 self.assertEqual(batches, [[page]])
                 mark_deleted.assert_awaited_once_with(
-                    post_ids=[99], model_id=5, username="user"
+                    post_ids=[99], area=module.API, model_id=5, username="user"
                 )
 
     def test_gap_worker_precedes_known_post_chunk(self):

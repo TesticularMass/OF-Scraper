@@ -281,7 +281,10 @@ async def scrape_posts(
                 f"Worker finished. Flagging {len(all_ghosts_found)} ghost {area.ghost_name}."
             )
             await mark_deleted(
-                post_ids=all_ghosts_found, model_id=model_id, username=username
+                post_ids=all_ghosts_found,
+                area=area.name,
+                model_id=model_id,
+                username=username,
             )
 
 

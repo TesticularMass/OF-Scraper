@@ -60,25 +60,36 @@ postUpdate = """UPDATE posts
 SET text = ?, price = ?, paid = ?, archived = ?, pinned=?,stream=?,opened=?,created_at = ?, model_id=?, is_deleted=0
 WHERE post_id = ? and model_id=(?);"""
 
-postIgnoreGhost = """
-UPDATE posts
-SET is_deleted = 1
-WHERE post_id = (?) AND model_id = (?);
+# The stored posts each scan covers. Archiving or pinning a post takes it off
+# the timeline, so a post missing from one scan may only have moved: a scan
+# only flags posts still filed under it, and the scan that finds a post
+# refreshes its flags. Either order of the two writes leaves the post refiled.
+AREA_POSTS = {
+    "Timeline": "archived = 0 AND (pinned = 0 OR pinned IS NULL)",
+    "Archived": "archived = 1",
+    "Streams": "stream = 1 AND (archived = 0 OR archived IS NULL)",
+}
+
+
+def _area_post_info(area):
+    return f"""
+SELECT created_at,post_id FROM posts
+WHERE {AREA_POSTS[area]} AND model_id=(?) AND (is_deleted = 0 OR is_deleted IS NULL)
 """
 
-timelinePostInfo = """
-SELECT created_at,post_id FROM posts 
-WHERE archived=(0) AND model_id=(?) AND (is_deleted = 0 OR is_deleted IS NULL)
-AND (pinned = 0 OR pinned IS NULL)
-"""
-archivedPostInfo = """
-SELECT created_at,post_id FROM posts 
-WHERE archived=(1) AND model_id=(?) AND (is_deleted = 0 OR is_deleted IS NULL)
-"""
-streamsPostInfo = """
-SELECT created_at,post_id FROM posts 
-WHERE stream=(1) AND model_id=(?) AND (is_deleted = 0 OR is_deleted IS NULL)
-"""
+
+timelinePostInfo = _area_post_info("Timeline")
+archivedPostInfo = _area_post_info("Archived")
+streamsPostInfo = _area_post_info("Streams")
+
+postIgnoreGhost = {
+    area: f"UPDATE posts SET is_deleted = 1 WHERE post_id = (?) AND model_id = (?) AND {posts};"
+    for area, posts in AREA_POSTS.items()
+}
+
+postRefreshFlags = """UPDATE posts
+SET archived = ?, pinned = ?, stream = ?, is_deleted = 0
+WHERE post_id = ? AND model_id = (?);"""
 
 postsSelectTransition = """
 SELECT post_id, text, price, paid, archived, created_at,
@@ -322,12 +333,24 @@ def add_column_post_opened(conn=None, **kwargs):
 
 
 @wrapper.operation_wrapper_async
-def mark_post_as_deleted(post_ids, username=None, conn=None, model_id=None, **kwargs):
+def mark_post_as_deleted(
+    post_ids, area=None, username=None, conn=None, model_id=None, **kwargs
+):
     if not post_ids:
         return
     with contextlib.closing(conn.cursor()) as curr:
         insertData = [[post_id, model_id] for post_id in post_ids]
-        curr.executemany(postIgnoreGhost, insertData)
+        curr.executemany(postIgnoreGhost[area], insertData)
+        conn.commit()
+
+
+@wrapper.operation_wrapper_async
+def refresh_post_flags(posts: list, model_id=None, username=None, conn=None, **kwargs):
+    with contextlib.closing(conn.cursor()) as curr:
+        curr.executemany(
+            postRefreshFlags,
+            [[post.archived, post.pinned, post.stream, post.id, model_id] for post in posts],
+        )
         conn.commit()
 
 
@@ -389,7 +412,15 @@ async def rebuild_posts_table(model_id=None, username=None, db_path=None, **kwar
     )
 
 
-async def make_post_table_changes(all_posts, model_id=None, username=None, **kwargs):
+async def make_post_table_changes(
+    all_posts, model_id=None, username=None, refresh_flags=False, **kwargs
+):
+    """
+    Save new posts. refresh_flags is for the timeline, archived, pinned and
+    streams scans, whose post data says where each post is filed now. It
+    covers new posts too: another area may have inserted one first from data
+    without those flags, which left this scan's insert ignored.
+    """
     all_posts_data = list(
         map(
             lambda x: posts_.Post(x, model_id, username) if isinstance(x, dict) else x,
@@ -408,6 +439,8 @@ async def make_post_table_changes(all_posts, model_id=None, username=None, **kwa
     if settings.get_settings().metadata and len(curr_posts) > 0:
         curr_posts = convert.converthelper(curr_posts)
         await update_posts_table(curr_posts, model_id=model_id, username=username)
+    if refresh_flags and len(unique_post_data) > 0:
+        await refresh_post_flags(unique_post_data, model_id=model_id, username=username)
 
 
 async def get_oldest_archived_date(model_id=None, username=None, **kwargs):

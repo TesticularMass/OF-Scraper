@@ -211,6 +211,7 @@ async def process_timeline_posts(model_id, username, c):
             timeline_only_posts,
             model_id=model_id,
             username=username,
+            refresh_flags=True,
         )
         set_after_checks(model_id, timeline.API)
         return (timeline_only_posts, timeline.API)
@@ -236,6 +237,7 @@ async def process_archived_posts(model_id, username, c):
             archived_posts,
             model_id=model_id,
             username=username,
+            refresh_flags=True,
         )
 
         set_after_checks(model_id, archive.API)
@@ -262,6 +264,7 @@ async def process_streamed_posts(model_id, username, c):
             streams_posts,
             model_id=model_id,
             username=username,
+            refresh_flags=True,
         )
 
         set_after_checks(model_id, streams.API)
@@ -284,6 +287,7 @@ async def process_pinned_posts(model_id, username, c):
             pinned_posts,
             model_id=model_id,
             username=username,
+            refresh_flags=True,
         )
 
         return (pinned_posts, pinned.API)

@@ -382,7 +382,7 @@ async def scrape_timeline_posts(
                 f"Flagging the following post_ids as deleted for {username}: {all_ghosts_found}"
             )
             await mark_post_as_deleted(
-                post_ids=all_ghosts_found, model_id=model_id, username=username
+                post_ids=all_ghosts_found, area=API, model_id=model_id, username=username
             )
 
 
