@@ -204,6 +204,7 @@ class PostCollection:
         )
 
         posts_for_text = helpers.sort_by_date(text_candidates)
+        posts_for_text = helpers.posts_date_filter(posts_for_text)
         posts_for_text = helpers.dupefilterPost(posts_for_text)
         posts_for_text = helpers.temp_post_filter(posts_for_text)
         posts_for_text = helpers.post_text_filter(posts_for_text)
