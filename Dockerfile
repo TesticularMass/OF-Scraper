@@ -71,6 +71,9 @@ RUN \
     rm "${WHEEL_FILE}" && \
     apt-get purge -y --auto-remove build-essential && \
     rm -rf /var/lib/apt/lists/*
+# A home that any UID can write to, for containers started with --user
+# (pyffmpeg and other caches live under $HOME).
+RUN mkdir -p /home/ofscraper && chmod 1777 /home/ofscraper
 USER root 
 ENTRYPOINT ["/usr/local/bin/entry/entrypoint.sh"]
 CMD ["ofscraper"]
