@@ -96,6 +96,17 @@ async def clean_stray_media(username, model_id, postcollection):
         batch_set_media_downloaded(strays_to_lock, model_id=model_id, username=username)
 
 
+async def save_paid_content(paid_posts, model_id, username):
+    # Purchases mix timeline posts and PPV messages. A message filed with the
+    # posts sat in the timeline scan's cache, which flagged it as deleted.
+    posts = [post for post in paid_posts if post.post.get("responseType") == "post"]
+    messages = [post for post in paid_posts if post.post.get("responseType") != "post"]
+    await operations.make_post_table_changes(posts, model_id=model_id, username=username)
+    await operations.make_messages_table_changes(
+        messages, model_id=model_id, username=username
+    )
+
+
 @free.space_checker
 async def process_paid_post(model_id, username, c):
     try:
@@ -106,11 +117,7 @@ async def process_paid_post(model_id, username, c):
                 paid_content,
             )
         )
-        await operations.make_post_table_changes(
-            paid_content,
-            model_id=model_id,
-            username=username,
-        )
+        await save_paid_content(paid_content, model_id=model_id, username=username)
         return (paid_content, paid.API)
     except Exception as E:
         log.traceback_(E)
@@ -374,10 +381,8 @@ async def process_all_paid():
             if settings.get_settings().text:
                 paid_actions.append("text")
             temp_postcollection.add_posts(all_posts, actions=paid_actions)
-            await operations.make_post_table_changes(
-                temp_postcollection.posts,
-                model_id=model_id,
-                username=username,
+            await save_paid_content(
+                temp_postcollection.posts, model_id=model_id, username=username
             )
             await batch_mediainsert(
                 temp_postcollection.all_unique_media,

@@ -60,7 +60,7 @@ def paid_run(monkeypatch):
     monkeypatch.setattr(post, "check_profile_table_exists", profile_exists)
     monkeypatch.setattr(post, "get_profile_info", profile_info)
     monkeypatch.setattr(post.operations, "table_init_create", record)
-    monkeypatch.setattr(post.operations, "make_post_table_changes", record)
+    monkeypatch.setattr(post, "save_paid_content", record)
     monkeypatch.setattr(post, "batch_mediainsert", record)
     monkeypatch.setattr(post, "PostCollection", _Collection)
     monkeypatch.setattr(post.posts_, "Post", lambda raw, *a, **k: raw)
