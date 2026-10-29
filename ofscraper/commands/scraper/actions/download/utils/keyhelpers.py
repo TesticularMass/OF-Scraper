@@ -1,5 +1,4 @@
 import asyncio
-import json
 import pathlib
 import re
 import struct
@@ -171,7 +170,9 @@ async def key_helper_cdrm(c, pssh, licence_url, id):
         auth_requests.create_sign(licence_url, headers)
         json_data = {
             "licurl": licence_url,
-            "headers": json.dumps(headers),
+            # cdrm-project parses this field with ast.literal_eval, which
+            # needs a python dict literal rather than JSON
+            "headers": repr(dict(headers)),
             "pssh": pssh,
         }
         async with c.requests_async(

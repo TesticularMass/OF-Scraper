@@ -50,6 +50,15 @@ def check_cdm():
         time.sleep(3.5)
 
     except Exception as E:
+        # the cdrm decrypt endpoint only accepts POST, so the session raises on
+        # this GET's 405 even though the service is up
+        if (
+            keymode == "cdrm"
+            and isinstance(E, httpx.HTTPStatusError)
+            and E.response.status_code == 405
+        ):
+            console.print("[green] CDM service seems to be working\n[/green]")
+            return True
         console.print(
             f"[red]CDM service {keymode} has an issue {E}\nThis may cause a lot of failed downloads\nPlease confirm by checking the url:{url}\n Consider switching\nhttps://of-scraper.gitbook.io/of-scraper/cdm-options\n\n[/red]"
         )
