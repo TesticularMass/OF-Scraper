@@ -46,7 +46,8 @@ log = logging.getLogger("shared")
 class MergeDatabase:
     def __init__(self):
         self._data_init = False
-        self._media_keys = ["media_id", "model_id"]
+        # Matches the medias UNIQUE constraint; one media can belong to several posts.
+        self._media_keys = ["media_id", "model_id", "post_id"]
         self._label_keys = ["post_id", "label_id", "model_id"]
         self._common_key = ["post_id", "model_id"]
         self._profile_key = ["user_id", "username"]

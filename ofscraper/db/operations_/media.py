@@ -150,11 +150,11 @@ allDLModelIDCheck = """
 SELECT media_id FROM medias where downloaded=(1) and model_id=(?)
 """
 allPostIDCheck = """
-SELECT media_id, post_id FROM medias
+SELECT media_id, post_id FROM medias WHERE model_id=(?)
 """
 
 allPostIDDLCheck = """
-SELECT media_id, post_id FROM medias where downloaded=(1)
+SELECT media_id, post_id FROM medias where downloaded=(1) and model_id=(?)
 """
 getTimelineMedia = """
 SELECT
@@ -209,8 +209,9 @@ FROM medias
 WHERE LOWER(api_type) IN ('message', 'messages')
 AND model_id = ?;
 """
+# New rows are inserted without a downloaded value, so NULL means not downloaded.
 unlockedMediaCheck = """
-SELECT media_id, post_id FROM medias WHERE model_id=(?) AND unlocked=(1) AND downloaded=(0)
+SELECT media_id, post_id FROM medias WHERE model_id=(?) AND unlocked=(1) AND COALESCE(downloaded, 0)=(0)
 """
 
 
@@ -346,7 +347,7 @@ def get_media_ids_downloaded_model(model_id=None, conn=None, **kwargs) -> list:
 @wrapper.operation_wrapper
 def get_media_post_ids(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allPostIDCheck)
+        cur.execute(allPostIDCheck, [model_id])
         return [(dict(row)["media_id"], dict(row)["post_id"]) for row in cur.fetchall()]
 
 
@@ -355,7 +356,7 @@ def get_media_post_ids_downloaded(
     model_id=None, username=None, conn=None, **kwargs
 ) -> list:
     with contextlib.closing(conn.cursor()) as cur:
-        cur.execute(allPostIDDLCheck)
+        cur.execute(allPostIDDLCheck, [model_id])
         return [(dict(row)["media_id"], dict(row)["post_id"]) for row in cur.fetchall()]
 
 
