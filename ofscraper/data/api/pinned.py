@@ -108,6 +108,7 @@ async def scrape_pinned_posts(c, model_id, offset=0):
     Yields batches page-by-page with safety checks for the EP constant.
     """
     current_offset = offset
+    seen = set()
 
     while True:
         # Safety check: Ensure the endpoint string exists before calling .format()
@@ -128,8 +129,12 @@ async def scrape_pinned_posts(c, model_id, offset=0):
                     break
 
                 batch = data.get("list", [])
-                if not batch:
+                new_ids = {post.get("id") for post in batch} - seen
+                # A page with nothing new means the endpoint ignored the offset
+                # and sent the same posts again.
+                if not new_ids:
                     break
+                seen.update(new_ids)
 
                 yield batch
 
@@ -139,8 +144,8 @@ async def scrape_pinned_posts(c, model_id, offset=0):
                     break
 
                 # NOTE: timelinePinnedEP has no offset param; the second format
-                # arg fills counters={}. Pinned posts come back in one page and
-                # the loop exits via hasMore, so this advance is inert.
+                # arg fills counters={}. Pinned posts come back in one page, so
+                # this advance only matters for a custom endpoint.
                 current_offset += len(batch)
 
         except Exception as E:
