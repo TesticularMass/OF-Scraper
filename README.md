@@ -209,9 +209,15 @@ A `Dockerfile` is included for containerized runs:
 # Build the image
 docker build -t ofscraper .
 
-# Run with mounted config
-docker run -it -v ~/.config/ofscraper:/root/.config/ofscraper ofscraper
+# Run with mounted config and download folders
+docker run -it \
+  -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) \
+  -v ~/.config/ofscraper:/home/ofscraper/.config/ofscraper \
+  -v ~/Data/ofscraper:/home/ofscraper/data \
+  ofscraper
 ```
+
+The container runs ofscraper as the `ofscraper` user. `USER_ID` and `GROUP_ID` set its IDs so files on the mounted folders belong to you; starting the container with `--user` works too. Downloads go to `/home/ofscraper/data` unless your config sets `save_location`. `docker-compose.yml` has the same setup.
 
 ## Contributing
 
