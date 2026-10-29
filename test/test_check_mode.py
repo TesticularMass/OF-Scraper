@@ -44,6 +44,22 @@ def check_areas(monkeypatch, value):
     return check.get_areas()
 
 
+def test_post_dates_use_a_24_hour_clock_and_flag_missing_dates(monkeypatch):
+    collection = PostCollection(model_id=1, username="model1")
+    photo = {"type": "photo", "canView": True, "files": {"full": {"url": "https://example.invalid/image.jpg"}}}
+    collection.add_posts([
+        {"id": 101, "responseType": "post", "postedAt": "2026-01-01T13:30:00+00:00", "media": [dict(photo, id=11)]},
+        {"id": 102, "responseType": "post", "media": [dict(photo, id=12)]},
+        {"id": 103, "responseType": "post", "media": [dict(photo, id=13)]},
+    ])
+    monkeypatch.setattr(check, "check_user_dict", {"1": {"collection": collection}})
+    monkeypatch.setattr(check, "ROWS", [])
+    monkeypatch.setattr(check, "get_media_post_ids_downloaded", lambda **kwargs: [])
+    asyncio.run(check.row_gather("model1", 1))
+    dates = {row["media_id"]: row["post_date"] for row in check.ROWS}
+    assert dates == {11: "2026-01-01 13:30:00", 12: "Probably Deleted", 13: "Probably Deleted"}
+
+
 def test_check_area_all_scans_the_post_areas(monkeypatch):
     areas = check_areas(monkeypatch, "All")
     assert {"Timeline", "Pinned", "Archived", "Streams"} <= set(areas)

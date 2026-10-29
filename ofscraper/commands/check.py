@@ -829,7 +829,7 @@ def download_type_helper(ele):
 
 
 def datehelper(date):
-    if date == "None":
+    if date is None or date == "None":
         return "Probably Deleted"
     return date
 
@@ -854,12 +854,13 @@ async def row_gather(username, model_id):
     out = []
     
     log.info(f"Generating UI Table with {len(media)} items... This may take a moment.")
-    
-    try:
-        sorted_media = sorted(media, key=lambda x: x.date, reverse=True)
-    except Exception:
-        # Fallback just in case the dates are poorly formatted
-        sorted_media = sorted(media, key=lambda x: arrow.get(x.date), reverse=True)
+
+    # undated media sort last
+    sorted_media = sorted(
+        media,
+        key=lambda x: arrow.get(x.date).float_timestamp if x.date else 0,
+        reverse=True,
+    )
 
     # Every checked model shares one table keyed by "index", so keys must be
     # unique across models. A model gathered again replaces its earlier rows.
