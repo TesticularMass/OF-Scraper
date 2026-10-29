@@ -2,8 +2,10 @@
 set -euo pipefail
 
 # --- Configuration Variables ---
-APP_USER="${USERNAME:-ofscraper}"
-APP_GROUP="${GROUPNAME:-$APP_USER}"
+# USER_NAME/GROUP_NAME are the names docker-compose.yml documents;
+# USERNAME/GROUPNAME are still accepted
+APP_USER="${USER_NAME:-${USERNAME:-ofscraper}}"
+APP_GROUP="${GROUP_NAME:-${GROUPNAME:-$APP_USER}}"
 #home
 APP_HOME="${APP_HOME:-/home/ofscraper}"
 

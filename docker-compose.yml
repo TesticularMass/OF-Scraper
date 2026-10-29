@@ -8,6 +8,7 @@ services:
     environment: # Optional environment variables
       # These are recommended for correct file permissions on mounted volumes.
       # Default UID/GID is 1000:1000 if not specified via environment variables in your shell.
+      # (UID/GID and USERNAME/GROUPNAME are also accepted as alternative names.)
       # - USER_NAME=ofscraper   # Defaults to 'ofscraper' in the entrypoint script
       # - USER_ID=${USER_ID}   # Host user's UID (e.g., set via 'export USER_ID=$(id -u)' on host)
       # - GROUP_ID=${GROUP_ID} # Host user's GID (e.g., set via 'export GROUP_ID=$(id -g)' on host)
