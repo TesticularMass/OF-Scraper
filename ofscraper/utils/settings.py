@@ -111,7 +111,8 @@ def merged_settings():
     )
 
     # --- Basic Config Overrides ---
-    merged.ffmpeg = config_data.get_ffmpeg()
+    # an empty "ffmpeg" in config means unset, so OFSC_FFMPEG_DEFAULT applies
+    merged.ffmpeg = config_data.get_ffmpeg() or of_env.getattr("FFMPEG_DEFAULT")
     merged.users_first = args.users_first
     merged.userfirst = args.users_first
     merged.key_mode = args.key_mode or config_data.get_key_mode()
