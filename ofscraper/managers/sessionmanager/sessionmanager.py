@@ -504,10 +504,10 @@ class sessionManager:
     ) -> Generator[httpx.Response, None, None]:
         actions = actions or []
         exceptions = exceptions or []
-        log = kwargs.get("log") or self._log
-        retries = kwargs.get("retries") or self._retries
-        wait_min = kwargs.get("wait_min") or self._wait_min
-        wait_max = kwargs.get("wait_max") or self._wait_max
+        log = log or self._log
+        retries = self._retries if retries is None else retries
+        wait_min = self._wait_min if wait_min is None else wait_min
+        wait_max = self._wait_max if wait_max is None else wait_max
 
         for _ in Retrying(
             retry=retry_if_not_exception_type((KeyboardInterrupt, SystemExit)),
@@ -606,15 +606,18 @@ class sessionManager:
     ) -> AsyncGenerator[httpx.Response, None]:
         actions = actions or []
         exceptions = exceptions or []
-        retries = kwargs.get("retries") or self._retries
-        wait_min = kwargs.get("wait_min") or self._wait_min
-        wait_max = kwargs.get("wait_max") or self._wait_max
+        retries = self._retries if retries is None else retries
+        wait_min = self._wait_min if wait_min is None else wait_min
+        wait_max = self._wait_max if wait_max is None else wait_max
 
         r = None
         async for _ in AsyncRetrying(
             stop=tenacity.stop.stop_after_attempt(retries),
             wait=tenacity.wait_random(min=wait_min, max=wait_max),
-            retry=retry_if_not_exception_type((KeyboardInterrupt, SystemExit)),
+            # Retrying a cancellation would swallow it and keep the task running.
+            retry=retry_if_not_exception_type(
+                (KeyboardInterrupt, SystemExit, asyncio.CancelledError)
+            ),
             reraise=True,
             before_sleep=lambda retry_state: (
                 self._log.debug(
@@ -623,6 +626,7 @@ class sessionManager:
             ),
         ):
             with _:
+                r = None
                 await self._sem.acquire()
                 try:
                     if await self._rate_limit_sleeper.async_do_sleep():
@@ -668,14 +672,24 @@ class sessionManager:
                             )
                             raise SystemExit("OnlyFans Maintenance detected.")
                         r.raise_for_status()
-                except Exception as E:
-                    await self._async_handle_error(E, exceptions)
-                    raise E
+                except BaseException as E:
+                    # A failed attempt's response is never handed out; free its connection.
+                    if r is not None:
+                        r.release()
+                    if isinstance(E, Exception):
+                        await self._async_handle_error(E, exceptions)
+                    raise
                 finally:
                     self._sem.release()
-                    
+
         if r is not None:
-            yield r
+            try:
+                yield r
+            finally:
+                # Callers may leave without reading the body (size filters, errors).
+                # Releasing returns a fully read connection to the pool and closes
+                # one with unread data, so it cannot stay checked out.
+                r.release()
 
     @property
     def sleep(self):
