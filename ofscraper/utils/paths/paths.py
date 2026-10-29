@@ -43,7 +43,8 @@ def temp_cleanup():
     if not settings.get_settings().auto_resume:
         log.info("Cleaning up temp files\n\n")
         root = data.get_TempDir()
-        if root is None:
+        # an empty path would sweep the working directory
+        if not root:
             return
         for file in filter(
             lambda x: re.search(r"\.part$|^temp_", str(x)) is not None,
