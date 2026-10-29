@@ -38,7 +38,7 @@ async def consumer(aws, task1, medialist, lock):
         async with lock:
             if not (bool(aws)):
                 break
-            data = aws.pop()
+            data = aws.popleft()
         if data is None:
             break
         else:

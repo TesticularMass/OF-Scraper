@@ -2,6 +2,7 @@ import logging
 import copy
 import arrow
 import asyncio
+from collections import deque
 
 import ofscraper.utils.settings as settings
 import ofscraper.utils.of_env.of_env as of_env
@@ -223,7 +224,8 @@ async def process_dicts(username, model_id, medialist):
         common_globals.mainProcessVariableInit()
         try:
 
-            aws = []
+            # consumed from the front, in the order final_media_sort chose
+            aws = deque()
 
             async with manager.Manager.session.get_metadata_session() as c:
                 for ele in medialist:

@@ -1,6 +1,7 @@
 import logging
 import pathlib
 import asyncio
+from collections import deque
 
 import ofscraper.utils.hash as hash
 from ofscraper.utils.context.run_async import run as run_async
@@ -79,7 +80,8 @@ async def process_dicts(username, model_id, medialist, posts):
     with progress_utils.setup_live("download"):
         try:
 
-            aws = []
+            # consumed from the front, in the order final_media_sort chose
+            aws = deque()
             async with manager.Manager.session.get_download_session() as c:
                 for ele in medialist:
                     aws.append((c, ele, model_id, username))
