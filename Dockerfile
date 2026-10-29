@@ -30,6 +30,9 @@ WORKDIR /app
 ENV VIRTUAL_ENV="/app/.venv"
 ENV UV_CACHE_DIR="/app/.uv_cache"
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+# Save into the mounted data folder. Set here as well as in the entrypoint
+# because `docker compose exec` doesn't run the entrypoint.
+ENV OFSC_SAVE_PATH_DEFAULT="/home/ofscraper/data"
 
 # >>> CORRECTED STEP 1: Install build dependencies, then pyffmpeg, then clean up <<<
 RUN apt-get update && apt-get install -y --no-install-recommends \
