@@ -26,6 +26,7 @@ import ofscraper.utils.auth.request as auth_requests
 import ofscraper.utils.cache.cache as cache
 import ofscraper.utils.dates as dates
 import ofscraper.utils.of_env.of_env as of_env
+import ofscraper.utils.settings as settings
 import ofscraper.utils.system.system as system
 from ofscraper.utils.system.subprocess import async_run
 from ofscraper.utils.system.ffprobe import verify_media_integrity
@@ -52,6 +53,10 @@ from ofscraper.db.operations_.media import mark_media_as_downloaded
 
 class AltDownloadManager(DownloadManager):
 
+    def __init__(self):
+        super().__init__()
+        self._track_over_size_max = False
+
     async def alt_download(self, c, ele: Media, username, model_id):
         # Acquire semaphore at the very beginning of the process
         await common_globals.sem.acquire()
@@ -72,8 +77,10 @@ class AltDownloadManager(DownloadManager):
             # Only attempt to download tracks that actually exist
             if audio:
                 audio = await self._alt_download_downloader(audio, c, ele)
-            if video:
+            if video and not self._track_over_size_max:
                 video = await self._alt_download_downloader(video, c, ele)
+            if self._track_over_size_max:
+                return self._skip_tracks(ele, [audio, video])
 
             # Safely calculate total size
             audio_size = audio["total"] if audio else 0
@@ -482,24 +489,43 @@ class AltDownloadManager(DownloadManager):
         return item["path"].absolute().stat().st_size
 
     async def _media_item_post_process_alt(self, audio, video, ele, username, model_id):
-        audio_total = audio["total"] if audio else 0
-        video_total = video["total"] if video else 0
-
-        if (audio_total + video_total) == 0:
-            if ele.mediatype.capitalize() == "Forced_skipped":
-                return "forced_skipped", 0
-            # No file was produced. Leave this media eligible for a retry.
+        tracks = [m for m in (audio, video) if m is not None]
+        if not tracks or not all(m["total"] for m in tracks):
+            # No complete file was produced. Leave this media eligible for a
+            # retry, and keep the tracks that arrived so it can resume them.
             return "skipped", 0
 
-        for m in [audio, video]:
-            if m is not None:
-                m["total"] = self._get_item_total(m)
+        for m in tracks:
+            m["total"] = self._get_item_total(m)
+            await self._size_checker(m["path"], ele, m["total"])
 
-        for m in [audio, video]:
-            if m is not None:
-                if not isinstance(m, dict):
-                    return m
-                await self._size_checker(m["path"], ele, m["total"])
+        # the size limits and the skip script judge the whole file
+        if await super()._check_forced_skip(ele, sum(m["total"] for m in tracks)) == 0:
+            return self._skip_tracks(ele, tracks)
+
+    async def _check_forced_skip(self, ele, total):
+        """
+        Runs for each track as it downloads. A track alone over the size limit
+        rules out the whole file; the other limits wait for both tracks.
+        """
+        if total is None:
+            return
+        if int(total) == 0:
+            return 0
+        size_max = int(settings.get_settings().size_max or 0)
+        if size_max > 0 and int(total) > size_max:
+            self._track_over_size_max = True
+            common_globals.log.debug(
+                f"{get_medialog(ele)} {format_size(total)} track over size limit"
+            )
+            return 0
+
+    def _skip_tracks(self, ele, tracks):
+        for track in tracks:
+            if track and track.get("path"):
+                pathlib.Path(track["path"]).unlink(missing_ok=True)
+        ele.mediatype = "Forced_skipped"
+        return "forced_skipped", 0
 
     async def _media_item_keys_alt(self, c, audio, video, ele):
         # Decrypting replaces a track's encrypted file, so a retry after one
