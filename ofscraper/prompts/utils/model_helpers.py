@@ -58,26 +58,26 @@ def getPriceHelper(x):
         value = re.sub("-", "_", settings.get_settings().sort).replace("-", "_")
     if (
         settings.get_settings().promo_price
-        or settings.get_settings().promo_price_min
-        or settings.get_settings().promo_price_max
+        or settings.get_settings().promo_price_min is not None
+        or settings.get_settings().promo_price_max is not None
     ):
         value2 = "promo_price"
     elif (
         settings.get_settings().regular_price
-        or settings.get_settings().regular_price_min
-        or settings.get_settings().regular_price_max
+        or settings.get_settings().regular_price_min is not None
+        or settings.get_settings().regular_price_max is not None
     ):
         value2 = "regular_price"
     elif (
         settings.get_settings().renewal_price
-        or settings.get_settings().renewal_price_min
-        or settings.get_settings().renewal_price_max
+        or settings.get_settings().renewal_price_min is not None
+        or settings.get_settings().renewal_price_max is not None
     ):
         value2 = "renewal_price"
     elif (
         settings.get_settings().current_price
-        or settings.get_settings().current_price_min
-        or settings.get_settings().current_price_max
+        or settings.get_settings().current_price_min is not None
+        or settings.get_settings().current_price_max is not None
     ):
         value2 = "current_price"
     final_value = value or value2 or "current_price"

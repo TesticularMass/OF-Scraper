@@ -204,11 +204,11 @@ class Model:
 
     @property
     def final_last_seen(self):
+        """Last-seen timestamp, or None when the model hides it."""
         last_seen = self._model.get("lastSeen")
         if not last_seen:
-            return arrow.now().float_timestamp
-        else:
-            return arrow.get(last_seen).float_timestamp
+            return None
+        return arrow.get(last_seen).float_timestamp
 
     @property
     def renewed_string(self):

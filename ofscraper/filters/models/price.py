@@ -91,7 +91,7 @@ def pricePaidFreeFilterHelper(filterusername):
 def priceMinMaxFilters(filterusername):
     log = logging.getLogger("shared")
     log.debug(f"Promo price min filter: {settings.get_settings().promo_price_min}")
-    if settings.get_settings().promo_price_min:
+    if settings.get_settings().promo_price_min is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_promo_price
@@ -103,7 +103,7 @@ def priceMinMaxFilters(filterusername):
         trace_log_user(filterusername, "promo price min filter")
 
     log.debug(f"Promo price max filter: {settings.get_settings().promo_price_max}")
-    if settings.get_settings().promo_price_max:
+    if settings.get_settings().promo_price_max is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_promo_price
@@ -115,7 +115,7 @@ def priceMinMaxFilters(filterusername):
         trace_log_user(filterusername, "promo price max filter")
 
     log.debug(f"Regular price min filter: {settings.get_settings().regular_price_min}")
-    if settings.get_settings().regular_price_min:
+    if settings.get_settings().regular_price_min is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_regular_price
@@ -126,7 +126,7 @@ def priceMinMaxFilters(filterusername):
         log.debug(f"Regular price min filter username count: {len(filterusername)}")
         trace_log_user(filterusername, "regular price min filter")
     log.debug(f"Regular price max filter: {settings.get_settings().regular_price_max}")
-    if settings.get_settings().regular_price_max:
+    if settings.get_settings().regular_price_max is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_regular_price
@@ -138,7 +138,7 @@ def priceMinMaxFilters(filterusername):
         trace_log_user(filterusername, "regular price max filter")
 
     log.debug(f"Renewal price min filter: {settings.get_settings().renewal_price_min}")
-    if settings.get_settings().renewal_price_min:
+    if settings.get_settings().renewal_price_min is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_renewal_price
@@ -149,7 +149,7 @@ def priceMinMaxFilters(filterusername):
         log.debug(f"Renewal price min filter username count: {len(filterusername)}")
         trace_log_user(filterusername, "renewal price min filter")
     log.debug(f"Renewal price max filter: {settings.get_settings().renewal_price_max}")
-    if settings.get_settings().renewal_price_max:
+    if settings.get_settings().renewal_price_max is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_renewal_price
@@ -161,7 +161,7 @@ def priceMinMaxFilters(filterusername):
         trace_log_user(filterusername, "renewal price max filter")
 
     log.debug(f"Current price min filter: {settings.get_settings().current_price_min}")
-    if settings.get_settings().current_price_min:
+    if settings.get_settings().current_price_min is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_current_price
@@ -172,7 +172,7 @@ def priceMinMaxFilters(filterusername):
         log.debug(f"Current price min filter username count: {len(filterusername)}")
         trace_log_user(filterusername, "current price min filter")
     log.debug(f"Current price max filter: {settings.get_settings().current_price_max}")
-    if settings.get_settings().current_price_max:
+    if settings.get_settings().current_price_max is not None:
         filterusername = list(
             filter(
                 lambda x: x.final_current_price
