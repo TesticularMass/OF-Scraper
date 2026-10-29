@@ -37,6 +37,7 @@ from ofscraper.data.api.common.logs.logs import trace_log_raw, trace_progress_lo
 import ofscraper.utils.const as const
 log = logging.getLogger("shared")
 API = "Timeline"
+_after_hint_shown = False
 
 
 @run
@@ -387,12 +388,18 @@ async def scrape_timeline_posts(
 
 
 def time_log(username, after):
-    log.info(f"""
-Setting timeline scan range for {username} from {arrow.get(after).format(of_env.getattr('API_DATE_FORMAT'))} to {arrow.get(settings.get_settings().before or arrow.now()).format((of_env.getattr('API_DATE_FORMAT')))}
-[yellow]: append ' --after 2000' to command to force scan of all timeline posts + download of new files only[/yellow]
-[yellow]Hint: append ' --after 2000 --force-all' to command to force scan of all timeline posts + download/re-download of all files[/yellow]
-
-            """)
+    global _after_hint_shown
+    log.info(
+        f"Setting timeline scan range for {username} from {arrow.get(after).format(of_env.getattr('API_DATE_FORMAT'))} to {arrow.get(settings.get_settings().before or arrow.now()).format((of_env.getattr('API_DATE_FORMAT')))}"
+    )
+    # the hints are the same for every model, so show them once per run
+    if _after_hint_shown:
+        return
+    _after_hint_shown = True
+    log.info(
+        "[yellow]Hint: append ' --after 2000' to command to force scan of all timeline posts + download of new files only[/yellow]\n"
+        "[yellow]Hint: append ' --after 2000 --force-all' to command to force scan of all timeline posts + download/re-download of all files[/yellow]"
+    )
 
 
 def filter_timeline_post(timeline_posts):
