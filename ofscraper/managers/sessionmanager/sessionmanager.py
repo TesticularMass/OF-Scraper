@@ -74,7 +74,10 @@ class SessionSleep:
         self._last_request_time = arrow.get(
             0
         )  # <-- NEW: Tracks when the API was last hit
-        self._alock = asyncio.Lock()
+        # One threading lock for sync and async callers. ofscraper runs async
+        # code on several event loops and threads, and an asyncio.Lock binds to
+        # one loop. The locked sections never await or sleep, so holding a
+        # threading lock there doesn't stall an event loop.
         self._lock = threading.Lock()
         self._init_sleep = (
             sleep if sleep is not None else of_env.getattr("SESSION_SLEEP_INIT")
@@ -121,7 +124,7 @@ class SessionSleep:
 
     async def async_do_sleep(self):
         sleep_amount = 0
-        async with self._alock:
+        with self._lock:
             self._maybe_decay_sleep()
             
             target_interval = self._sleep if (self._sleep and self._sleep > self._min_sleep) else self._min_sleep
@@ -197,7 +200,7 @@ class SessionSleep:
         self._last_date = arrow.now()
 
     async def async_toomany_req(self):
-        async with self._alock:
+        with self._lock:
             self.toomany_req()
 
     @property
