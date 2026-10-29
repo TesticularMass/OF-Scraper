@@ -7,6 +7,7 @@ import ofscraper.utils.profiles.data as data
 import ofscraper.utils.paths.common as common_paths
 import ofscraper.utils.config.config as config_
 import ofscraper.utils.profiles.data as profile_data
+import ofscraper.utils.profiles.tools as profile_tools
 import ofscraper.utils.of_env.of_env as of_env
 
 
@@ -88,13 +89,15 @@ class ProfileManager:
             log.debug(f"Moving ModelManager instance from '{old_name}' to '{new_name}'.")
             self.model_managers[new_name] = self.model_managers.pop(old_name)
 
-        if self.config_profile == old_name:
+        # the config and --profile may name a profile without its _profile suffix
+        named = profile_tools.profile_name_fixer
+        if named(self.config_profile) == old_name:
             log.info(f"Default config profile was '{old_name}', updating to '{new_name}'.")
-            config_.update_config("main_profile", new_name) # Updates the main config file
-        if not self.config_profile==old_name and self.active_profile==old_name:
-            log.info(f"Active config profile was '{old_name}', updating to '{new_name}'.")
-            args=settings.get_args()
-            args.profile=new_name
+            config_.update_config(of_env.getattr("mainProfile"), new_name)
+        args = settings.get_args()
+        if args.profile and named(args.profile) == old_name:
+            log.info(f"Active profile was '{old_name}', updating to '{new_name}'.")
+            args.profile = new_name
             settings.update_args(args)
         # The folder holding the open cache moved.
         cache.reset()
