@@ -24,6 +24,10 @@ warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 log = logging.getLogger("shared")
 
 
+def _same_id(item, id):
+    return str(item.get("id")) == str(id)
+
+
 class Media(base.base):
     def __init__(self, media, count, post):
         super().__init__()
@@ -63,78 +67,71 @@ class Media(base.base):
 
     async def refresh_media(self, c):
         """
-        Attempts to fetch a fresh copy of the post metadata from the API
-        to update expired CDN URLs and CloudFront signatures.
+        Fetches the post again for fresh CDN URLs and CloudFront signatures.
+        Nothing changes unless the refreshed post still holds this media.
         """
         import traceback
         try:
             self._log.debug(f"{self.id} attempting to refresh media signatures")
-            post_type = self.post.responsetype.lower()
-            post_id = self.post.id
-            model_id = self.post.model_id
-            
-            new_post_data = None
-            
-            # Map the response type to the correct API fetcher
-            if post_type in ["timeline", "pinned", "archived"]:
-                url = of_env.getattr("INDIVIDUAL_TIMELINE").format(post_id)
-                async with c.requests_async(url=url) as r:
-                    new_post_data = await r.json_()
-            
-            elif post_type == "messages":
-                url = of_env.getattr("messageSPECIFIC").format(model_id, post_id)
-                async with c.requests_async(url=url) as r:
-                    data = await r.json_()
-                    posts = data.get("list", [])
-                    new_post_data = posts[0] if posts else None
-                    
-            elif post_type in ["highlights", "stories"]:
-                url = of_env.getattr("storyEP").format(post_id)
-                async with c.requests_async(url=url) as r:
-                    resp_data = await r.json_()
-                    stories = resp_data.get("stories", []) if isinstance(resp_data, dict) else []
-                    # Find the specific story within the list that matches the post_id
-                    for s in stories:
-                        if str(s.get("id")) == str(post_id):
-                            new_post_data = s
-                            break
-                    if not new_post_data and stories:
-                        new_post_data = stories[0]
-
-            else:
-                self._log.debug(f"{self.id} unsupported refresh post type: {post_type}")
+            new_post_data = await self._fetch_post(c)
+            if new_post_data is None:
                 return False
-                
-            if new_post_data and not new_post_data.get("error"):
-                # Update the parent Post object's raw data
-                self.post._post = new_post_data
-                
-                # Update this media object's raw data
-                media_list = new_post_data.get("media", [])
-                
-                # Sometimes the post *is* the media (like in highlights)
-                if not media_list and new_post_data.get("type") in ["video", "photo", "gif"]:
-                    media_list = [new_post_data]
 
-                for m in media_list:
-                    if str(m.get("id")) == str(self.id):
-                        self._media = m
-                        self._log.debug(f"{self.id} successfully refreshed media signatures")
-
-                        # Drop values derived from the expired data; url would
-                        # otherwise keep returning the old signed link.
-                        self._final_url = None
-                        self._cached_mpd = None
-                        return True
-                        
+            media_list = new_post_data.get("media") or []
+            # Sometimes the post *is* the media (like in highlights)
+            if not media_list and new_post_data.get("type") in ["video", "photo", "gif"]:
+                media_list = [new_post_data]
+            media = next((m for m in media_list if _same_id(m, self.id)), None)
+            if media is None:
                 self._log.debug(f"{self.id} media not found in refreshed post data")
-                
-            return False
-            
+                return False
+
+            self.post._post = new_post_data
+            self._media = media
+            # Drop values derived from the expired data; url would
+            # otherwise keep returning the old signed link.
+            self._final_url = None
+            self._cached_mpd = None
+            self._log.debug(f"{self.id} successfully refreshed media signatures")
+            return True
+
         except Exception as E:
             self._log.traceback_(E)
             self._log.traceback_(traceback.format_exc())
             return False
+
+    async def _fetch_post(self, c):
+        """The post's current data from the endpoint for its kind, or None."""
+        post_id = self.post.id
+        kind = self.post.responsetype.lower()
+        if kind == "profile":
+            self._log.debug(f"{self.id} profile media can't be refreshed")
+            return None
+        if kind not in {"timeline", "pinned", "archived", "streams", "messages", "stories", "highlights"}:
+            # purchases mix timeline posts and PPV messages
+            kind = "timeline" if self.post.post.get("responseType") == "post" else "messages"
+
+        if kind in {"stories", "highlights"}:
+            # a highlight is a group of stories, and these posts are stories
+            url = of_env.getattr("storiesSPECIFIC").format(post_id)
+        elif kind == "messages":
+            url = of_env.getattr("messageSPECIFIC").format(self.post.model_id, post_id)
+        else:
+            url = of_env.getattr("INDIVIDUAL_TIMELINE").format(post_id)
+        async with c.requests_async(url=url) as r:
+            data = await r.json_()
+
+        if kind == "messages":
+            # the endpoint returns a page of messages starting near this one
+            candidates = data.get("list") or []
+        elif isinstance(data, dict) and "stories" in data:
+            candidates = data["stories"] or []
+        else:
+            candidates = data if isinstance(data, list) else [data]
+        return next(
+            (p for p in candidates if isinstance(p, dict) and _same_id(p, post_id)), None
+        )
+
     def mark_download_skipped(self):
         """Sets the flags to represent a skipped download."""
         self.download_attempted = False
