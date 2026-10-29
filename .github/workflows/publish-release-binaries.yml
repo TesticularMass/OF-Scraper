@@ -16,6 +16,27 @@ on:
         description: 'The full commit hash of the version.'
         required: true
         type: string
+      publish:
+        description: 'Publish the binaries as a GitHub Release.'
+        required: false
+        type: boolean
+        default: true
+  # Build the binaries on their own; unless published they stay on the run as artifacts.
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: 'The version used in the binary names (e.g., 8.4.1).'
+        required: true
+        type: string
+      input_version:
+        description: 'The git ref to build. Leave empty to build the branch the run starts on.'
+        required: false
+        type: string
+      publish:
+        description: 'Publish the binaries as a GitHub Release for input_version.'
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: read # Default: all jobs can read contents (e.g., for checkout)
   actions: read # Default: can read workflow run status/artifacts (e.g., for artifact download)
@@ -178,6 +199,7 @@ jobs:
   publish_release:
     name: Publish GitHub Release
     needs: [build_binaries]
+    if: ${{ inputs.publish }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed for creating the release
