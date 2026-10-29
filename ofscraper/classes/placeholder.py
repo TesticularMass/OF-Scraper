@@ -20,6 +20,11 @@ from ofscraper.scripts.naming_script import naming_script
 log = logging.getLogger("shared")
 
 
+def format_date(date):
+    # profile media is dated by the join date, which some accounts hide
+    return arrow.get(date).format(data.get_date()) if date else "unknown_date"
+
+
 class basePlaceholder:
     def __init__(self) -> None:
         self._ele = None
@@ -216,9 +221,7 @@ class Placeholders(basePlaceholder):
         self._variables.update({"first_letter": username[0].capitalize()})
         self._variables.update({"media_type": ele.mediatype.capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
-        self._variables.update(
-            {"date": arrow.get(ele.postdate).format(data.get_date())}
-        )
+        self._variables.update({"date": format_date(ele.postdate)})
         self._variables.update({"model_username": username})
         self._variables.update({"response_type": ele.modified_responsetype})
         self._variables.update({"label": ele.label_string})
@@ -421,7 +424,7 @@ class Textholders(basePlaceholder):
         self._variables.update({"post_id": ele.id})
         self._variables.update({"first_letter": username[0].capitalize()})
         self._variables.update({"value": ele.value.capitalize()})
-        self._variables.update({"date": arrow.get(ele.date).format(data.get_date())})
+        self._variables.update({"date": format_date(ele.date)})
         self._variables.update({"model_username": username})
         self._variables.update({"media_type": "Text"})
         self._variables.update({"response_type": ele.modified_responsetype})

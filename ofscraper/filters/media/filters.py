@@ -18,7 +18,8 @@ log = logging.getLogger("shared")
 
 
 def sort_by_date(media):
-    return sorted(media, key=lambda x: x.date)
+    # profile posts are dated by the join date, which some accounts hide
+    return sorted(media, key=lambda x: x.date or "")
 
 
 # dupe filters that prioritize viewable
