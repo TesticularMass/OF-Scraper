@@ -18,7 +18,7 @@ def _media(post_data, responsetype=None):
         ({"id": 5, "responseType": "message"}, None, "message"),
         ({"id": 5, "responseType": "post", "isArchived": True}, None, "post"),
         ({"id": 5}, "streams", "post"),
-        # purchased tab: the raw responseType decides (#49)
+        # purchased tab: the raw responseType decides
         ({"id": 5, "responseType": "post"}, "Paid", "post"),
         ({"id": 5, "responseType": "message"}, "Paid", "message"),
         ({"id": 5}, "Paid", "message"),

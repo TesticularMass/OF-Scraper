@@ -72,7 +72,7 @@ def test_cdrm_headers_are_a_python_literal(monkeypatch):
 
     assert key == "kid:key"
     sent = session.calls[0]["json"]["headers"]
-    # cdrm-project reads this field with ast.literal_eval (#43)
+    # cdrm-project reads this field with ast.literal_eval
     assert ast.literal_eval(sent) == {
         "user-agent": "ua",
         "x-bc": "abc",
