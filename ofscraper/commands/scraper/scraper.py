@@ -169,9 +169,15 @@ class scraperManager(CommandManager):
                     manager.Manager.current_model_manager.mark_as_processed(
                         username, activity=action
                     )
+                    if action in {"like", "unlike"}:
+                        # report the posts this action worked on
+                        script_posts = like_posts
+                        script_media = [m for post in like_posts for m in post.media]
+                    else:
+                        script_posts, script_media = posts, media
                     action_script = ACTION_SCRIPTS.get(action)
                     if action_script:
-                        action_script(username, media, posts, action=action)
+                        action_script(username, script_media, script_posts, action=action)
 
                 except Exception as E:
                     log.debug(f"Unable to complete {action} for {username}")
