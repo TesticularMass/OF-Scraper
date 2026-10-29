@@ -42,7 +42,6 @@ class DBManager:
         # allow logs to  print
         time.sleep(1.5)
         self.print_dictionary_table()
-        self.write_to_csv()
 
     def get_wanted_media(self):
         self.get_all_media()
@@ -327,41 +326,6 @@ class DBManager:
                 deduped_dictionaries.append(dictionary)
         self.media = deduped_dictionaries
 
-    def write_to_csv(self):
-        """
-        Converts a list of dictionaries into a CSV file.
-
-        Args:
-            data (list): The list of dictionaries.
-            filename (str): The name of the CSV file to be created.
-        """
-        if not settings.get_settings().export:
-            return
-        self.clean_dictionaries()
-        self.write_csv()
-
-    def write_csv(self):
-        # Extract unique keys and their types
-        header = []
-        type_hints = {}
-        for d in self.media:
-            for key, value in d.items():
-                if key not in header:
-                    header.append(key)
-                    type_hints[key] = type(value)
-        # Create a CSV writer
-        filename = settings.get_settings().export.with_suffix(".csv")
-        filename.parent.mkdir(parents=True, exist_ok=True)
-        with open(filename, "w", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=header)
-
-            # Write the header row, ensuring consistent order
-            writer.writeheader()
-
-            # Write the data rows, handling potential value types
-            for row in self.media:
-                writer.writerow(row)
-
     def _convert_seconds(self, dictionary):
         raw = dictionary.get("duration")
         if not raw:
@@ -383,9 +347,29 @@ class DBManager:
         return 0
 
 
+def write_csv(rows):
+    """Write the table rows of every model to the --export file."""
+    header = []
+    for row in rows:
+        for key in row:
+            if key not in header:
+                header.append(key)
+    filename = settings.get_settings().export.with_suffix(".csv")
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    with open(filename, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=header)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def db():
     actions.select_areas()
-    manager.Manager.current_model_manager.sync_models(all_main_models=True)
-    for model in manager.Manager.current_model_manager.all_subs:
+    rows = []
+    # honours --username, the user lists and the model filters
+    for model in manager.Manager.current_model_manager.prepare_scraper_activity():
         db_manager = DBManager(model.name, model.id)
         db_manager.print_media()
+        rows.extend(db_manager.media)
+    # one file for all models; writing it per model kept only the last one
+    if settings.get_settings().export:
+        write_csv(rows)
