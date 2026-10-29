@@ -41,7 +41,10 @@ async def get_labels(model_id, c=None):
         )
     )
     data = await get_posts_for_labels(labels_, model_id, c=c)
-    update_check(data, model_id, None, API)
+    # check mode keeps the labelled posts under this key, not the labels
+    update_check(
+        [post for label in data for post in label.get("posts", [])], model_id, None, API
+    )
 
     return data
 
