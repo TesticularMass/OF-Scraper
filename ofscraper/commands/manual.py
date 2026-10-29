@@ -24,6 +24,7 @@ from ofscraper.utils.context.run_async import run
 from ofscraper.main.close.final.final import final_action
 import ofscraper.managers.manager as manager
 import ofscraper.utils.settings as settings
+from ofscraper.classes.of.posts import Post
 from ofscraper.managers.postcollection import PostCollection
 from ofscraper.scripts.after_download_action_script import after_download_action_script
 
@@ -120,6 +121,8 @@ async def process_urls(urls):
         "stories": highlights_.get_individual_stories,
         "unknown": unknown_type_helper,
     }
+    # stories carry no responseType, so their area has to be named
+    STORY_AREAS = {"highlights": highlights_.API_H, "stories": highlights_.API_S}
 
     with progress_utils.setup_live("api"):
         # Open a single async session pool for all manual URLs
@@ -184,6 +187,12 @@ async def process_urls(urls):
                     out_dict[model_id]["collection"] = PostCollection(
                         username=username, model_id=model_id
                     )
+
+                if api_type in STORY_AREAS:
+                    value = [
+                        Post(item, model_id, username, responsetype=STORY_AREAS[api_type])
+                        for item in value
+                    ]
 
                 # Add the fetched post to the collection
                 out_dict[model_id]["collection"].add_posts(value)
