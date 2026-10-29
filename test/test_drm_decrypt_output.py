@@ -48,6 +48,17 @@ def test_strip_pssh_leaves_clean_file_alone(tmp_path):
     assert f.read_bytes() == data
 
 
+@pytest.mark.parametrize("tail", [b"", b"\x00" * 4, b"\x00" * 7])
+def test_strip_pssh_stops_at_a_truncated_large_size_box(tmp_path, tail):
+    # size 1 means a 64-bit size follows; a box cut off before it ends must
+    # stop the walk, not raise, since the decrypt itself already succeeded
+    pssh = _box(b"pssh", b"\x00" * 40)
+    data = _box(b"ftyp", b"isom") + pssh + struct.pack(">I4s", 1, b"mdat") + tail
+    f = tmp_path / "a.mp4"
+    f.write_bytes(data)
+    assert strip_pssh(f) == 1
+
+
 FFMPEG = shutil.which("ffmpeg")
 KEY = "00112233445566778899aabbccddeeff"
 

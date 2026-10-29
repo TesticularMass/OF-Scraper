@@ -54,6 +54,8 @@ def strip_pssh(path):
                 size, typ = struct.unpack(">I4s", f.read(8))
                 header = 8
                 if size == 1:
+                    if pos + 16 > end:
+                        return
                     size = struct.unpack(">Q", f.read(8))[0]
                     header = 16
                 elif size == 0:
