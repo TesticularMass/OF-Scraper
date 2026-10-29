@@ -120,8 +120,10 @@ class Media(base.base):
                     if str(m.get("id")) == str(self.id):
                         self._media = m
                         self._log.debug(f"{self.id} successfully refreshed media signatures")
-                        
-                        # Clear the mpd cache so it gets reparsed with new signatures
+
+                        # Drop values derived from the expired data; url would
+                        # otherwise keep returning the old signed link.
+                        self._final_url = None
                         self._cached_mpd = None
                         return True
                         
