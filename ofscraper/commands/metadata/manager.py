@@ -75,83 +75,48 @@ class MetaDataManager:
             )
         return ele.mediatype if effected else "Forced_skipped"
 
+    def _existing_file(self, placeholderObj, prevData):
+        """The downloaded file on disk: the current template path, else the recorded one."""
+        current = pathlib.Path(placeholderObj.trunicated_filepath)
+        if current.is_file():
+            return current
+        if prevData.get("filename"):
+            recorded = pathlib.Path(prevData.get("directory") or "", prevData["filename"])
+            if recorded.is_file():
+                return recorded
+        return None
+
     def _metadata_downloaded_helper(self, placeholderObj, prevData):
         if settings.get_settings().metadata == "check":
             return prevData["downloaded"] if prevData else None
         elif settings.get_settings().metadata == "complete":
             return 1
         # for update
-        elif pathlib.Path(placeholderObj.trunicated_filepath).exists():
-            return 1
-        elif pathlib.Path(prevData.get("filename") or "").is_file():
-            return 1
-        elif pathlib.Path(
-            prevData.get("directory") or "", prevData.get("filename") or ""
-        ).is_file():
-            return 1
-        return 0
+        return 1 if self._existing_file(placeholderObj, prevData) else 0
 
+    # In update mode the directory and filename must name the same existing file,
+    # or the record points at a path that does not exist.
     def _metadata_file_helper(self, placeholderObj, prevData):
         if settings.get_settings().metadata != "update":
             return str(placeholderObj.trunicated_filename)
-        # for update
-        elif pathlib.Path(placeholderObj.trunicated_filepath).exists():
-            return str(placeholderObj.trunicated_filename)
-        elif prevData.get("filename") and pathlib.Path(prevData.get("filename")).is_file():
-            return pathlib.Path(prevData.get("filename")).name
-        elif prevData.get("directory") and prevData.get("filename") and pathlib.Path(
-            prevData.get("directory"), prevData.get("filename")
-        ).is_file():
-            return prevData.get("filename")
-        return str(placeholderObj.trunicated_filename)
+        existing = self._existing_file(placeholderObj, prevData)
+        return existing.name if existing else str(placeholderObj.trunicated_filename)
 
     def _metadata_dir_helper(self, placeholderObj, prevData):
         if settings.get_settings().metadata != "update":
             return str(placeholderObj.trunicated_filedir)
-        # for update
-        elif pathlib.Path(placeholderObj.trunicated_filedir).exists():
-            return str(placeholderObj.trunicated_filedir)
-        elif prevData.get("directory") and pathlib.Path(prevData.get("directory")).is_dir():
-            return prevData.get("directory")
-        elif prevData.get("directory") and prevData.get("filename") and pathlib.Path(
-            prevData.get("directory"), prevData.get("filename")
-        ).is_file():
-            return str(pathlib.Path(
-                prevData.get("directory"), prevData.get("filename")
-            ).parent)
-        return str(placeholderObj.trunicated_filedir)
+        existing = self._existing_file(placeholderObj, prevData)
+        return str(existing.parent) if existing else str(placeholderObj.trunicated_filedir)
 
     def _metadata_hash_helper(self, placeholderObj, prevData, ele):
         if not settings.get_settings().hash:
             return prevData.get("hash")
-        elif pathlib.Path(placeholderObj.trunicated_filepath).is_file():
-            return hash.get_hash(
-                pathlib.Path(placeholderObj.trunicated_filepath)
-            )
-        elif pathlib.Path(
-            prevData.get("directory") or "", prevData.get("filename") or ""
-        ).is_file():
-            return hash.get_hash(
-                pathlib.Path(
-                    prevData.get("directory") or "", prevData.get("filename") or ""
-                )
-            )
+        existing = self._existing_file(placeholderObj, prevData)
+        return hash.get_hash(existing) if existing else None
 
     def _metadata_size_helper(self, placeholderObj, prevData):
-        if placeholderObj.size:
-            return placeholderObj.size
-        elif pathlib.Path(
-            prevData.get("directory") or "", prevData.get("filename") or ""
-        ).is_file():
-            return (
-                pathlib.Path(
-                    prevData.get("directory") or "", prevData.get("filename") or ""
-                )
-                .stat()
-                .st_size
-            )
-        else:
-            return prevData.get("size")
+        existing = self._existing_file(placeholderObj, prevData)
+        return existing.stat().st_size if existing else prevData.get("size")
 
     async def _metadata_helper(self, c, ele):
         placeholderObj = None
@@ -177,15 +142,15 @@ class MetaDataManager:
                 content_type = (
                     (headers.get("content-type") or "application/octet-stream").split("/")[-1] or ele.content_type
                 )
-                # request fail if not read
-                async for _ in r.iter_chunked(1024 * 1024 * 30):
-                    pass
-                placeholderObj = placeholder.Placeholders(ele, ext=content_type)
-                return placeholderObj
+            # Only the headers matter here, so the body is left unread; the session
+            # releases the connection. Protected media is downloaded as an MP4, and
+            # this response is its DASH manifest.
+            return placeholder.Placeholders(ele, ext="mp4" if ele.mpd and not ele.url else content_type)
 
     async def _placeholderObjHelper(self, c, ele):
+        # Same key the download manager stores response headers under.
         download_data = await asyncio.get_running_loop().run_in_executor(
-            common_globals.thread, partial(cache.get, f"{ele.id}_headers")
+            common_globals.thread, partial(cache.get, f"{ele.id}_{ele.username}_headers")
         )
         if download_data:
             content_type = (
