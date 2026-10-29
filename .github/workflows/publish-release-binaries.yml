@@ -43,27 +43,58 @@ permissions:
 
 jobs:
   build_binaries:
-    name: Build on ${{ matrix.os }}
+    name: Build ${{ matrix.artifact_suffix }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     defaults:
       run:
-        shell: ${{ matrix.shell }}
+        shell: bash
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
-          - os: ubuntu-latest
-            artifact_suffix: linux
-            shell: bash
-          - os: windows-latest
-            artifact_suffix: windows
-            shell: pwsh
-          - os: macos-latest
-            artifact_suffix: macos
-            shell: bash
+          # Linux uses uv's portable Python, which needs glibc 2.17, and wheels
+          # built for that glibc, so the binaries run on old distros. frozenlist's
+          # and protobuf's compiled modules need libstdc++, which PyInstaller
+          # would copy from the runner (glibc 2.38); both fall back to Python.
+          - artifact_suffix: linux
+            os: ubuntu-24.04
+            uv_python: cpython-3.13-linux-x86_64-gnu
+            wheel_platform: x86_64-manylinux_2_17
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+          - artifact_suffix: linux_aarch64
+            os: ubuntu-24.04-arm
+            uv_python: cpython-3.13-linux-aarch64-gnu
+            wheel_platform: aarch64-manylinux_2_17
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+          # 32-bit ARM runs natively on the ARM64 runner. Packages without
+          # armv7 wheels are compiled with Ubuntu 22.04's cross compiler.
+          - artifact_suffix: linux_armv7
+            os: ubuntu-22.04-arm
+            uv_python: cpython-3.13-linux-armv7-gnueabihf
+            cross: arm-linux-gnueabihf
+            pyinstaller_opts: --exclude-module frozenlist._frozenlist --exclude-module google._upb._message
+          - artifact_suffix: windows
+            os: windows-latest
+            python_arch: x64
+          # 32-bit Python runs natively on the x64 runner
+          - artifact_suffix: windows_x86
+            os: windows-latest
+            python_arch: x86
+          - artifact_suffix: windows_arm64
+            os: windows-11-arm
+            python_arch: arm64
+          - artifact_suffix: macos
+            os: macos-latest
+            python_arch: arm64
+            wheel_platform: aarch64-apple-darwin
+            macos_target: "11.0"
+          - artifact_suffix: macos_x86_64
+            os: macos-15-intel
+            python_arch: x64
+            wheel_platform: x86_64-apple-darwin
+            macos_target: "10.13"
 
     steps:
       - name: Checkout Full Git History
@@ -74,9 +105,12 @@ jobs:
           fetch-tags: true
 
       - name: Set up Python
+        id: setup_python
+        if: matrix.python_arch
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12.0' # Keep specific Python version for consistent builds
+          python-version: '3.13'
+          architecture: ${{ matrix.python_arch }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.1
@@ -88,27 +122,44 @@ jobs:
           SANITIZED_TAG="${PACKAGE_VERSION//./_}"
           echo "s=$PACKAGE_VERSION" >> "$GITHUB_ENV"
           echo "sanitized_tag=$SANITIZED_TAG" >> "$GITHUB_OUTPUT"
-        shell: bash
+
+      - name: Install the 32-bit ARM Runtime and Cross Compiler
+        if: matrix.cross
+        run: |
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update -q
+          sudo apt-get install -y -q libc6:armhf libgcc-s1:armhf zlib1g-dev:armhf \
+            gcc-${{ matrix.cross }} g++-${{ matrix.cross }} binutils-${{ matrix.cross }}
 
       - name: Install venv and dependencies
         run: |
-          uv venv
-
+          if [ -n "${{ matrix.uv_python }}" ]; then
+            uv venv --managed-python --python "${{ matrix.uv_python }}" .venv
+          else
+            uv venv --python "${{ steps.setup_python.outputs.python-path }}" .venv
+          fi
           if [ "${{ runner.os }}" == "Windows" ]; then
             . .venv/Scripts/activate
           else
             source .venv/bin/activate
           fi
+          python -c "import platform, sys; print(sys.version, platform.machine())"
 
-          uv pip install --upgrade hatch-vcs setuptools-scm
+          PLATFORM_ARGS=()
+          if [ -n "${{ matrix.wheel_platform }}" ]; then
+            PLATFORM_ARGS=(--python-platform "${{ matrix.wheel_platform }}")
+          fi
+          if [ -n "${{ matrix.macos_target }}" ]; then
+            export MACOSX_DEPLOYMENT_TARGET="${{ matrix.macos_target }}"
+          fi
+          if [ -n "${{ matrix.cross }}" ]; then
+            export CC="${{ matrix.cross }}-gcc" CXX="${{ matrix.cross }}-g++"
+            export LDSHARED="${{ matrix.cross }}-gcc -shared"
+          fi
 
-          echo "Hatch version: $(hatch version)"
-
-          uv sync --verbose
-        shell: bash
-
-      - name: Install PyInstaller
-        run: uv pip install pyinstaller==6.14.1
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements-build.txt
+          uv pip install "${PLATFORM_ARGS[@]}" -r requirements-build.txt pyinstaller==6.14.1
+          uv pip install --no-deps .
 
       - name: Set UTF-8 environment (Windows)
         if: runner.os == 'Windows'
@@ -134,9 +185,8 @@ jobs:
           echo "Building executable from: $OFSCRAPER_EXECUTABLE"
           pyinstaller --onefile \
             --name "ofscraper_${{ matrix.artifact_suffix }}_${{ steps.prep_build_version.outputs.sanitized_tag }}${EXE_EXT}" \
-            ${PYINSTALLER_OPTS} \
+            ${PYINSTALLER_OPTS} ${{ matrix.pyinstaller_opts }} \
             "$OFSCRAPER_EXECUTABLE"
-        shell: bash
 
       - name: Check the Executable Starts
         run: |
@@ -145,7 +195,6 @@ jobs:
           "$EXE" --version
           # loads the argument modules of a subcommand
           "$EXE" db --help > /dev/null
-        shell: bash
 
       - name: Build Executable (Dir)
         run: |
@@ -162,14 +211,39 @@ jobs:
           echo "Building executable from: $OFSCRAPER_EXECUTABLE"
           pyinstaller \
             --name "ofscraper_${{ matrix.artifact_suffix }}_dir" \
-            ${PYINSTALLER_OPTS} \
+            ${PYINSTALLER_OPTS} ${{ matrix.pyinstaller_opts }} \
             "$OFSCRAPER_EXECUTABLE"
-        shell: bash
+
+      - name: Check the Bundled Libraries Resolve
+        if: runner.os == 'Linux'
+        run: |
+          DIR="$PWD/dist/ofscraper_${{ matrix.artifact_suffix }}_dir"
+          if [ -n "${{ matrix.cross }}" ]; then LIST="/lib/ld-linux-armhf.so.3 --list"; else LIST="ldd"; fi
+          MISSING=$(find "$DIR" -type f \( -name '*.so*' -o -name 'ofscraper_*_dir' \) | while read -r f; do
+            LD_LIBRARY_PATH="$DIR/_internal" $LIST "$f" 2>/dev/null | grep 'not found' || true
+          done | sort -u)
+          if [ -n "$MISSING" ]; then echo "$MISSING"; exit 1; fi
+          echo "All bundled libraries resolve"
+
+      - name: Report the Oldest Supported OS
+        if: runner.os != 'Windows'
+        run: |
+          DIR="dist/ofscraper_${{ matrix.artifact_suffix }}_dir"
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            OBJDUMP="objdump"
+            if [ -n "${{ matrix.cross }}" ]; then OBJDUMP="${{ matrix.cross }}-objdump"; fi
+            OLDEST=$(find "$DIR" -type f -exec "$OBJDUMP" -T {} \; 2>/dev/null \
+              | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -Vu | tail -1)
+          else
+            OLDEST=macOS-$(find "$DIR" -type f -exec otool -l {} \; 2>/dev/null \
+              | awk '/LC_BUILD_VERSION/{b=1} b && $1=="minos"{print $2; b=0} /LC_VERSION_MIN_MACOSX/{v=1} v && $1=="version"{print $2; v=0}' \
+              | sort -Vu | tail -1)
+          fi
+          echo "ofscraper_${{ matrix.artifact_suffix }} needs ${OLDEST} or newer" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Zip Directory (Unix)
         if: runner.os != 'Windows'
         run: zip -r "dist/ofscraper_${{ matrix.artifact_suffix }}_${{ steps.prep_build_version.outputs.sanitized_tag }}.zip" "dist/ofscraper_${{ matrix.artifact_suffix }}_dir"
-        shell: bash
 
       - name: Zip Directory (Windows)
         if: runner.os == 'Windows'
@@ -194,13 +268,12 @@ jobs:
           echo "$EXE_FILE_PATH" >> "$GITHUB_OUTPUT"
           echo "$ZIP_FILE_PATH" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
-        shell: bash
 
       - name: Upload Build Artifacts (with custom retries)
         uses: ./.github/actions/retry-artifact-operation
         with:
           operation_type: upload
-          name: build-artifacts-${{ matrix.os }}
+          name: build-artifacts-${{ matrix.artifact_suffix }}
           path: ${{ steps.prepare_paths.outputs.artifact_paths }}
           if_no_files_found: 'warn'
           overwrite: 'true'
