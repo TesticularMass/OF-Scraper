@@ -167,11 +167,7 @@ class MainDownloadManager(DownloadManager):
                 total_timeout=None,
                 read_timeout=get_chunk_timeout(),
             ) as r:
-                # 206 content-length only covers the remaining bytes
-                content_length = int(r.headers.get("content-length") or 0)
-                total = (
-                    resume_size + content_length if r.status == 206 else content_length
-                )
+                total = self._response_total(r, resume_size)
                 data = {
                     "content-total": total,
                     "content-type": r.headers.get("content-type"),
@@ -205,6 +201,10 @@ class MainDownloadManager(DownloadManager):
                     await self._download_fileobject_writer(
                         r, ele, tempholderObj, placeholderObj, total
                     )
+                    if total is None:
+                        total = await self._measured_total(ele, tempholderObj.tempfilepath)
+                        if total == 0:
+                            return (total, tempholderObj.tempfilepath, placeholderObj)
                     await self._total_change_helper(total)
             await self._size_checker(tempholderObj.tempfilepath, ele, total)
             return (total, tempholderObj.tempfilepath, placeholderObj)

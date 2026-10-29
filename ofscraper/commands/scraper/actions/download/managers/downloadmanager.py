@@ -90,6 +90,28 @@ class DownloadManager:
             return 0
         return resume_size
 
+    def _response_total(self, response, resume_size):
+        """The full file size, or None when the body is streamed without a content-length."""
+        content_length = response.headers.get("content-length")
+        if content_length is None:
+            return None
+        # 206 content-length only covers the remaining bytes
+        if response.status == 206:
+            return resume_size + int(content_length)
+        return int(content_length)
+
+    async def _measured_total(self, ele, path):
+        """
+        Size of a body sent without a content-length. The size filters could
+        not run before the download, so a file they reject is removed and 0
+        is returned.
+        """
+        total = pathlib.Path(path).stat().st_size
+        if await self._check_forced_skip(ele, total) == 0:
+            pathlib.Path(path).unlink(missing_ok=True)
+            return 0
+        return total
+
     async def _check_forced_skip(self, ele, total):
         if total is None:
             return

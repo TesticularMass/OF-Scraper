@@ -201,13 +201,7 @@ class AltDownloadManager(DownloadManager):
                 content_type = (l.headers.get("content-type") or "").split(";", 1)[0].lower()
                 if content_type in {"application/dash+xml", "application/xml", "text/xml"}:
                     raise ValueError("Received a manifest instead of a media track")
-                # 206 content-length only covers the remaining bytes
-                content_length = int(l.headers.get("content-length") or 0)
-                item["total"] = (
-                    resume_size + content_length
-                    if l.status == 206
-                    else content_length
-                )
+                item["total"] = self._response_total(l, resume_size)
                 total = item["total"]
 
                 data = {
@@ -238,6 +232,11 @@ class AltDownloadManager(DownloadManager):
                     await self._download_fileobject_writer(
                         total, l, ele, placeholderObj, item
                     )
+                    if total is None:
+                        total = await self._measured_total(ele, placeholderObj.tempfilepath)
+                        item["total"] = total
+                        if total == 0:
+                            return item
                     await self._total_change_helper(total)
 
             await self._size_checker(placeholderObj.tempfilepath, ele, total)
