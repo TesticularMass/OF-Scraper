@@ -91,6 +91,8 @@ def format_seconds(total_seconds):
     Returns:
         A string representing the formatted time in "dd:hh:mm:ss" format.
     """
+    # the API can send a fractional duration, which :02d can't format
+    total_seconds = int(total_seconds)
     # Calculate days
     days = total_seconds // 86400
     # Remaining seconds after days
