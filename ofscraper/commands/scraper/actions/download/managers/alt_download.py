@@ -502,12 +502,15 @@ class AltDownloadManager(DownloadManager):
                 await self._size_checker(m["path"], ele, m["total"])
 
     async def _media_item_keys_alt(self, c, audio, video, ele):
+        # Decrypting replaces a track's encrypted file, so a retry after one
+        # track failed must not decrypt the finished one again.
+        encrypted = [item for item in (audio, video) if item is not None]
         async for _ in download_retry():
             with _:
                 try:
-                    for item in [audio, video]:
-                        if item is not None:
-                            item = await keyhelpers.un_encrypt(item, c, ele)
+                    while encrypted:
+                        await keyhelpers.un_encrypt(encrypted[0], c, ele)
+                        encrypted.pop(0)
                 except Exception as E:
                     common_globals.log.traceback_(E)
                     common_globals.log.traceback_(traceback.format_exc())
