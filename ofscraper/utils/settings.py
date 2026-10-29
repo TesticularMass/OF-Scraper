@@ -141,7 +141,9 @@ def merged_settings():
         if isinstance(out, str):
             out = out.split(",")
         if isinstance(out, list):
-            return [str(x).strip() for x in out if str(x).strip()]
+            # list names match case-insensitively; OF's names and the
+            # reserved names are compared in lowercase
+            return [str(x).strip().lower() for x in out if str(x).strip()]
         return []
 
     merged.userlist = _listhelper(args.userlist or config_data.get_default_userlist())

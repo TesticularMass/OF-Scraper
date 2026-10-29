@@ -208,9 +208,10 @@ def _get_choices():
 
 
 def user_list(model_str):
-    model_list = re.split("(,|\n)", model_str)
-    model_list = filter(lambda x: len(x) != 0, model_list)
-    return model_list
+    # list names match case-insensitively, like --user-list
+    return [
+        name.strip().lower() for name in re.split(r"[,\n]", model_str) if name.strip()
+    ]
 
 
 def get_list_details(white=True):
