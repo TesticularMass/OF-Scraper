@@ -41,7 +41,24 @@ A command-line tool for downloading media from OnlyFans and performing bulk acti
 
 ## Installation
 
-### Requirements
+### Binaries
+
+Download a prebuilt executable or ZIP from [GitHub Releases](https://github.com/TesticularMass/OF-Scraper/releases/latest). Python is bundled; ffmpeg is still needed separately for video processing and DRM decryption.
+
+| Filename prefix | Platform |
+|---|---|
+| `ofscraper_linux_3_` | Linux, Intel/AMD 64-bit |
+| `ofscraper_linux_aarch64_` | Linux, ARM64 |
+| `ofscraper_linux_armv7_` | Linux, ARMv7 hard-float (32-bit) |
+| `ofscraper_windows_3_` | Windows, Intel/AMD 64-bit |
+| `ofscraper_windows_x86_` | Windows, Intel/AMD 32-bit |
+| `ofscraper_windows_arm64_` | Windows, ARM64 |
+| `ofscraper_macos_3_` | macOS, Apple Silicon |
+| `ofscraper_macos_x86_64_` | macOS, Intel |
+
+See the release notes for minimum OS requirements and checksums. ZIP builds start faster: extract the whole archive and keep the `_internal` directory beside the executable. On Linux and macOS, use `chmod +x <executable>` if needed.
+
+### Source requirements
 - Python 3.11–3.15 (on 3.15, `lz4` has no prebuilt wheels yet, so installing needs a C compiler)
 - ffmpeg (for video processing and DRM decryption)
 

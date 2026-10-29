@@ -54,8 +54,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux uses uv's portable Python, which needs glibc 2.17, and wheels
-          # built for that glibc, so the binaries run on old distros. frozenlist's
+          # Linux uses uv's portable Python and glibc 2.17 wheels to reduce the
+          # minimum OS version. ARM's bundled libgcc_s can raise it. frozenlist's
           # and protobuf's compiled modules need libstdc++, which PyInstaller
           # would copy from the runner (glibc 2.38); both fall back to Python.
           # Python 3.13's iOS-only _ios_support makes PyInstaller copy libobjc.

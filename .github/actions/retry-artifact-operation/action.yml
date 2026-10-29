@@ -6,25 +6,20 @@ inputs:
   operation_type:
     description: 'Specify "upload", "download-specific", or "download-all".' # Updated description for clarity
     required: true
-    type: string
   name:
     description: 'Artifact name for upload or specific download. Omit/leave empty for "download-all".'
     required: false # <--- CRITICAL: Set to false to allow omitting for "download-all"
-    type: string
   path:
     description: 'Paths for operation.'
     required: true
-    type: string
   if_no_files_found:
     description: 'For upload: warn, error, ignore.'
     required: false
     default: 'warn'
-    type: string
   overwrite:
     description: 'For upload: true/false.'
     required: false
     default: 'true'
-    type: boolean
 
 runs:
   using: "composite"
