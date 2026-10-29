@@ -322,6 +322,9 @@ class Post(base.base):
             # 2. Handle the "Post/Posts" alias normalization
             if response_key in {"post", "posts"}:
                 response_key = "timeline"
+            # the config stores the messages mapping under "message"
+            elif response_key == "messages":
+                response_key = "message"
 
             # 3. Lookup in the lowercase config dictionary
             response = data.responsetype().get(response_key)
