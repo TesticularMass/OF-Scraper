@@ -1,9 +1,14 @@
+import arrow
+
 from ofscraper.data.api.common.cache.read import read_check_mode
 from ofscraper.data.api.common.cache.write import set_check_mode_posts
 
+# get_after starts a full scan here, never earlier
+FULL_SCAN_START = arrow.get("2000").float_timestamp
+
 
 def update_check(unduped, model_id, after, API):
-    if not after:
+    if not after or float(after) <= FULL_SCAN_START:
         seen = set()
         all_posts = [
             post
