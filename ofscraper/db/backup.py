@@ -12,7 +12,10 @@ r"""
 """
 
 import logging
+import os
 import pathlib
+import sqlite3
+from contextlib import closing
 
 import arrow
 from rich.console import Console
@@ -21,17 +24,45 @@ import ofscraper.classes.placeholder as placeholder
 import ofscraper.utils.cache.cache as cache
 import ofscraper.utils.of_env.of_env as of_env
 from ofscraper.db.difference import get_group_difference
-from ofscraper.utils.paths.manage import copy_path
 
 console = Console()
 log = logging.getLogger("shared")
 
 
+def _connect(path):
+    return sqlite3.connect(path, timeout=of_env.getattr("DATABASE_TIMEOUT"))
+
+
+def _snapshot(source, destination):
+    """Write a consistent, standalone copy of a live database.
+
+    Copying the file misses commits still held in the WAL file, so the copy
+    is read through SQLite instead.
+    """
+    source, destination = pathlib.Path(source), pathlib.Path(destination)
+    if not source.is_file():
+        raise FileNotFoundError(f"database not found: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.partial")
+    partial.unlink(missing_ok=True)
+    with closing(_connect(source)) as src, closing(_connect(partial)) as dst:
+        src.backup(dst)
+        # The copy inherits WAL mode; a backup should be one self-contained file.
+        dst.execute("PRAGMA journal_mode=DELETE")
+    os.replace(partial, destination)
+
+
 def restore_backup_transition(backup, model_id, username, db_path=None, **kwargs):
+    if not backup:
+        log.debug("no transition backup was made, nothing to restore")
+        return
     database = db_path or placeholder.databasePlaceholder().databasePathHelper(
         model_id, username
     )
-    copy_path(backup, database)
+    # Writing through SQLite keeps open connections and the WAL file consistent;
+    # replacing the file under them could pair it with a stale WAL.
+    with closing(_connect(backup)) as src, closing(_connect(database)) as dst:
+        src.backup(dst)
     log.debug(f"restored {database} from {backup}")
 
 
@@ -56,48 +87,38 @@ def create_backup_transition(model_id=None, username=None, db_path=None, **kwarg
 
 
 def check_backup(model_id, username, new_path, db_path=None, **kwargs):
-    if not new_path.absolute().exists():
+    new_path = pathlib.Path(new_path)
+    if not new_path.is_file():
         raise Exception("Backup db was not created")
-    elif (
-        new_path.absolute().stat().st_size
-        != (
-            db_path
-            or placeholder.databasePlaceholder().databasePathHelper(model_id, username)
-        )
-        .absolute()
-        .stat()
-        .st_size
-    ):
-        raise Exception("backup db file should be the same size")
+    # File sizes differ legitimately while the source has WAL pages, so check
+    # that the backup itself is a sound database.
+    with closing(_connect(new_path)) as conn:
+        result = conn.execute("PRAGMA quick_check").fetchone()
+    if not result or result[0] != "ok":
+        raise Exception(f"backup db failed its integrity check: {result}")
 
 
 def create_backup(model_id, username, backup=None, db_path=None, **kwargs):
-    database_path = db_path or placeholder.databasePlaceholder().databasePathHelper(
-        model_id, username
+    database_path = pathlib.Path(
+        db_path
+        or placeholder.databasePlaceholder().databasePathHelper(model_id, username)
     )
     database_copy = None
-    now = arrow.now().float_timestamp
-    last = cache.get(f"{username}_{model_id}_db_backup", default=now)
     if backup:
         database_copy = database_path.parent / "backup" / f"{backup}"
-        database_copy.parent.mkdir(parents=True, exist_ok=True)
-        copy_path(database_path, database_copy)
-    elif now - last > of_env.getattr("DBINTERVAL") and database_path.exists():
+        _snapshot(database_path, database_copy)
+        return database_copy
+
+    now = arrow.now().float_timestamp
+    last = cache.get(f"{username}_{model_id}_db_backup", default=now)
+    backup_dir = database_path.parent / "backup"
+    interval_passed = now - last > of_env.getattr("DBINTERVAL") and database_path.exists()
+    no_backups_yet = not backup_dir.exists() or not any(backup_dir.iterdir())
+    if interval_passed or no_backups_yet:
         database_copy = placeholder.databasePlaceholder().databasePathCopyHelper(
             model_id, username
         )
-        database_copy.parent.mkdir(parents=True, exist_ok=True)
-        copy_path(database_path, database_copy)
-        cache.set(f"{username}_{model_id}_db_backup", now)
-    elif (
-        not pathlib.Path(database_path.parent / "backup").exists()
-        or len(list(pathlib.Path(database_path.parent / "backup").iterdir())) == 0
-    ):
-        database_copy = placeholder.databasePlaceholder().databasePathCopyHelper(
-            model_id, username
-        )
-        database_copy.parent.mkdir(parents=True, exist_ok=True)
-        copy_path(database_path, database_copy)
+        _snapshot(database_path, database_copy)
         cache.set(f"{username}_{model_id}_db_backup", now)
 
     return database_copy
