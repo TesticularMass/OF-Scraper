@@ -1,7 +1,18 @@
 from types import SimpleNamespace as NS
 
+import ofscraper.filters.media.filters as filters
 import ofscraper.utils.settings as settings
+from ofscraper.classes.of.posts import Post
 from ofscraper.managers.postcollection import PostCollection
+
+
+def test_mass_skip_keeps_posts_that_are_not_mass_messages(monkeypatch):
+    monkeypatch.setattr(settings, "get_settings", lambda: NS(mass_msg=False))
+    # Only messages carry isFromQueue; timeline posts leave it out.
+    timeline = Post({"id": 1, "responseType": "post"}, 1, "model")
+    direct = Post({"id": 2, "responseType": "message", "isFromQueue": False}, 1, "model")
+    mass = Post({"id": 3, "responseType": "message", "isFromQueue": True}, 1, "model")
+    assert filters.mass_msg_filter([timeline, direct, mass]) == [timeline, direct]
 
 
 def test_text_posts_without_a_date_sort_first(monkeypatch):

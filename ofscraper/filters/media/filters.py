@@ -315,7 +315,8 @@ def mass_msg_filter(media):
     elif settings.get_settings().mass_msg is True:
         return list((filter(lambda x: x.mass is True, media)))
     elif settings.get_settings().mass_msg is False:
-        return list((filter(lambda x: x.mass is False, media)))
+        # only messages carry isFromQueue, so posts without it are not mass messages
+        return list((filter(lambda x: not x.mass, media)))
 
 
 def final_post_sort(post):
