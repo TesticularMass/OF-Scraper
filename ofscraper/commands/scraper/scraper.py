@@ -53,22 +53,25 @@ class scraperManager(CommandManager):
         with scrape_context_manager():
             with progress_utils.stop_live_screen(clear="all"):
                 with progress_utils.setup_live("main_activity"):
+                    # prepare asks every question, including whether to scrape
+                    # the paid page, so the answers apply to this run and the
+                    # slow work starts only once they are all in
+                    userdata = session = None
+                    if self.run_action:
+                        userdata, session = prepare(menu=menu)
+
                     if settings.get_settings().scrape_paid:
                         scrape_paid_all()
 
-                    if not self.run_action:
-                        pass
-
-                    elif settings.get_settings().users_first:
-                        userdata, session = prepare(menu=menu)
+                    if self.run_action:
                         self._run_subscribe_batch(userdata)
                         if self._has_non_subscribe_actions:
-                            self._process_users_actions_user_first(userdata, session)
-                    else:
-                        userdata, session = prepare(menu=menu)
-                        self._run_subscribe_batch(userdata)
-                        if self._has_non_subscribe_actions:
-                            self._process_users_actions_normal(userdata, session)
+                            process = (
+                                self._process_users_actions_user_first
+                                if settings.get_settings().users_first
+                                else self._process_users_actions_normal
+                            )
+                            process(userdata, session)
 
                 final_action()
 
