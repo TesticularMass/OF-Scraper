@@ -44,7 +44,9 @@ PRIMARY KEY (id),
 UNIQUE (post_id,model_id)
 )
 """
-messagesInsert = """INSERT INTO 'messages'(
+# Messages and Purchased are saved concurrently and share PPV messages, so the
+# other area may have inserted one since the existing ids were read.
+messagesInsert = """INSERT OR IGNORE INTO 'messages'(
 post_id, text,price,paid,archived,
 created_at,user_id,model_id)
             VALUES (?, ?,?,?,?,?,?,?);"""

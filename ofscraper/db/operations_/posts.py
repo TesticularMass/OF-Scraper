@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS posts (
 	UNIQUE (post_id,model_id)
 )
 """
-postInsert = """INSERT INTO 'posts'(
+# Areas are saved concurrently and can share a post, so another area may have
+# inserted it since the existing ids were read.
+postInsert = """INSERT OR IGNORE INTO 'posts'(
 post_id, text,price,paid,archived,pinned,stream,opened,created_at,model_id)
 VALUES (?,?,?,?,?,?,?,?,?,?);"""
 

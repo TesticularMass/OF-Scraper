@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS stories (
 	UNIQUE (post_id,model_id)
 )
 """
-storiesInsert = """INSERT INTO 'stories'(
+# Stories and Highlights are saved concurrently and share stories, so the
+# other area may have inserted one since the existing ids were read.
+storiesInsert = """INSERT OR IGNORE INTO 'stories'(
 post_id, text,price,paid,archived,created_at,model_id)
             VALUES (?, ?,?,?,?,?,?);"""
 storiesUpdate = """UPDATE stories
