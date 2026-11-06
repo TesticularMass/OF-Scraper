@@ -50,25 +50,15 @@ CREATE TABLE IF NOT EXISTS medias (
     UNIQUE (media_id,model_id,post_id)
 );"""
 
+mediaIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_medias_model_id ON medias (model_id);",
+    "CREATE INDEX IF NOT EXISTS idx_medias_model_id_post_id ON medias (model_id, post_id);",
+]
+
 mediaSelectTransition = """
-SELECT  media_id,post_id,link,directory,filename,size,api_type,
-media_type,preview,linked,downloaded,created_at,unlocked,
-CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('medias') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-END AS model_id,
-CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('medias') WHERE name = 'posted_at')
-            THEN posted_at
-            ELSE NULL
-END AS posted_at,
-CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('medias') WHERE name = 'hash')
-            THEN hash
-            ELSE NULL
-END AS hash,
-CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('medias') WHERE name = 'duration')
-            THEN duration
-            ELSE NULL
-END AS duration
+SELECT media_id, post_id, link, directory, filename, size, api_type,
+media_type, preview, linked, downloaded, created_at, unlocked,
+model_id, posted_at, hash, duration
 FROM medias;
 """
 
@@ -84,14 +74,14 @@ WHERE media_id=(?) and model_id=(?) and post_id=(?);"""
 mediaUpdateDownload = """Update 'medias'
 SET
 directory=?,filename=?,size=?,downloaded=?,hash=?
-WHERE media_id=(?) and model_id=(?);"""
+WHERE media_id=(?) and model_id=(?) and post_id=(?);"""
 
 
 mediaDupeHashesMedia = """
 WITH x AS (
     SELECT hash, size
     FROM medias
-    WHERE hash IS NOT NULL AND size IS NOT NULL AND media_type = ?
+    WHERE hash IS NOT NULL AND size IS NOT NULL AND LOWER(media_type) = LOWER(?)
 )
 SELECT hash
 FROM x
@@ -219,7 +209,8 @@ SELECT media_id, post_id FROM medias WHERE model_id=(?) AND unlocked=(1) AND COA
 def create_media_table(model_id=None, username=None, conn=None, db_path=None, **kwargs):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(mediaCreate)
-        conn.commit()
+        for idx_sql in mediaIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -237,7 +228,6 @@ def add_column_media_hash(
             if alter_required == 0:
                 cur.execute("ALTER TABLE medias ADD COLUMN hash VARCHAR;")
                 # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -256,7 +246,6 @@ def add_column_media_unlocked(model_id=None, username=None, conn=None, **kwargs)
             if alter_required == 0:
                 cur.execute("ALTER TABLE medias ADD COLUMN unlocked BOOL;")
                 # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -275,8 +264,6 @@ def add_column_media_posted_at(conn=None, **kwargs):
             # Add column if necessary (conditional execution)
             if alter_required == 0:
                 cur.execute("ALTER TABLE medias ADD COLUMN posted_at TIMESTAMP;")
-            # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -297,7 +284,6 @@ def add_column_media_ID(model_id=None, username=None, conn=None, **kwargs):
                 cur.execute("ALTER TABLE medias ADD COLUMN model_id INTEGER;")
 
                 # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -316,7 +302,6 @@ def add_column_media_duration(model_id=None, username=None, conn=None, **kwargs)
             if alter_required == 0:
                 cur.execute("ALTER TABLE medias ADD COLUMN duration VARCHAR;")
                 # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -448,7 +433,6 @@ def write_media_table_via_api_batch(medias, model_id=None, conn=None, **kwargs) 
             )
         )
         curr.executemany(mediaInsertAPI, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper
@@ -479,7 +463,6 @@ def update_media_table_via_api_batch(
             )
         )
         curr.executemany(mediaUpdateAPI, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -507,7 +490,6 @@ def write_media_table_transition(inputData, model_id=None, conn=None, **kwargs):
         inputData = _media_cleaup_helper(inputData)
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         curr.executemany(mediaInsertTransition, insertData)
-        conn.commit()
 
 
 def _media_cleaup_helper(inputData):
@@ -553,7 +535,6 @@ async def get_all_medias(model_id=None, username=None, database_model=None, **kw
 def drop_media_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(mediaDrop)
-        conn.commit()
 
 
 @run
@@ -692,7 +673,6 @@ def update_media_table_via_api_helper(
         media.post_id,
     ]
     curr.execute(mediaUpdateAPI, insertData)
-    conn.commit()
 
 
 def update_media_table_download_helper(
@@ -717,8 +697,8 @@ def update_media_table_download_helper(
         hashdata,
     ]
     insertData.extend([media.id, model_id])
+    insertData.append(media.post_id)
     curr.execute(mediaUpdateDownload, insertData)
-    conn.commit()
 
 
 @run
@@ -743,7 +723,6 @@ def batch_set_media_downloaded(medias, model_id=None, conn=None, **kwargs):
             )
         )
         curr.executemany(mediaDownloadForce, insertData)
-        conn.commit()
 
 
 @run
@@ -772,11 +751,27 @@ async def rebuild_media_table(model_id=None, username=None, db_path=None, **kwar
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_media_table(model_id=model_id, username=username, db_path=db_path)
-    await create_media_table(model_id=model_id, username=username, db_path=db_path)
-    await write_media_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_media(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_media(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate medias in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(mediaDrop)
+        cur.execute(mediaCreate)
+        for idx_sql in mediaIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = [
+                "media_id", "post_id", "link", "directory",
+                "filename", "size", "api_type", "media_type",
+                "preview", "linked", "downloaded", "created_at",
+                "posted_at", "hash", "model_id", "duration", "unlocked",
+            ]
+            cleaned = _media_cleaup_helper(data)
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in cleaned]
+            cur.executemany(mediaInsertTransition, insert_rows)
 
 
 @wrapper.operation_wrapper_async

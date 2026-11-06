@@ -38,8 +38,22 @@ class PostCollection:
 
     @property
     def posts(self) -> list[Post]:
-        """Returns a list of the unique Post objects in the collection."""
-        return list(self._posts_map.values())
+        """Returns the unique Post objects, capped to the newest N when requested.
+
+        ``-xc/--max-post-count`` (``settings.max_post_count_real``) limits how
+        many posts an action processes.  The cap is applied here so every
+        consumer (media collection, like/unlike, metadata export) sees the
+        same window; posts are ordered newest-first.
+        """
+        posts = list(self._posts_map.values())
+        limit = getattr(settings.get_settings(), "max_post_count_real", 0) or 0
+        if limit <= 0 or len(posts) <= limit:
+            return posts
+        return sorted(
+            posts,
+            key=lambda post: (str(post.date or ""), str(post.id or "")),
+            reverse=True,
+        )[:limit]
 
     @property
     def all_media(self) -> list:

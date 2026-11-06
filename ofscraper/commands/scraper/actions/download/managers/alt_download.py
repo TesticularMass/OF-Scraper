@@ -1,6 +1,5 @@
 import asyncio
 import pathlib
-import re
 import traceback
 from functools import partial
 from urllib.parse import urljoin
@@ -27,7 +26,6 @@ import ofscraper.utils.cache.cache as cache
 import ofscraper.utils.dates as dates
 import ofscraper.utils.of_env.of_env as of_env
 import ofscraper.utils.settings as settings
-import ofscraper.utils.system.system as system
 from ofscraper.utils.system.subprocess import async_run
 from ofscraper.utils.system.ffprobe import verify_media_integrity
 import ofscraper.utils.live.updater as progress_updater
@@ -152,6 +150,7 @@ class AltDownloadManager(DownloadManager):
                     if getattr(E, "status", None) == 403 or (hasattr(E, "message") and "Forbidden" in str(E.message)):
                         common_globals.log.info(f"{get_medialog(ele)} 403 Forbidden error detected inside alt download loop. Attempting to refresh media signatures.")
                         await ele.refresh_media(c)
+                        E.retry_after_refresh = True
                         raise E
                     
                     common_globals.log.traceback_(
@@ -281,7 +280,7 @@ class AltDownloadManager(DownloadManager):
                     break  # Exit loop when no more chunks
 
         # Catch native aiohttp socket read timeouts
-        except (asyncio.TimeoutError, aiohttp.ServerTimeoutError) as E:
+        except (asyncio.TimeoutError, aiohttp.ServerTimeoutError):
             common_globals.log.info(
                 f"{common_logs.get_medialog(ele)}⚠️ CDN went silent (sock_read timeout). Connection stalled, forcing retry!"
             )
@@ -379,8 +378,8 @@ class AltDownloadManager(DownloadManager):
             f"Moving intermediate path {temp_path} to {sharedPlaceholderObj.trunicated_filepath}"
         )
 
-        # Thread executor for disk I/O move operation
-        await asyncio.get_running_loop().run_in_executor(
+        # Thread executor for disk I/O move operation (may disambiguate a collision)
+        final_path = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(
                 common_paths.moveHelper,
@@ -401,7 +400,7 @@ class AltDownloadManager(DownloadManager):
                 common_globals.thread,
                 partial(
                     common_paths.set_time,
-                    sharedPlaceholderObj.trunicated_filepath,
+                    final_path,
                     newDate,
                 ),
             )
@@ -409,16 +408,16 @@ class AltDownloadManager(DownloadManager):
         if ele.id:
             await mark_media_as_downloaded(
                 ele,
-                filepath=sharedPlaceholderObj.trunicated_filepath,
+                filepath=final_path,
                 model_id=model_id,
                 username=username,
                 downloaded=True,
-                hashdata=await common.get_hash(sharedPlaceholderObj),
+                hashdata=await common.get_hash(final_path),
                 size=sharedPlaceholderObj.size,
             )
-        ele.add_filepath(sharedPlaceholderObj.trunicated_filepath)
+        ele.add_filepath(final_path)
 
-        await self._after_download_script(sharedPlaceholderObj.trunicated_filepath)
+        await self._after_download_script(final_path)
 
         audio_total = audio["total"] if audio else 0
         video_total = video["total"] if video else 0

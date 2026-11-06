@@ -20,7 +20,6 @@ from rich.console import Console
 import ofscraper.prompts.prompts as prompts
 import ofscraper.utils.auth.make as make
 import ofscraper.utils.auth.utils.dict as auth_dict
-import ofscraper.utils.paths.common as common_paths
 
 console = Console()
 log = logging.getLogger("shared")
@@ -54,12 +53,12 @@ def handle_auth_errors(e: Exception,include_main_menu:bool=False) -> Optional[st
                 if auth_prompt == "manual":
                     # Let the user manually fix the file content
                     authStr = auth_dict.get_auth_string()
-                    with open(common_paths.get_auth_file(), "w") as f:
-                        f.write(prompts.manual_auth_prompt(authStr))
+                    import ofscraper.utils.auth.file as auth_file_mod
+                    auth_file_mod.write_auth(prompts.manual_auth_prompt(authStr))
                 elif auth_prompt == "reset":
                     # Overwrite with a blank, valid JSON
-                    with open(common_paths.get_auth_file(), "w") as f:
-                        f.write(json.dumps(auth_dict.get_empty(), indent=4))
+                    import ofscraper.utils.auth.file as auth_file_mod
+                    auth_file_mod.write_auth(auth_dict.get_empty())
                     console.print("`auth.json` has been reset.")
                 elif auth_prompt in {"quit", "main"}:
                     return auth_prompt

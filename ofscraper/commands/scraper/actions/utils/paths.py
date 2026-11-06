@@ -1,3 +1,4 @@
+import filecmp
 import logging
 import os
 import pathlib
@@ -9,6 +10,7 @@ import ofscraper.commands.scraper.actions.utils.globals as common_globals
 import ofscraper.utils.dates as dates
 import ofscraper.utils.paths.common as common_paths
 from ofscraper.commands.scraper.actions.utils.log import get_medialog
+import ofscraper.utils.hash as hash_util
 
 try:
     from win32_setctime import setctime  # pylint: disable=import-error
@@ -16,19 +18,55 @@ except ModuleNotFoundError:
     pass
 
 
+def _same_content(a, b):
+    """True when two paths are the same file (inode) or have identical bytes."""
+    a, b = pathlib.Path(a), pathlib.Path(b)
+    try:
+        if a.stat().st_ino == b.stat().st_ino and a.stat().st_dev == b.stat().st_dev:
+            return True
+    except OSError:
+        pass
+    try:
+        # shallow=False compares content, not just size/mtime
+        return filecmp.cmp(str(a), str(b), shallow=False)
+    except OSError:
+        return False
+
+
+def _disambiguate(path_to_file):
+    """Return a path with _1, _2, … suffix that does not yet exist."""
+    stem = path_to_file.stem
+    suffix = path_to_file.suffix
+    parent = path_to_file.parent
+    counter = 1
+    while True:
+        candidate = parent / f"{stem}_{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
 def moveHelper(temp, path_to_file, ele, log_=None):
+    """Move temp to path_to_file, disambiguating when different media collide.
+
+    Returns the path the file was actually written to so callers can record
+    the real filename in the DB and apply mtimes to the right file.
+    """
+    log_ = log_ or logging.getLogger("shared")
     if not path_to_file.exists():
         shutil.move(temp, path_to_file)
-    elif (
-        pathlib.Path(temp).absolute().stat().st_size
-        >= pathlib.Path(path_to_file).absolute().stat().st_size
-    ):
+        return path_to_file
+    if _same_content(temp, path_to_file):
+        # Same bytes (e.g. a retried download) - replace to refresh mtime
         shutil.move(temp, path_to_file)
-    else:
-        pathlib.Path(temp).unlink(missing_ok=True)
-        log_ = log_ or logging.getLogger("shared")
-        log_.debug(f"{get_medialog(ele)} smaller then previous file")
-    # set variables based on parent process
+        return path_to_file
+    new_path = _disambiguate(path_to_file)
+    log_.warning(
+        f"{get_medialog(ele)} collision: {path_to_file.name} exists with different content, saving as {new_path.name}"
+    )
+    shutil.move(temp, new_path)
+    hash_util.invalidate_hash(new_path)
+    return new_path
 
 
 def _resolve(path):

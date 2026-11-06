@@ -65,7 +65,7 @@ async def modify_tables(model_id=None, username=None, db_path=None, **kwargs):
         await modify_tables_constraints_and_columns(
             model_id=model_id, username=username, db_path=db_path
         )
-    except Exception as E:
+    except BaseException as E:
         restore_backup_transition(backup, model_id, username, db_path=db_path)
         raise E
 

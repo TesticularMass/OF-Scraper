@@ -1,4 +1,5 @@
 import logging
+import sys
 import traceback
 
 import ofscraper.main.close.exit as exit_manager
@@ -28,3 +29,5 @@ def main():
             with exit_context.DelayedKeyboardInterrupt():
                 exit_manager.forcedShutDown()
                 raise E
+        print(f"Fatal error: {E}", file=sys.stderr)
+        raise SystemExit(1)

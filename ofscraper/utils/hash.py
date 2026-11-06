@@ -12,24 +12,28 @@ from ofscraper.db.operations_.media import get_dupe_media_files, get_dupe_media_
 log = logging.getLogger("shared")
 
 
-fileHashes = {}
+_fileHashes = {}
 
 
 def get_hash(
     file_data,
 ):
-    global fileHashes
     hash = None
     if settings.get_settings().hash is None:
         return
     if isinstance(file_data, placeholder.Placeholders):
         file_data = file_data.trunicated_filepath
-    if fileHashes.get(str(file_data)):
-        hash = fileHashes.get(str(file_data))
+    if _fileHashes.get(str(file_data)):
+        hash = _fileHashes.get(str(file_data))
     else:
         hash = _calc_hash(file_data)
     log.debug(f"{file_data} => hash: {hash}")
     return hash
+
+
+def invalidate_hash(file_path):
+    """Remove a cached hash entry when the underlying file changes."""
+    _fileHashes.pop(str(file_path), None)
 
 
 def _calc_hash(file_data):
@@ -39,7 +43,7 @@ def _calc_hash(file_data):
         buffered_f = io.BufferedReader(f, buffer_size=BUF_SIZE)
         for block in iter(lambda: buffered_f.read(BUF_SIZE), b""):
             hasher.update(block)
-    fileHashes[str(file_data)] = hasher.hexdigest()
+    _fileHashes[str(file_data)] = hasher.hexdigest()
     return hasher.hexdigest()
 
 
@@ -51,8 +55,18 @@ def remove_dupes_hash(username, model_id, mediatype=None):
     )
     for hash in hashes:
         files = get_dupe_media_files(username=username, model_id=model_id, hash=hash)
-        filter_files = list(filter(lambda x: pathlib.Path(x).is_file(), files))
-        if len(filter_files) < 2:
+        # Resolve paths so duplicates referring to the same inode are counted once
+        seen_resolved = {}
+        for f in files:
+            p = pathlib.Path(f)
+            if p.is_file():
+                resolved = str(p.resolve())
+                if resolved not in seen_resolved:
+                    seen_resolved[resolved] = p
+        unique_files = list(seen_resolved.values())
+        if len(unique_files) < 2:
             continue
-        [pathlib.Path(ele).unlink(missing_ok=True) for ele in filter_files[1:]]
-    #
+        # Keep the first copy, remove extras
+        for p in unique_files[1:]:
+            p.unlink(missing_ok=True)
+            invalidate_hash(p)

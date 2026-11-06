@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS posts (
 	UNIQUE (post_id,model_id)
 )
 """
+postIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_posts_model_id ON posts (model_id);",
+]
+
 # Areas are saved concurrently and can share a post, so another area may have
 # inserted it since the existing ids were read.
 postInsert = """INSERT OR IGNORE INTO 'posts'(
@@ -93,27 +97,8 @@ WHERE post_id = ? AND model_id = (?);"""
 
 postsSelectTransition = """
 SELECT post_id, text, price, paid, archived, created_at,
-    CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('posts') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-       END AS model_id,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('posts') WHERE name = 'pinned')
-            THEN pinned
-            ELSE NULL
-       END AS pinned,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('posts') WHERE name = 'stream')
-            THEN stream
-            ELSE NULL
-       END AS stream,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('posts') WHERE name = 'opened')
-            THEN opened
-            ELSE NULL
-       END AS opened,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('posts') WHERE name = 'is_deleted')
-            THEN is_deleted
-            ELSE 0
-       END AS is_deleted
-       FROM posts;
+model_id, pinned, stream, opened, is_deleted
+FROM posts;
 """
 
 postsDrop = """
@@ -150,7 +135,6 @@ def write_post_table(posts: list, model_id=None, username=None, conn=None, **kwa
             )
         )
         cur.executemany(postInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -173,7 +157,6 @@ def write_post_table_transition(
         )
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(postInsertTransition, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -198,7 +181,6 @@ def update_posts_table(posts: list, model_id=None, username=None, conn=None, **k
             )
         )
         cur.executemany(postUpdate, updateData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -216,7 +198,8 @@ def get_timeline_posts_info(model_id=None, username=None, conn=None, **kwargs) -
 def create_post_table(model_id=None, username=None, conn=None, db_path=None, **kwargs):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(postCreate)
-        conn.commit()
+        for idx_sql in postIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -248,7 +231,6 @@ def get_all_posts_transition(
 def drop_posts_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(postsDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -265,7 +247,6 @@ def add_column_post_ID(conn=None, **kwargs):
             if alter_required == 0:
                 cur.execute("ALTER TABLE posts ADD COLUMN model_id INTEGER;")
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -285,7 +266,6 @@ def add_column_post_pinned(conn=None, **kwargs):
             if alter_required == 0:
                 cur.execute("ALTER TABLE posts ADD COLUMN pinned BOOLEAN;")
             # Commit changes
-            conn.commit()
 
         except sqlite3.Error as e:
             conn.rollback()
@@ -306,7 +286,6 @@ def add_column_post_stream(conn=None, **kwargs):
             if alter_required == 0:
                 cur.execute("ALTER TABLE posts ADD COLUMN stream BOOLEAN;")
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -326,7 +305,6 @@ def add_column_post_opened(conn=None, **kwargs):
             if alter_required == 0:
                 cur.execute("ALTER TABLE posts ADD COLUMN opened BOOLEAN;")
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Rollback in case of errors
@@ -341,7 +319,6 @@ def mark_post_as_deleted(
     with contextlib.closing(conn.cursor()) as curr:
         insertData = [[post_id, model_id] for post_id in post_ids]
         curr.executemany(postIgnoreGhost[area], insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -351,7 +328,6 @@ def refresh_post_flags(posts: list, model_id=None, username=None, conn=None, **k
             postRefreshFlags,
             [[post.archived, post.pinned, post.stream, post.id, model_id] for post in posts],
         )
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -365,7 +341,6 @@ def add_column_post_is_deleted(conn=None, **kwargs):
                 cur.execute(
                     "ALTER TABLE posts ADD COLUMN is_deleted BOOLEAN DEFAULT 0;"
                 )
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e
@@ -375,7 +350,6 @@ def add_column_post_is_deleted(conn=None, **kwargs):
 def get_archived_post_info(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(archivedPostInfo, [model_id])
-        conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
             dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
@@ -387,7 +361,6 @@ def get_archived_post_info(model_id=None, username=None, conn=None, **kwargs) ->
 def get_streams_post_info(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(streamsPostInfo, [model_id])
-        conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
             dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
@@ -405,11 +378,24 @@ async def rebuild_posts_table(model_id=None, username=None, db_path=None, **kwar
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_posts_table(model_id=model_id, username=username, db_path=db_path)
-    await create_post_table(model_id=model_id, username=username, db_path=db_path)
-    await write_post_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_posts(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_posts(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate posts in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(postsDrop)
+        cur.execute(postCreate)
+        for idx_sql in postIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = (
+                "post_id", "text", "price", "paid", "archived",
+                "pinned", "stream", "opened", "created_at", "model_id", "is_deleted",
+            )
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(postInsertTransition, insert_rows)
 
 
 async def make_post_table_changes(

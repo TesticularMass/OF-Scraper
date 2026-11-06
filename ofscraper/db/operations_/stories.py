@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS stories (
 	UNIQUE (post_id,model_id)
 )
 """
+storiesIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_stories_model_id ON stories (model_id);",
+]
+
 # Stories and Highlights are saved concurrently and share stories, so the
 # other area may have inserted one since the existing ids were read.
 storiesInsert = """INSERT OR IGNORE INTO 'stories'(
@@ -50,13 +54,8 @@ WHERE post_id = ? and model_id=(?);"""
 
 
 storiesSelectTransition = """
-SELECT post_id,text,price,paid,archived,created_at,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('stories') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-       END AS model_id
+SELECT post_id, text, price, paid, archived, created_at, model_id
 FROM stories;
-
 """
 storiesDrop = """
 drop table stories;
@@ -72,7 +71,8 @@ def create_stories_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(storiesCreate)
-        conn.commit()
+        for idx_sql in storiesIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -96,7 +96,6 @@ def write_stories_table(
             )
         )
         cur.executemany(storiesInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -115,7 +114,6 @@ def write_stories_table_transition(
         ]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(storiesInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -140,7 +138,6 @@ def update_stories_table(
             )
         )
         cur.executemany(storiesUpdate, updateData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -175,7 +172,6 @@ def add_column_stories_ID(conn=None, **kwargs):
                 cur.execute("ALTER TABLE stories ADD COLUMN model_id INTEGER;")
 
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e
@@ -185,7 +181,6 @@ def add_column_stories_ID(conn=None, **kwargs):
 def drop_stories_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(storiesDrop)
-        conn.commit()
 
 
 async def rebuild_stories_table(model_id=None, username=None, db_path=None, **kwargs):
@@ -198,12 +193,21 @@ async def rebuild_stories_table(model_id=None, username=None, db_path=None, **kw
         database_model=database_model,
         db_path=db_path,
     )
+    await _atomic_rebuild_stories(data, model_id=model_id, username=username, db_path=db_path)
 
-    await drop_stories_table(model_id=model_id, username=username, db_path=db_path)
-    await create_stories_table(model_id=model_id, username=username, db_path=db_path)
-    await write_stories_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_stories(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate stories in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(storiesDrop)
+        cur.execute(storiesCreate)
+        for idx_sql in storiesIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "model_id"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(storiesInsert, insert_rows)
 
 
 async def make_stories_table_changes(

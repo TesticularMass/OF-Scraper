@@ -12,6 +12,7 @@ r"""
 """
 
 import json
+import os
 import logging
 
 from rich.console import Console
@@ -81,6 +82,25 @@ def edit_auth():
 def write_auth(auth):
     if isinstance(auth, dict):
         auth = json.dumps(auth, indent=4)
-    with open(common_paths.get_auth_file(), "w") as f:
-        f.write(auth)
+    p = str(common_paths.get_auth_file())
+    dirpath = os.path.dirname(p) or '.'
+    tmp_path = os.path.join(dirpath, '.auth_tmp')
+    # Atomic write: temp file in same dir -> os.replace, mode 0600
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(auth)
+            f.flush()
+            os.fsync(f.fileno())
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, p)
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
     return auth_dict.get_auth_dict(auth)

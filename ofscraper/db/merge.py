@@ -1,5 +1,9 @@
 import logging
 import pathlib
+import shutil
+import tempfile
+
+from ofscraper.db.backup import _snapshot
 import traceback
 
 import ofscraper.utils.paths.db as paths_db
@@ -169,22 +173,31 @@ class MergeDatabase:
                         {"path": str(ele), "message": "skipped because table was empty"}
                     )
                     continue
-                model_id = get_single_model_via_profile(db_path=ele)
-                if not model_id:
-                    raise Exception("Not exactly one model_id in profile table")
-                elif not str(model_id).isnumeric():
-                    raise Exception("Found model_id was not numeric")
-                await modify_tables(model_id=model_id, db_path=ele)
-                await self.merge_individual(ele)
-                success.update(
-                    {
-                        model_id: {
-                            "path": str(ele),
-                            "model_id": model_id,
-                            "message": "merge success",
+                # Work on a temporary copy so the source DB is never mutated.
+                # _snapshot reads through SQLite so commits still in the WAL
+                # are included, unlike a plain file copy.
+                tmp_dir = tempfile.mkdtemp(prefix="ofscraper_merge_")
+                tmp_db = pathlib.Path(tmp_dir) / ele.name
+                try:
+                    _snapshot(ele, tmp_db)
+                    model_id = get_single_model_via_profile(db_path=tmp_db)
+                    if not model_id:
+                        raise Exception("Not exactly one model_id in profile table")
+                    elif not str(model_id).isnumeric():
+                        raise Exception("Found model_id was not numeric")
+                    await modify_tables(model_id=model_id, db_path=tmp_db)
+                    await self.merge_individual(tmp_db)
+                    success.update(
+                        {
+                            model_id: {
+                                "path": str(ele),
+                                "model_id": model_id,
+                                "message": "merge success",
+                            }
                         }
-                    }
-                )
+                    )
+                finally:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
 
             except Exception as E:
                 failures.update({ele: {"path": str(ele), "reason": E}})
@@ -204,15 +217,43 @@ class MergeDatabase:
         return list(failures.items()), list(success.items()), empty_list
 
     async def merge_individual(self, db_path):
-        await self.merge_media_helper(db_path)
-        await self.merge_label_helper(db_path)
-        await self.merge_posts_helper(db_path)
-        await self.merge_products_helper(db_path)
-        await self.merge_others_helper(db_path)
-        await self.merge_stories_helper(db_path)
-        await self.merge_profiles_helper(db_path)
-        await self.merge_models_helper(db_path)
-        await self.merge_messages_helper(db_path)
+        # Save state snapshots so we can roll back on partial failure
+        snap = {
+            "medias": set(self._curr_medias),
+            "labels": set(self._curr_labels),
+            "posts": set(self._curr_posts),
+            "products": set(self._curr_products),
+            "others": set(self._curr_others),
+            "stories": set(self._curr_stories),
+            "profiles": set(self._curr_profiles),
+            "models": set(self._curr_models),
+            "messages": set(self._curr_messages),
+        }
+        try:
+            await self.merge_media_helper(db_path)
+            await self.merge_label_helper(db_path)
+            await self.merge_posts_helper(db_path)
+            await self.merge_products_helper(db_path)
+            await self.merge_others_helper(db_path)
+            await self.merge_stories_helper(db_path)
+            await self.merge_profiles_helper(db_path)
+            await self.merge_models_helper(db_path)
+            await self.merge_messages_helper(db_path)
+        except Exception:
+            # Restore in-memory state; the DB writes are individually
+            # transactional via the wrapper, so partial writes that
+            # succeeded are already committed. Re-raise after restoring
+            # the tracking sets so subsequent sources aren't affected.
+            self._curr_medias = snap["medias"]
+            self._curr_labels = snap["labels"]
+            self._curr_posts = snap["posts"]
+            self._curr_products = snap["products"]
+            self._curr_others = snap["others"]
+            self._curr_stories = snap["stories"]
+            self._curr_profiles = snap["profiles"]
+            self._curr_models = snap["models"]
+            self._curr_messages = snap["messages"]
+            raise
 
     async def merge_media_helper(self, old_db):
         keys = self._media_keys

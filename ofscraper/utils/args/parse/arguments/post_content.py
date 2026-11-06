@@ -264,7 +264,7 @@ label_option = click.option(
 )
 
 mass_msg_option = click.option(
-    "-mm/-ms",
+    "-mm/-mx",
     "--mass-only/--mass-skip",
     "mass_msg",
     help="""
@@ -326,7 +326,7 @@ download_type_option = click.option(
 max_post_count_option = click.option(
     "-xc",
     "--max-post-count",
-    "max_count",
+    "max_post_count",
     help="Maximum number of posts to process",
     default=0,
     type=int,

@@ -15,7 +15,6 @@ import asyncio
 import logging
 import traceback
 from functools import partial
-import arrow
 
 import ofscraper.data.api.archive as archive
 import ofscraper.data.api.highlights as highlights
@@ -484,6 +483,11 @@ def process_single_task(func):
         try:
             data = await func()
         except Exception as E:
+            # Log the failure at warning level so it's visible to the user
+            func_name = getattr(func, "__name__", None) or getattr(func, "func", None)
+            if hasattr(func, "func"):
+                func_name = getattr(func.func, "__name__", str(func))
+            log.warning(f"Scrape area task {func_name} failed: {E}")
             log.traceback_(E)
             log.traceback_(traceback.format_exc())
         finally:
@@ -641,5 +645,5 @@ async def process_tasks(model_id, username, ele, c=None):
                     postcollection.add_posts(posts, actions=actions_for_this_batch)
                 postcollection.record_scanned_area(area_title, posts)
             except Exception as E:
-                log.debug(E)
+                log.warning(f"Error processing scrape results: {E}")
     return postcollection

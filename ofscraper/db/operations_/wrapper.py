@@ -92,7 +92,12 @@ def operation_wrapper_async(func: abc.Callable):
 
             except Exception as E:
                 log.debug(f"Database operation failed: {E}")
-                raise E
+                if conn:
+                    try:
+                        conn.rollback()
+                    except sqlite3.Error:
+                        pass
+                raise
             finally:
                 if conn:
                     try:
@@ -138,14 +143,29 @@ def operation_wrapper(func: abc.Callable):
             conn.commit()  # Auto-commit if func succeeded without exception
             return result
 
-        except sqlite3.OperationalError as E:
+        except sqlite3.OperationalError:
             log.info(f"Database is busy. Current timeout is {db_timeout}s.")
-            raise E
-        except KeyboardInterrupt as E:
+            if conn:
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+            raise
+        except KeyboardInterrupt:
             with exit.DelayedKeyboardInterrupt():
-                raise E
-        except Exception as E:
-            raise E
+                if conn:
+                    try:
+                        conn.rollback()
+                    except sqlite3.Error:
+                        pass
+                raise
+        except Exception:
+            if conn:
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+            raise
         finally:
             if conn:
                 try:

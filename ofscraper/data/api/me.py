@@ -32,15 +32,14 @@ def _scraper_user_helper(c):
             data = r.json_()
             if data["isAuth"]:
                 sensitive.add_sensitive_pattern(data["id"], "userid")
-                sensitive.add_sensitive_pattern(
-                    f"{data['username']} | {data['username']}|\\b{data['username']}\\b",
-                    "username",
-                )
-                sensitive.add_sensitive_pattern(
-                    f"{data['name']} | {data['name']}|\\b{data['name']}\\b",
-                    "name",
-                )
-
+                # Register each username/name variant separately so re.escape
+                # works correctly on each literal string
+                for variant in [data.get('username')]:
+                    if variant and variant.strip():
+                        sensitive.add_sensitive_pattern(variant.strip(), 'username')
+                for variant in [data.get('name')]:
+                    if variant and variant.strip():
+                        sensitive.add_sensitive_pattern(variant.strip(), 'name')
     except Exception as E:
         log.traceback_(E)
         log.traceback_(traceback.format_exc())

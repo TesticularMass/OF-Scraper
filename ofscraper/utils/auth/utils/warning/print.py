@@ -6,15 +6,7 @@ import ofscraper.utils.console as console
 import ofscraper.utils.of_env.of_env as of_env
 import ofscraper.utils.settings as settings
 
-# Session secrets; showing them in full would leak the login if the output is shared.
-SECRET_KEYS = {"sess", "x-bc", "auth_uid", "auth_uid_"}
-
-
-def mask_secret(value):
-    text = str(value or "")
-    if len(text) <= 8:
-        return "*" * len(text)
-    return f"{'*' * 8}{text[-4:]}"
+from ofscraper.utils.auth.utils.warning.mask import SECRET_KEYS, mask_secret
 
 
 def print_auth_warning(auth=None):

@@ -49,9 +49,16 @@ CREATE TABLE IF NOT EXISTS products (
     title VARCHAR, 
     model_id INTEGER, 
 	PRIMARY KEY (id), 
-	UNIQUE (post_id,model_id)
+UNIQUE (post_id,model_id)
 )
 """
+othersIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_others_model_id ON others (model_id);",
+]
+productsIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_products_model_id ON products (model_id);",
+]
+
 schemaCreate = """
 CREATE TABLE if not exists schema_flags (flag_name TEXT PRIMARY KEY, flag_value TEXT);
 """
@@ -64,11 +71,7 @@ INSERT OR REPLACE INTO schema_flags (flag_name, flag_value)
 VALUES (?, ?);
 """
 othersSelectTransition = """
-SELECT post_id,text,price,paid,archived,created_at ,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('others') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-       END AS model_id
+SELECT post_id, text, price, paid, archived, created_at, model_id
 FROM others;
 """
 othersDrop = """
@@ -79,11 +82,7 @@ post_id, text,price,paid,archived,
 created_at,model_id)
 VALUES (?, ?,?,?,?,?,?);"""
 productsSelectTransition = """
-SELECT post_id,text,price,paid,archived,created_at,title,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('products') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-       END AS model_id
+SELECT post_id, text, price, paid, archived, created_at, title, model_id
 FROM products;
 """
 productsDrop = """
@@ -101,7 +100,8 @@ def create_products_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(productCreate)
-        conn.commit()
+        for idx_sql in productsIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -110,7 +110,8 @@ def create_others_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(otherCreate)
-        conn.commit()
+        for idx_sql in othersIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -127,7 +128,6 @@ def add_column_other_ID(conn=None, **kwargs):
                 cur.execute("ALTER TABLE others ADD COLUMN model_id INTEGER;")
 
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e
@@ -147,7 +147,6 @@ def add_column_products_ID(conn=None, **kwargs):
                 cur.execute("ALTER TABLE products ADD COLUMN model_id INTEGER;")
 
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e
@@ -159,7 +158,6 @@ def create_schema_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(schemaCreate)
-        conn.commit()
 
 
 @wrapper.operation_wrapper
@@ -173,7 +171,6 @@ def get_schema_changes(model_id=None, username=None, conn=None, db_path=None, **
 def add_flag_schema(flag, model_id=None, username=None, conn=None, **kwargs):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(schemaInsert, [flag, 1])
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -192,7 +189,6 @@ def get_all_others_transition(
 def drop_others_table(model_id=None, username=None, conn=None, **kwargs):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(othersDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -203,7 +199,6 @@ def write_others_table_transition(
         ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "model_id"]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(othersInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -222,7 +217,6 @@ def get_all_products_transition(
 def drop_products_table(model_id=None, username=None, conn=None, **kwargs):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(productsDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -233,7 +227,6 @@ def write_products_table_transition(
         ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "title", "model_id"]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(productsInsert, insertData)
-        conn.commit()
 
 
 async def rebuild_others_table(model_id=None, username=None, db_path=None, **kwargs):
@@ -246,11 +239,21 @@ async def rebuild_others_table(model_id=None, username=None, db_path=None, **kwa
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_others_table(model_id=model_id, username=username, db_path=db_path)
-    await create_others_table(model_id=model_id, username=username, db_path=db_path)
-    await write_others_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_others(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_others(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate others in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(othersDrop)
+        cur.execute(otherCreate)
+        for idx_sql in othersIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "model_id"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(othersInsert, insert_rows)
 
 
 async def rebuild_products_table(model_id=None, username=None, db_path=None, **kwargs):
@@ -263,8 +266,18 @@ async def rebuild_products_table(model_id=None, username=None, db_path=None, **k
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_products_table(model_id=model_id, username=username, db_path=db_path)
-    await create_products_table(model_id=model_id, username=username, db_path=db_path)
-    await write_products_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_products(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_products(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate products in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(productsDrop)
+        cur.execute(productCreate)
+        for idx_sql in productsIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "title", "model_id"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(productsInsert, insert_rows)

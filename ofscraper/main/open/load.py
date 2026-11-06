@@ -1,6 +1,7 @@
 import logging
 import os
 import platform
+import sys
 import traceback
 
 import ofscraper.main.open.run as run
@@ -10,9 +11,12 @@ import ofscraper.utils.logs.logger as logger
 import ofscraper.utils.paths.manage as paths_manage
 import ofscraper.utils.system.system as system
 import ofscraper.utils.settings as settings
+import ofscraper.utils.context.exit as exit_context
 
 
 def main():
+    # Install SIGTERM handler early so containers (PID 1) shut down cleanly
+    exit_context.sigterm_as_keyboard_interrupt()
     try:
         systemSet()
         settings_loader()
@@ -22,14 +26,13 @@ def main():
         make_folder()
         run.main()
     except Exception as E:
-        print(E)
-        print(traceback.format_exc())
         try:
             logging.getLogger("shared").debug(traceback.format_exc())
             logging.getLogger("shared").debug(E)
-        except Exception as E:
-            print(E)
-            print(traceback.format_exc())
+        except Exception:
+            pass
+        print(f"Fatal error: {E}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 def settings_loader():

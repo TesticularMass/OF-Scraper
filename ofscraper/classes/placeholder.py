@@ -25,6 +25,27 @@ def format_date(date):
     return arrow.get(date).format(data.get_date()) if date else "unknown_date"
 
 
+class PathContainmentError(ValueError):
+    """Raised when a constructed path escapes the save root."""
+    pass
+
+
+def _check_containment(final_path, root):
+    """Assert that final_path resolves inside root. Raise on escape."""
+    try:
+        resolved_final = pathlib.Path(final_path).resolve()
+        resolved_root = pathlib.Path(root).resolve()
+        if not resolved_final.is_relative_to(resolved_root):
+            raise PathContainmentError(
+                f"Path {final_path} escapes save root {root}"
+            )
+    except (OSError, ValueError) as e:
+        raise PathContainmentError(
+            f"Path containment check failed for {final_path}: {e}"
+        )
+    return resolved_final
+
+
 class basePlaceholder:
     def __init__(self) -> None:
         self._ele = None
@@ -82,7 +103,19 @@ class tempFilePlaceholder(basePlaceholder):
         if not script_name:
             self._tempfilepath = paths.truncate(pathlib.Path(dir, file))
         else:
-            self._tempfilepath = paths.truncate(pathlib.Path(script_name))
+            script_path = pathlib.Path(script_name)
+            if not script_path.is_absolute():
+                # Relative names from naming scripts belong next to the temp file.
+                script_path = pathlib.Path(dir) / script_path
+            temp_root = data.get_TempDir() or dir
+            try:
+                _check_containment(script_path, temp_root)
+            except PathContainmentError:
+                log.warning(
+                    f"Naming script returned path outside temp root: {script_name}; using default"
+                )
+                script_path = pathlib.Path(dir, file)
+            self._tempfilepath = paths.truncate(script_path)
 
         return self
 
@@ -166,7 +199,21 @@ class Placeholders(basePlaceholder):
         if not script_name:
             self._filepath = paths.truncate(pathlib.Path(dir, file))
         else:
-            self._filepath = paths.truncate(pathlib.Path(script_name))
+            script_path = pathlib.Path(script_name)
+            if not script_path.is_absolute():
+                # Naming scripts may return just a filename; resolve it next to
+                # the media instead of against the process CWD.
+                script_path = pathlib.Path(dir) / script_path
+            # Naming script output must stay inside the save root
+            save_root = common_paths.get_save_location()
+            try:
+                _check_containment(script_path, save_root)
+            except PathContainmentError:
+                log.warning(
+                    f"Naming script returned path outside save root: {script_name}; using default"
+                )
+                script_path = pathlib.Path(dir, file)
+            self._filepath = paths.truncate(script_path)
         return self
 
     def add_price_variables(self, username):
@@ -254,6 +301,7 @@ class Placeholders(basePlaceholder):
         final_path = pathlib.Path(
             os.path.normpath(f"{str(root)}/{str(pathlib.Path(downloadDir))}")
         )
+        _check_containment(final_path, root)
         log.trace(f"final mediadir path {final_path}")
         self._mediadir = final_path
         self._mediadir.mkdir(parents=True, exist_ok=True) if create else None

@@ -35,6 +35,10 @@ class base:
         text = str(text)
         text = re.sub("<[^>]*>", "", text)
         text = re.sub(r'[\n<>:"/\|?*:;]+', "", text)
+        # Strip . and .. path segments that could escape the save root
+        text = re.sub(r'(^|[\\\\/])\.\.([\\\\/]|$)', r'\1\2', text)
+        text = re.sub(r'(^|[\\\\/])\.([\\\\/]|$)', r'\1\2', text)
+        text = text.strip('.')
         text = re.sub("-+", "_", text)
         text = re.sub(" +", " ", text)
         text = re.sub(" ", settings.get_settings().space_replacer, text)

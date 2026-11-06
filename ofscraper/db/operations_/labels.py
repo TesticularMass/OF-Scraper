@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS labels (
     UNIQUE (post_id,label_id,model_id)
 )
 """
+labelsIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_labels_model_id ON labels (model_id);",
+]
+
 labelInsert = """INSERT INTO 'labels'(
 label_id,name, type, post_id,model_id)
 VALUES ( ?,?,?,?,?);"""
@@ -76,7 +80,8 @@ def create_labels_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(labelsCreate)
-        conn.commit()
+        for idx_sql in labelsIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -97,7 +102,6 @@ def write_labels_table(
             )
         )
         curr.executemany(labelInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -121,7 +125,6 @@ def update_labels_table(
             )
         )
         curr.executemany(labelUpdate, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -132,7 +135,6 @@ def write_labels_table_transition(
         ordered_keys = ["label_id", "name", "type", "post_id", "model_id"]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         curr.executemany(labelInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -155,7 +157,6 @@ def add_column_labels_ID(conn=None, **kwargs):
             if alter_required == 0:
                 cur.execute("ALTER TABLE labels ADD COLUMN model_id INTEGER;")
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e  # Raise the error for handling
@@ -165,7 +166,6 @@ def add_column_labels_ID(conn=None, **kwargs):
 def drop_labels_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(labelDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -211,11 +211,21 @@ async def rebuild_labels_table(model_id=None, username=None, db_path=None, **kwa
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_labels_table(model_id=model_id, username=username, db_path=db_path)
-    await create_labels_table(model_id=model_id, username=username, db_path=db_path)
-    await write_labels_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_labels(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_labels(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate labels in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(labelDrop)
+        cur.execute(labelsCreate)
+        for idx_sql in labelsIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = ["label_id", "name", "type", "post_id", "model_id"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(labelInsert, insert_rows)
 
 
 async def make_label_table_changes(

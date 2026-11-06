@@ -14,7 +14,6 @@ import ofscraper.commands.scraper.actions.utils.globals as common_globals
 import ofscraper.commands.scraper.actions.utils.paths as common_paths
 import ofscraper.commands.scraper.actions.utils.log as common_logs
 import ofscraper.utils.dates as dates
-import ofscraper.utils.system.system as system
 import ofscraper.utils.cache.cache as cache
 import ofscraper.utils.settings as settings
 from ofscraper.utils.system.ffprobe import verify_media_integrity
@@ -35,6 +34,27 @@ from ofscraper.commands.scraper.actions.utils.chunk import send_chunk_msg
 
 from ofscraper.classes.of.media import Media
 from ofscraper.db.operations_.media import mark_media_as_downloaded
+
+
+# Content types that indicate a valid media response
+_ALLOWED_CONTENT_PREFIXES = ("image/", "video/", "audio/", "application/octet-stream")
+
+
+def _is_rejected_content_type(content_type):
+    """True for document/error payloads, never for real media types."""
+    content_type = (content_type or "").lower().split(";")[0].strip()
+    if not content_type:
+        return False
+    # Explicit media types win (e.g. image/svg+xml is still an image).
+    if content_type.startswith(_ALLOWED_CONTENT_PREFIXES):
+        return False
+    return (
+        content_type.startswith("text/")
+        or content_type == "application/json"
+        or content_type == "application/xml"
+        or content_type.endswith("+json")
+        or content_type.endswith("+xml")
+    )
 
 
 class MainDownloadManager(DownloadManager):
@@ -80,8 +100,6 @@ class MainDownloadManager(DownloadManager):
             with _:
                 try:
                     common_globals.attempt.set(common_globals.attempt.get(0) + 1)
-                    if common_globals.attempt.get() > 1:
-                        pathlib.Path(tempholderObj.tempfilepath).unlink(missing_ok=True)
                     data = await self._get_data(ele)
                     total = None
                     placeholderObj = None
@@ -122,8 +140,8 @@ class MainDownloadManager(DownloadManager):
                         common_globals.log.info(f"{common_logs.get_medialog(ele)} 403 Forbidden error detected inside main download loop. Attempting to refresh media signatures.")
                         await ele.refresh_media(c)
                         # re-raise so tenacity schedules the next attempt with the
-                        # refreshed url; `continue` exits the attempt context
-                        # cleanly, ending the retry loop and returning None
+                        # refreshed url; mark it so the retry predicate allows it
+                        E.retry_after_refresh = True
                         raise E
 
                     common_globals.log.traceback_(
@@ -172,6 +190,13 @@ class MainDownloadManager(DownloadManager):
                     "content-total": total,
                     "content-type": r.headers.get("content-type"),
                 }
+
+                # Reject error pages and non-media responses
+                raw_ct = r.headers.get("content-type")
+                if _is_rejected_content_type(raw_ct):
+                    raise Exception(
+                        f"Server returned non-media content-type '{raw_ct}' for {ele.url}"
+                    )
 
                 common_globals.log.debug(
                     f"{common_logs.get_medialog(ele)} data from request {data}"
@@ -247,7 +272,7 @@ class MainDownloadManager(DownloadManager):
                     break
 
         # Catch native aiohttp socket read timeouts
-        except (asyncio.TimeoutError, aiohttp.ServerTimeoutError) as E:
+        except (asyncio.TimeoutError, aiohttp.ServerTimeoutError):
             common_globals.log.info(
                 f"{common_logs.get_medialog(ele)}⚠️ CDN went silent (sock_read timeout). Connection stalled, forcing retry!"
             )
@@ -296,8 +321,8 @@ class MainDownloadManager(DownloadManager):
             f"{common_logs.get_medialog(ele)} renaming {pathlib.Path(temp).absolute()} -> {path_to_file}"
         )
 
-        # 3. Move the verified file to final path
-        await asyncio.get_running_loop().run_in_executor(
+        # 3. Move the verified file to final path (may disambiguate a collision)
+        path_to_file = await asyncio.get_running_loop().run_in_executor(
             common_globals.thread,
             partial(common_paths.moveHelper, temp, path_to_file, ele),
         )
@@ -325,7 +350,7 @@ class MainDownloadManager(DownloadManager):
             )
 
         await set_profile_cache(ele, common_globals.thread)
-        ele.add_filepath(placeholderObj.trunicated_filepath)
+        ele.add_filepath(path_to_file)
 
         # 6. Run Post-Download Scripts
         await self._after_download_script(path_to_file)

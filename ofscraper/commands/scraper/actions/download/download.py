@@ -120,9 +120,9 @@ async def process_dicts(username, model_id, medialist, posts):
         dirSet = set(common_globals.dirSet)
         common_globals.dirSet.clear()
         
-        # Fire and forget the directory timestamp updates so we don't block the UI
-        # on slow network drives
-        asyncio.get_running_loop().run_in_executor(
+        # Run directory timestamp updates in a thread pool and await completion
+        # so the future isn't silently cancelled at loop shutdown
+        await asyncio.get_running_loop().run_in_executor(
             None, setDirectoriesDate, dirSet
         )
         progress_updater.download.remove_overall_task(task1)

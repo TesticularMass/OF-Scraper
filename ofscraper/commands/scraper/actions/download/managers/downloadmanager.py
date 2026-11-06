@@ -145,7 +145,7 @@ class DownloadManager:
 
     async def _size_checker(self, path, ele, total, name=None):
         name = name or ele.filename
-        if total == 0:
+        if total is None or total == 0:
             return True
         if not pathlib.Path(path).exists():
             s = f"{get_medialog(ele)} {path} was not created"

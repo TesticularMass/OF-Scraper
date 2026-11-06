@@ -105,7 +105,6 @@ def create_profile_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(profilesCreate)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -113,7 +112,6 @@ def write_profile_table(model_id=None, username=None, conn=None, **kwargs) -> li
     with contextlib.closing(conn.cursor()) as cur:
         insertData = [model_id, username, model_id, username]
         cur.execute(profileInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -125,7 +123,6 @@ def write_profile_table_transition(inputData, conn=None, **kwargs) -> list:
         ]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(profileInsertTransition, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -149,13 +146,13 @@ def get_all_profiles(
         model_id, username
     )
     if not pathlib.Path(database_path).exists():
-        return None
+        return []
     with contextlib.closing(conn.cursor()) as cur:
         try:
             profiles = [dict(row) for row in (cur.execute(profilesALL).fetchall())]
             return profiles
         except sqlite3.OperationalError:
-            None
+            return []
         except Exception as E:
             raise E
 
@@ -164,7 +161,6 @@ def get_all_profiles(
 def drop_profiles_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(profilesDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -173,14 +169,12 @@ def create_models_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(modelsCreate)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
 def write_models_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(modelInsert, [model_id, model_id])
-        conn.commit()
 
 
 @wrapper.operation_wrapper
@@ -204,8 +198,16 @@ def get_all_models(
 
 async def rebuild_profiles_table(model_id=None, username=None, db_path=None, **kwargs):
     data = await get_all_profiles(model_id=model_id, username=username, db_path=db_path)
-    await drop_profiles_table(model_id=model_id, username=username, db_path=db_path)
-    await create_profile_table(model_id=model_id, username=username, db_path=db_path)
-    await write_profile_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_profiles(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_profiles(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate profiles in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(profilesDrop)
+        cur.execute(profilesCreate)
+        if data:
+            ordered_keys = ["user_id", "username"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(profileInsertTransition, insert_rows)

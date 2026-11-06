@@ -44,6 +44,10 @@ PRIMARY KEY (id),
 UNIQUE (post_id,model_id)
 )
 """
+messagesIndexes = [
+    "CREATE INDEX IF NOT EXISTS idx_messages_model_id ON messages (model_id);",
+]
+
 # Messages and Purchased are saved concurrently and share PPV messages, so the
 # other area may have inserted one since the existing ids were read.
 messagesInsert = """INSERT OR IGNORE INTO 'messages'(
@@ -58,14 +62,7 @@ SELECT post_id FROM messages
 """
 messagesSelectTransition = """
 SELECT post_id, text, price, paid, archived, created_at, user_id,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('messages') WHERE name = 'model_id')
-            THEN model_id
-            ELSE NULL
-       END AS model_id,
-       CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('messages') WHERE name = 'is_deleted')
-            THEN is_deleted
-            ELSE 0
-       END AS is_deleted
+model_id, is_deleted
 FROM messages;
 """
 messagesDrop = """
@@ -91,7 +88,8 @@ def create_message_table(
 ):
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(messagesCreate)
-        conn.commit()
+        for idx_sql in messagesIndexes:
+            cur.execute(idx_sql)
 
 
 @wrapper.operation_wrapper_async
@@ -114,7 +112,6 @@ def update_messages_table(messages: dict, model_id=None, conn=None, **kwargs):
             )
         )
         cur.executemany(messagesUpdate, updateData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -136,7 +133,6 @@ def write_messages_table(messages: dict, model_id=None, conn=None, **kwargs):
             )
         )
         cur.executemany(messagesInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -156,7 +152,6 @@ def write_messages_table_transition(
         ]
         insertData = [tuple([data.get(key) for key in ordered_keys]) for data in inputData]
         cur.executemany(messagesInsert, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -182,14 +177,12 @@ def get_all_messages_transition(
 def drop_messages_table(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(messagesDrop)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
 def get_messages_post_info(model_id=None, username=None, conn=None, **kwargs) -> list:
     with contextlib.closing(conn.cursor()) as cur:
         cur.execute(messagesData, [model_id])
-        conn.commit()
         data = [dict(row) for row in cur.fetchall()]
         return [
             dict(ele, created_at=arrow.get(ele.get("created_at") or 0).float_timestamp)
@@ -210,7 +203,6 @@ def add_column_messages_ID(conn=None, **kwargs):
                 cur.execute("ALTER TABLE messages ADD COLUMN model_id INTEGER;")
 
             # Commit changes
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e
@@ -226,11 +218,21 @@ async def rebuild_messages_table(model_id=None, username=None, db_path=None, **k
         database_model=database_model,
         db_path=db_path,
     )
-    await drop_messages_table(model_id=model_id, username=username, db_path=db_path)
-    await create_message_table(model_id=model_id, username=username, db_path=db_path)
-    await write_messages_table_transition(
-        data, model_id=model_id, username=username, db_path=db_path
-    )
+    await _atomic_rebuild_messages(data, model_id=model_id, username=username, db_path=db_path)
+
+
+@wrapper.operation_wrapper_async
+def _atomic_rebuild_messages(data, model_id=None, username=None, conn=None, **kwargs):
+    """Drop, recreate, and repopulate messages in a single transaction."""
+    with contextlib.closing(conn.cursor()) as cur:
+        cur.execute(messagesDrop)
+        cur.execute(messagesCreate)
+        for idx_sql in messagesIndexes:
+            cur.execute(idx_sql)
+        if data:
+            ordered_keys = ["post_id", "text", "price", "paid", "archived", "created_at", "user_id", "model_id"]
+            insert_rows = [tuple([d.get(key) for key in ordered_keys]) for d in data]
+            cur.executemany(messagesInsert, insert_rows)
 
 
 async def make_messages_table_changes(
@@ -276,7 +278,6 @@ def mark_message_as_deleted(
     with contextlib.closing(conn.cursor()) as curr:
         insertData = [[post_id, model_id] for post_id in post_ids]
         curr.executemany(messageIgnoreGhost, insertData)
-        conn.commit()
 
 
 @wrapper.operation_wrapper_async
@@ -298,7 +299,6 @@ def add_column_message_is_deleted(conn=None, **kwargs):
                 cur.execute(
                     "ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT 0;"
                 )
-            conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
             raise e

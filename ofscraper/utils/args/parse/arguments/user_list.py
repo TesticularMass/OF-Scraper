@@ -68,7 +68,7 @@ free_trial_option = click.option(
 )
 
 promo_option = click.option(
-    "-po/-ps",
+    "-po/-psk",
     "--promo-only/--promo-skip",
     "promo",
     help="""

@@ -4,7 +4,6 @@ import threading
 from contextlib import contextmanager
 import time
 import ssl
-import certifi
 import contextlib
 import traceback
 from collections.abc import AsyncGenerator, Generator
@@ -14,13 +13,16 @@ import arrow
 import httpx
 import tenacity
 import aiohttp
-from tenacity import AsyncRetrying, Retrying, retry_if_not_exception_type
+from tenacity import AsyncRetrying, Retrying
 
 import ofscraper.utils.auth.request as auth_requests
 import ofscraper.utils.of_env.of_env as of_env
 from ofscraper.utils.auth.utils.warning.print import print_auth_warning
 import ofscraper.utils.settings as settings
 from ofscraper.managers.sessionmanager.cert import create_custom_ssl_context
+
+# Module-level flag for one-time TLS verification warning
+_ssl_verify_warned = False
 
 # Constants for request actions
 TOO_MANY = "too_many"
@@ -42,6 +44,28 @@ def is_provided_exception_number(exception: Exception, *numbers: int) -> bool:
     elif isinstance(exception, httpx.HTTPStatusError):
         status_code = getattr(exception.response, "status_code", None)
     return status_code in numbers
+
+
+def _is_transient(exc):
+    """Return True only for errors worth retrying: timeouts, connection issues, 429, 5xx."""
+    if isinstance(exc, (KeyboardInterrupt, SystemExit, asyncio.CancelledError)):
+        return False
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError, ConnectionError, OSError)):
+        return True
+    if isinstance(exc, aiohttp.ClientError):
+        if isinstance(exc, aiohttp.ClientResponseError):
+            return exc.status in (429, 500, 502, 503, 504)
+        # Connection errors, ServerDisconnectedError, etc.
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 500, 502, 503, 504)
+    if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError)):
+        return True
+    # Unknown exceptions are not retried to avoid masking bugs
+    return False
+
+
+_retry_if_transient = tenacity.retry_if_exception(_is_transient)
 
 
 class BareSession:
@@ -400,6 +424,20 @@ class sessionManager:
 
         # Tier 1: Disabled
         if ssl_setting in {"false", "0", "none", ""}:
+            global _ssl_verify_warned
+            if not _ssl_verify_warned:
+                _ssl_verify_warned = True
+                msg = (
+                    'TLS certificate verification is DISABLED (ssl_verify=%s). '
+                    'All HTTPS connections from this session are vulnerable to '
+                    'man-in-the-middle attacks.' % ssl_setting
+                )
+                self._log.warning(msg)
+                try:
+                    import ofscraper.utils.console as console_mod
+                    console_mod.get_shared_console().print('[bold red]' + msg + '[/bold red]')
+                except Exception:
+                    pass
             return False
 
         # Tier 2: Default SSL (Standard)
@@ -510,7 +548,8 @@ class sessionManager:
         wait_max = self._wait_max if wait_max is None else wait_max
 
         for _ in Retrying(
-            retry=retry_if_not_exception_type((KeyboardInterrupt, SystemExit)),
+            # Only retry transient failures: timeouts, connection errors, 429, 5xx.
+            retry=_retry_if_transient,
             stop=tenacity.stop.stop_after_attempt(retries),
             wait=tenacity.wait.wait_random(min=wait_min, max=wait_max),
             before=lambda x: (
@@ -556,13 +595,11 @@ class sessionManager:
                                 read=read_timeout or self._read_timeout,
                             ),
                         )
-                        if not r.ok and r.status_code != 404:
+                        if not r.ok:
                             error_text = r.text_()
                             log.debug(f"[bold]failed: [bold] {r.url}")
                             log.debug(f"[bold]status: [bold] {r.status_code}")
                             log.debug(f"[bold]response text [/bold]: {error_text}")
-                            log.debug(f"response headers {dict(r.headers)}")
-                            log.debug(f"requests headers {dict(r.request.headers)}")
 
                             if (
                                 r.status_code == 503
@@ -614,10 +651,8 @@ class sessionManager:
         async for _ in AsyncRetrying(
             stop=tenacity.stop.stop_after_attempt(retries),
             wait=tenacity.wait_random(min=wait_min, max=wait_max),
-            # Retrying a cancellation would swallow it and keep the task running.
-            retry=retry_if_not_exception_type(
-                (KeyboardInterrupt, SystemExit, asyncio.CancelledError)
-            ),
+            # Only retry transient failures: timeouts, connection errors, 429, 5xx.
+            retry=_retry_if_transient,
             reraise=True,
             before_sleep=lambda retry_state: (
                 self._log.debug(
@@ -660,12 +695,11 @@ class sessionManager:
                         ssl=self._get_ssl_context(),
                     )
 
-                    if not r.ok and r.status_code != 404:
+                    if not r.ok:
                         error_text = await r.text_()
                         self._log.debug(f"[bold]failed: [bold] {r.url}")
                         self._log.debug(f"[bold]status: [bold] {r.status_code}")
                         self._log.debug(f"[bold]response text [/bold]: {error_text}")
-                        self._log.debug(f"response headers {dict(r.headers)}")
                         if r.status_code == 503 and "maintenance" in error_text.lower():
                             self._log.warning(
                                 "🚨 OnlyFans is currently undergoing maintenance! Aborting to prevent IP ban."

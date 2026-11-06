@@ -1,4 +1,3 @@
-import json
 import re
 import logging
 
@@ -10,6 +9,7 @@ import ofscraper.utils.auth.utils.dict as auth_dict
 import ofscraper.utils.auth.utils.prompt as auth_prompt
 import ofscraper.utils.paths.common as common_paths
 from ofscraper.utils.auth.utils.warning.check import check_auth_warning
+from ofscraper.utils.auth.utils.warning.mask import mask_secret, SECRET_KEYS
 from ofscraper.utils.auth.utils.warning.warning import authwarning
 import ofscraper.utils.settings as settings
 
@@ -49,10 +49,11 @@ def make_auth(auth=None,include_main_menu=False):
             newitem = re.sub("\n+", "", newitem)
             auth[key] = newitem
         authFile = common_paths.get_auth_file()
-        console.print(f"{auth}\nWriting to {authFile}", style="yellow")
+        masked = {k: mask_secret(v) if k in SECRET_KEYS else v for k, v in auth.items()}
+        console.print(f"{masked}\nWriting to {authFile}", style="yellow")
         auth = auth_schema.auth_schema(auth)
         if not check_auth_warning(auth):
             continue
-        with open(authFile, "w") as f:
-            f.write(json.dumps(auth, indent=4))
+        import ofscraper.utils.auth.file as auth_file_mod
+        auth_file_mod.write_auth(auth)
         return auth,None

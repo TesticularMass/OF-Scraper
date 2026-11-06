@@ -41,6 +41,18 @@ messagesEmpty = """
 SELECT COUNT(*) FROM messages;
 """
 
+labelsEmpty = """
+SELECT COUNT(*) FROM labels;
+"""
+
+profilesEmpty = """
+SELECT COUNT(*) FROM profiles;
+"""
+
+modelsEmpty = """
+SELECT COUNT(*) FROM models;
+"""
+
 
 @wrapper.operation_wrapper_async
 def empty(conn=None, **kwargs):
@@ -53,10 +65,17 @@ def empty(conn=None, **kwargs):
             productsEmpty,
             othersEmpty,
             messagesEmpty,
+            labelsEmpty,
+            profilesEmpty,
+            modelsEmpty,
         ]
         for query in queries:
-            cur.execute(query)
-            count = cur.fetchone()
-            if dict(count)["COUNT(*)"] > 0:
-                return False
+            try:
+                cur.execute(query)
+                count = cur.fetchone()
+                if dict(count)["COUNT(*)"] > 0:
+                    return False
+            except Exception:
+                # Table may not exist yet in older DBs
+                pass
         return True

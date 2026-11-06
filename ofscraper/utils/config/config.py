@@ -43,10 +43,13 @@ def update_config(field: str, value):
     if config.get("config"):
         config = config["config"]
     config.update({field: value})
-    new_config = schema.get_current_config_schema(config)
+    # Merge the schema over the user's config without dropping custom keys.
+    new_config = config_file._deep_merge(
+        config, schema.get_current_config_schema(config)
+    )
     config_file.write_config(new_config)
     _reset_cache()
-    log.debug(f"new config: {config}")
+    log.debug("config updated (sensitive keys redacted)")
     return new_config
 
 
@@ -58,8 +61,10 @@ def update_config_full(config_, updated_config):
     if updated_config.get("config"):
         updated_config = updated_config["config"]
     config.update(updated_config)
-    log.debug(f"new config: {config}")
-    config_file.write_config(config)
+    log.debug("config updated (sensitive keys redacted)")
+    config_file.write_config(
+        config_file._deep_merge(config, schema.get_current_config_schema(config))
+    )
     _reset_cache()
     return config
 

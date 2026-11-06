@@ -14,7 +14,6 @@ r"""
 import threading
 from copy import deepcopy
 import arrow
-from diskcache import Disk, JSONDisk
 
 import ofscraper.utils.of_env.of_env as of_env
 import ofscraper.utils.config.data as config_data  # <-- IMPORTING THE REAL DATA.PY
@@ -161,11 +160,20 @@ def merged_settings():
         if getattr(args, "text_length", None) is not None
         else config_data.get_textlength()
     )
-    merged.size_max = args.size_max or config_data.get_filesize_max()
-    merged.size_min = args.size_min or config_data.get_filesize_min()
-    merged.download_sems = args.downloadsem or config_data.get_download_semaphores()
-    merged.system_free_min = args.system_free_min or config_data.get_system_freesize()
-    merged.max_post_count = args.max_count or config_data.get_max_post_count()
+    merged.size_max = args.size_max if args.size_max is not None else config_data.get_filesize_max()
+    merged.size_min = args.size_min if args.size_min is not None else config_data.get_filesize_min()
+    merged.download_sems = args.downloadsem if getattr(args, 'downloadsem', None) is not None else config_data.get_download_semaphores()
+    merged.system_free_min = args.system_free_min if getattr(args, 'system_free_min', None) is not None else config_data.get_system_freesize()
+    # -mxc / --max-media-count: caps media items processed (feeds ele_count_filter / db slice).
+    # The click default is 0 (unset); fall back to the legacy config key in that case.
+    _media_count_arg = getattr(args, "max_media_count", 0) or 0
+    merged.max_media_count = (
+        _media_count_arg if _media_count_arg > 0 else config_data.get_max_post_count()
+    )
+    # Backward compat: existing consumers read max_post_count as the media cap
+    merged.max_post_count = merged.max_media_count
+    # -xc / --max-post-count: caps posts collected per area (new, independent)
+    merged.max_post_count_real = getattr(args, 'max_post_count', 0) or 0
     merged.mediatypes = args.mediatypes or config_data.get_filter()
     merged.verify_all_integrity = config_data.get_verify_all_integrity()
 

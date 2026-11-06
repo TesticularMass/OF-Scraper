@@ -5,12 +5,17 @@ from typing import Any
 # --- Default Patterns (Regex or Plain Text) ---
 _DEFAULT_PATTERNS = {
     # Redacts API keys and session tokens (Fixed to stop at whitespace)
-    r"&Policy=[^&\"'\s]+": "&Policy={hidden}",
-    r"&Signature=[^&\"'\s]+": "&Signature={hidden}",
-    r"&Key-Pair-Id=[^&\"'\s]+": "&Key-Pair-Id={hidden}",
+    r"([?&])Policy=[^&\"'\s]+": r"\1Policy={hidden}",
+    r"([?&])Signature=[^&\"'\s]+": r"\1Signature={hidden}",
+    r"([?&])Key-Pair-Id=[^&\"'\s]+": r"\1Key-Pair-Id={hidden}",
     # Redacts common sensitive info
     r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b": "{ip_address}",  # IP Addresses
     r"\"sess\":\"[^\"]+\"": '"sess":"{hidden}"',  # Session tokens
+    # Cookie values in headers or raw strings
+    r"(?i)\bcookie:\s*[^\n]+": "cookie: {hidden}",
+    r"\bsess=[^;&\"'\s]+": "sess={hidden}",
+    r"\bauth_id=[^;&\"'\s]+": "auth_id={hidden}",
+    r"(?i)\bx-bc['\"]?\s*[:=]\s*['\"]?[^;&\"'\s]+": "x-bc={hidden}",
 }
 
 # This dictionary will be populated at runtime by your add_sensitive_pattern function

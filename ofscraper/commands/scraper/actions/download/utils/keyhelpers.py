@@ -23,6 +23,9 @@ from ofscraper.utils.system.ffmpeg import get_ffmpeg
 import ofscraper.managers.manager as manager
 import ofscraper.utils.of_env.of_env as env
 
+import logging as _logging
+
+_cdrm_cookie_warned = False
 log = None
 
 
@@ -88,7 +91,7 @@ async def un_encrypt(item, c, ele, input_=None):
         )
         if past_key:
             key = past_key
-            log.debug(f"{get_medialog(ele)} got key rom cache: {key}")
+            log.debug(f"{get_medialog(ele)} got key from cache (len={len(key)})")
         elif keymode == "manual":
             key = await key_helper_manual(c, item["pssh"], ele.license, ele.id)
         elif keymode == "cdrm":
@@ -96,14 +99,14 @@ async def un_encrypt(item, c, ele, input_=None):
         if not key:
             raise Exception(f"{get_medialog(ele)} Could not get key")
         key = key.strip()
-        log.debug(f"{get_medialog(ele)} retrive new key: {key}")
+        log.debug(f"{get_medialog(ele)} retrieved new key (len={len(key)})")
         newpath = pathlib.Path(
             re.sub(
                 r"\.part$", f".{item['ext']}", str(item["path"]), flags=re.IGNORECASE
             )
         )
         ffmpeg_key = get_ffmpeg_key(key)
-        log.debug(f"{get_medialog(ele)} got ffmpeg key {ffmpeg_key}")
+        log.debug(f"{get_medialog(ele)} got ffmpeg key (len={len(ffmpeg_key)})")
         log.debug(
             f"{get_medialog(ele)}  renaming {pathlib.Path(item['path']).absolute()} -> {newpath}"
         )
@@ -168,6 +171,25 @@ async def key_helper_cdrm(c, pssh, licence_url, id):
         log.debug(f"ID:{id} pssh: {pssh is not None}")
         log.debug(f"ID:{id} licence: {licence_url}")
         headers = auth_requests.make_headers()
+        # SECURITY WARNING: The CDRM remote decrypt service receives the full
+        # account session cookie. The cookie is required by the remote service
+        # to proxy the license request on behalf of the user, but this means
+        # cdrm-project.com has full access to the account session.
+        global _cdrm_cookie_warned
+        if not _cdrm_cookie_warned:
+            _cdrm_cookie_warned = True
+            cdrm_url = of_env.getattr("CDRM")
+            warn_msg = (
+                "CDRM remote decrypt will send your account session cookie to "
+                f"{cdrm_url}. This gives the remote service temporary access to "
+                "your account. Use key-mode=manual for local decryption instead."
+            )
+            _logging.getLogger("shared").warning(warn_msg)
+            try:
+                import ofscraper.utils.console as console_mod
+                console_mod.get_shared_console().print(f"[bold red]{warn_msg}[/bold red]")
+            except Exception:
+                pass
         headers["cookie"] = auth_requests.get_cookies_str()
         auth_requests.create_sign(licence_url, headers)
         json_data = {
@@ -188,7 +210,10 @@ async def key_helper_cdrm(c, pssh, licence_url, id):
             skip_expection_check=True,
         ) as r:
             data = await r.json_()
-            log.debug(f"cdrm json {data}")
+            # Never log the response body: data["message"] is the content key.
+            log.debug(
+                f"cdrm response keys={list(data) if isinstance(data, dict) else type(data).__name__}"
+            )
             key = data["message"]
         return key
     except Exception as E:
